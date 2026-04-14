@@ -5,7 +5,20 @@
 
 ---
 
-## 5.1 新增 View 類型
+## 進度總覽
+
+| 項目 | 狀態 |
+|------|------|
+| Dashboard（stat_card / bar / line / pie / mini_table） | ✅ 完成 |
+| Kanban（拖曳換狀態） | ✅ 完成 |
+| Calendar（月曆格、事件顏色） | ✅ 完成 |
+| Sidebar 圖示依 type 切換 | ✅ 完成 |
+| POST /api/query 後端端點 | ✅ 完成 |
+| Orchestrator 支援 dashboard/kanban/calendar | ✅ 完成 |
+
+---
+
+## 5.1 新增 View 類型 ✅
 
 | 類型 | 用途 | 前端元件 |
 |------|------|----------|
@@ -17,345 +30,117 @@
 
 ---
 
-## 5.2 Dashboard
+## 5.2 Dashboard ✅
 
-### 新增依賴
+### 依賴
 
 ```bash
 npm install recharts
 ```
 
-### DashboardView 元件
+### 實作位置
 
-```
-components/blocks/DashboardView.tsx
-```
+`web/src/components/blocks/DashboardView.tsx`
 
-```tsx
-function DashboardView({ view }: { view: ViewDefinition }) {
-  return (
-    <div className="p-6">
-      <h2 className="text-lg font-semibold mb-4">{view.name}</h2>
-      <div className="grid grid-cols-12 gap-4">
-        {view.widgets?.map(widget => (
-          <div
-            key={widget.id}
-            className={gridClass(widget.size)}
-            style={{ gridRow: `span ${widget.position.rowSpan ?? 1}` }}
-          >
-            <WidgetRenderer widget={widget} />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+### Widget 類型
 
-function gridClass(size: string) {
-  switch (size) {
-    case 'sm':   return 'col-span-3';
-    case 'md':   return 'col-span-6';
-    case 'lg':   return 'col-span-9';
-    case 'full': return 'col-span-12';
-  }
-}
-```
-
-### Widget 元件
-
-```tsx
-function WidgetRenderer({ widget }: { widget: DashboardWidget }) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // POST /api/query { sql: widget.query }
-    queryApi(widget.query).then(d => { setData(d); setLoading(false); });
-  }, [widget.query]);
-
-  if (loading) return <Skeleton />;
-
-  switch (widget.type) {
-    case 'stat_card':    return <StatCard data={data} title={widget.title} />;
-    case 'bar_chart':    return <BarChartWidget data={data} title={widget.title} config={widget.config} />;
-    case 'line_chart':   return <LineChartWidget data={data} title={widget.title} config={widget.config} />;
-    case 'pie_chart':    return <PieChartWidget data={data} title={widget.title} config={widget.config} />;
-    case 'mini_table':   return <MiniTableWidget data={data} title={widget.title} />;
-  }
-}
-```
-
-### StatCard
-
-```tsx
-function StatCard({ data, title }) {
-  // data = [{ value: 42 }]
-  const value = data?.[0]?.value ?? 0;
-  return (
-    <Card>
-      <CardContent className="pt-6">
-        <p className="text-sm text-muted-foreground">{title}</p>
-        <p className="text-3xl font-bold">{value.toLocaleString()}</p>
-      </CardContent>
-    </Card>
-  );
-}
-```
-
-### 圖表 Widget（Recharts）
-
-```tsx
-function BarChartWidget({ data, title, config }) {
-  // config: { x_key: 'month', y_key: 'count', color: '#6366f1' }
-  return (
-    <Card>
-      <CardHeader><CardTitle className="text-sm">{title}</CardTitle></CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={data}>
-            <XAxis dataKey={config?.x_key ?? 'label'} />
-            <YAxis />
-            <Bar dataKey={config?.y_key ?? 'value'} fill={config?.color ?? '#6366f1'} />
-          </BarChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
-  );
-}
-```
+| type | 資料格式 | 說明 |
+|------|---------|------|
+| `stat_card` | `[{ value: N }]` | 單一數字，支援 count/value/total 任一欄 |
+| `bar_chart` | `[{ label, value }]` | config: x_key, y_key, color |
+| `line_chart` | `[{ label, value }]` | config: x_key, y_key, color |
+| `pie_chart` | `[{ label, value }]` | config: label_key, value_key |
+| `mini_table` | 任意欄位 | 最多 10 rows |
 
 ### 後端：通用查詢 API
 
 ```typescript
-// server/src/index.ts
+// POST /api/query（只允許 SELECT）
 app.post('/api/query', (req, res) => {
   const { sql } = req.body;
   if (!sql.trim().toUpperCase().startsWith('SELECT')) {
-    return res.status(400).json({ error: '只允許 SELECT' });
+    return res.status(400).json({ error: '只允許 SELECT 查詢' });
   }
-
-  const db = getDb();
-  const rows = db.prepare(sql + ' LIMIT 1000').all(); // 安全限制
-  res.json(rows);
+  const safeSQL = /\bLIMIT\b/i.test(sql) ? sql : `${sql} LIMIT 1000`;
+  res.json(db.prepare(safeSQL).all());
 });
 ```
 
-### 對話→動作 範例
+### Orchestrator 使用指引
 
-```
-使用者：「我想看客戶統計面板」
-
-Orchestrator → manage_ui({
-  action: 'create_view',
-  view: {
-    id: 'customer_dashboard',
-    name: '客戶統計',
-    table_name: 'customers',
-    type: 'dashboard',
-    widgets: [
-      {
-        id: 'total',
-        type: 'stat_card',
-        title: '客戶總數',
-        query: 'SELECT COUNT(*) as value FROM customers',
-        size: 'sm',
-        position: { row: 0, col: 0 }
-      },
-      {
-        id: 'vip_count',
-        type: 'stat_card',
-        title: 'VIP 客戶',
-        query: "SELECT COUNT(*) as value FROM customers WHERE level = 'VIP'",
-        size: 'sm',
-        position: { row: 0, col: 1 }
-      },
-      {
-        id: 'level_dist',
-        type: 'pie_chart',
-        title: '客戶等級分佈',
-        query: "SELECT level as label, COUNT(*) as value FROM customers GROUP BY level",
-        size: 'md',
-        position: { row: 0, col: 2 },
-        config: { label_key: 'label', value_key: 'value' }
-      },
-      {
-        id: 'monthly_trend',
-        type: 'line_chart',
-        title: '每月新增客戶',
-        query: "SELECT strftime('%Y-%m', created_at) as label, COUNT(*) as value FROM customers GROUP BY label ORDER BY label",
-        size: 'lg',
-        position: { row: 1, col: 0 },
-        config: { x_key: 'label', y_key: 'value' }
-      }
-    ]
-  }
-})
-```
+- dashboard 不需要 columns / form / actions
+- stat_card query 需回傳 `value` 欄位
+- bar/line query 需回傳 `label` + `value` 欄位（或設 config.x_key/y_key）
 
 ---
 
-## 5.3 Kanban
+## 5.3 Kanban ✅
 
-### 新增依賴
+### 依賴
 
 ```bash
-npm install @dnd-kit/core @dnd-kit/sortable
+npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities
 ```
 
-### KanbanView 元件
+### 實作位置
 
-```
-components/blocks/KanbanView.tsx
-```
+`web/src/components/blocks/KanbanView.tsx`
 
-```tsx
-function KanbanView({ view, rows, onUpdate }: Props) {
-  const { group_field, title_field, description_field } = view.kanban!;
+### 行為
 
-  // 取得分組欄位的所有可能值（從 view.form 的 options 或 source）
-  const groups = getFieldOptions(view, group_field);
+- 分組來源：form.fields 中 `group_field` 的 `options`，若無則從資料 distinct values 推導
+- **未知值**：資料中出現但不在 options 的值，自動多開一個欄位顯示（避免資料消失）
+- 拖曳：`@dnd-kit/core` PointerSensor，拖到不同欄放下觸發 `PUT /api/data/:table/:id`，樂觀更新 + 失敗回退
 
-  // 按分組欄位分組資料
-  const grouped = groupBy(rows, group_field);
+### 已修正的 Bug
 
-  return (
-    <DndContext onDragEnd={handleDragEnd}>
-      <div className="flex gap-4 p-6 overflow-x-auto h-full">
-        {groups.map(group => (
-          <KanbanColumn
-            key={group}
-            title={group}
-            items={grouped[group] ?? []}
-            titleField={title_field}
-            descField={description_field}
-          />
-        ))}
-      </div>
-    </DndContext>
-  );
-
-  function handleDragEnd(event) {
-    const { active, over } = event;
-    if (!over) return;
-    // 拖曳到不同 column = 更新 group_field 的值
-    const newGroup = over.data.current?.group;
-    onUpdate(active.id, { [group_field]: newGroup });
-  }
-}
-```
-
-### 對話→動作 範例
-
-```
-使用者：「用看板方式管理任務」
-
-Orchestrator → manage_ui({
-  action: 'create_view',
-  view: {
-    id: 'tasks_kanban',
-    name: '任務看板',
-    table_name: 'tasks',
-    type: 'kanban',
-    kanban: {
-      group_field: 'status',
-      title_field: 'title',
-      description_field: 'description'
-    },
-    // columns, form 照常定義（切回列表模式時使用）
-  }
-})
-```
+1. **資料消失**：form.options 與實際資料 status 值不符時，未知值不顯示。Fix：`allGroups = options + 實際資料中未在 options 的值`
+2. **拖曳無效**：SQLite `row.id` 是 number，`useDraggable.id` 是 string，`===` 比對失敗。Fix：全部用 `String()` 轉換後比對
+3. **CSS 高度塌陷**：`flex-1 overflow-y-auto` 在特定 flex 鏈無法拿到父元素高度。Fix：改用 `items-start` + 自然高度 + `space-y-2`
 
 ---
 
-## 5.4 Calendar
+## 5.4 Calendar ✅
 
-### 新增依賴
+### 實作位置
 
-考慮輕量方案，自己做月曆 grid，或用 `@fullcalendar/react`。
+`web/src/components/blocks/CalendarView.tsx`
 
-### CalendarView 元件（簡易版）
+### 行為
+
+- 月曆格（7 欄 × 動態行數）
+- 上下月導航 + 今天按鈕
+- 事件依 `date_field`（YYYY-MM-DD）分組顯示
+- `color_field`：不同值自動套用不同顏色（循環 6 色）
+- 每格最多顯示 3 個事件，超過顯示「+N 更多」
+- 今天高亮（圓形背景）
+
+---
+
+## AppArea 路由 ✅
 
 ```tsx
-function CalendarView({ view, rows }: Props) {
-  const { date_field, title_field, color_field } = view.calendar!;
-
-  // 月曆 grid：7 欄 × 5~6 行
-  // 每格顯示該天的事件
-  return (
-    <div className="grid grid-cols-7 gap-px bg-gray-200">
-      {daysInMonth.map(day => (
-        <CalendarCell
-          key={day}
-          date={day}
-          events={rows.filter(r => isSameDay(r[date_field], day))}
-          titleField={title_field}
-          colorField={color_field}
-        />
-      ))}
-    </div>
-  );
+switch (view.type) {
+  case 'master-detail': return <MasterDetailView ... />;
+  case 'dashboard':     return <DashboardView view={view} />;
+  case 'kanban':        return <KanbanView view={view} />;
+  case 'calendar':      return <CalendarView view={view} />;
+  default:              return <TableView view={view} />;
 }
 ```
 
 ---
 
-## AppArea 路由判斷
+## Sidebar 圖示 ✅
 
 ```tsx
-function AppArea({ view }) {
-  switch (view.type) {
-    case 'table':         return <TableView ... />;
-    case 'master-detail': return <MasterDetailView ... />;
-    case 'dashboard':     return <DashboardView ... />;
-    case 'kanban':        return <KanbanView ... />;
-    case 'calendar':      return <CalendarView ... />;
-  }
-}
-```
-
----
-
-## Sidebar 圖示
-
-```tsx
-// 不同 view type 不同圖示
 const VIEW_ICONS: Record<ViewType, LucideIcon> = {
-  table: TableIcon,
+  'table':         Database,
   'master-detail': FileText,
-  dashboard: BarChart3,
-  kanban: Columns,
-  calendar: Calendar,
+  'dashboard':     BarChart3,
+  'kanban':        Columns3,
+  'calendar':      Calendar,
 };
-```
-
----
-
-## manage_ui Tool 擴充
-
-`view.type` 的 enum 擴展：
-
-```typescript
-type: { type: 'string', enum: ['table', 'master-detail', 'dashboard', 'kanban', 'calendar'] }
-```
-
-新增 `widgets`、`kanban`、`calendar` 的 schema 定義到 tool input_schema。
-
----
-
-## Orchestrator Prompt 更新
-
-```
-介面類型選擇指南：
-- 一般資料管理 → type: 'table'
-- 主檔+明細 → type: 'master-detail'
-- 統計/報表 → type: 'dashboard'
-- 狀態流轉/任務管理 → type: 'kanban'
-- 日程/排程 → type: 'calendar'
-
-使用者說「我想看...的趨勢/統計/分佈」→ dashboard
-使用者說「用看板/卡片」→ kanban
-使用者說「行事曆/排程」→ calendar
 ```
 
 ---
@@ -363,23 +148,18 @@ type: { type: 'string', enum: ['table', 'master-detail', 'dashboard', 'kanban', 
 ## 新增檔案
 
 ```
-web/src/components/blocks/DashboardView.tsx
-web/src/components/blocks/KanbanView.tsx
-web/src/components/blocks/CalendarView.tsx
-web/src/components/blocks/widgets/
-├── StatCard.tsx
-├── BarChartWidget.tsx
-├── LineChartWidget.tsx
-├── PieChartWidget.tsx
-└── MiniTableWidget.tsx
+web/src/components/blocks/DashboardView.tsx   ✅
+web/src/components/blocks/KanbanView.tsx      ✅
+web/src/components/blocks/CalendarView.tsx    ✅
+web/src/components/ui/skeleton.tsx            ✅
 ```
 
 ---
 
 ## 驗收標準
 
-- [ ] 「看客戶統計」→ 生成 dashboard 含 stat cards + 圖表
-- [ ] Dashboard 圖表正確渲染（bar, line, pie）
-- [ ] 「用看板管理任務」→ kanban view，拖曳更新狀態
-- [ ] 「行事曆顯示排程」→ calendar view
+- [x] 「看客戶統計」→ 生成 dashboard 含 stat cards + 圖表
+- [x] Dashboard 圖表正確渲染（bar, line, pie）
+- [x] 「用看板管理訂單進度」→ kanban view，拖曳更新狀態
+- [x] 「行事曆顯示排程」→ calendar view
 - [ ] 暗色模式下圖表正常顯示
