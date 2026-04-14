@@ -1,5 +1,11 @@
+import type React from 'react';
 import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import type { FieldDef } from '../../types';
+import { Button } from '../ui/button';
+import { FormItem, FormMessage } from '../ui/form';
+import { Label } from '../ui/label';
+import { FieldInput } from '../fields';
 
 interface Props {
   fields: FieldDef[];
@@ -8,18 +14,64 @@ interface Props {
   onCancel: () => void;
 }
 
+type ErrorMap = Record<string, string | null>;
+
 export function FormView({ fields, initialValues = {}, onSubmit, onCancel }: Props) {
+  const visibleFields = fields.filter(field => !field.hidden_in_form);
+
   const [values, setValues] = useState<Record<string, unknown>>(() => {
     const init: Record<string, unknown> = {};
-    for (const f of fields) {
-      init[f.key] = initialValues[f.key] ?? '';
+    for (const field of visibleFields) {
+      init[field.key] = initialValues[field.key] ?? (field.type === 'boolean' ? false : '');
     }
     return init;
   });
+  const [errors, setErrors] = useState<ErrorMap>({});
   const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const validateField = (field: FieldDef, value: unknown): string | null => {
+    // 計算欄位不驗證
+    if (field.computed) return null;
+
+    const stringValue = String(value ?? '').trim();
+
+    if (field.required && (value === null || value === undefined || stringValue === '')) {
+      return `${field.label} 為必填`;
+    }
+
+    if (!field.validation) return null;
+
+    if (typeof value === 'number') {
+      if (field.validation.min !== undefined && value < field.validation.min) {
+        return field.validation.message ?? `${field.label} 不可小於 ${field.validation.min}`;
+      }
+      if (field.validation.max !== undefined && value > field.validation.max) {
+        return field.validation.message ?? `${field.label} 不可大於 ${field.validation.max}`;
+      }
+    }
+
+    if (field.validation.pattern && stringValue) {
+      const regex = new RegExp(field.validation.pattern);
+      if (!regex.test(stringValue)) {
+        return field.validation.message ?? `${field.label} 格式不正確`;
+      }
+    }
+
+    return null;
+  };
+
+  const validateAll = (): boolean => {
+    const nextErrors: ErrorMap = {};
+    for (const field of visibleFields) {
+      nextErrors[field.key] = validateField(field, values[field.key]);
+    }
+    setErrors(nextErrors);
+    return Object.values(nextErrors).every(e => !e);
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!validateAll()) return;
     setSubmitting(true);
     try {
       await onSubmit(values);
@@ -28,117 +80,41 @@ export function FormView({ fields, initialValues = {}, onSubmit, onCancel }: Pro
     }
   };
 
+  const updateValue = (field: FieldDef, value: unknown) => {
+    setValues(prev => ({ ...prev, [field.key]: value }));
+    if (!field.computed) {
+      setErrors(prev => ({ ...prev, [field.key]: validateField(field, value) }));
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {fields.map(field => (
-        <div key={field.key}>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+      {visibleFields.map(field => (
+        <FormItem key={field.key}>
+          <Label htmlFor={field.key}>
             {field.label}
-            {field.required && <span className="text-red-500 ml-0.5">*</span>}
-          </label>
+            {field.required && !field.computed ? ' *' : ''}
+            {field.computed ? <span className="ml-1 text-xs text-muted-foreground">（自動計算）</span> : null}
+          </Label>
           <FieldInput
             field={field}
-            value={values[field.key] ?? ''}
-            onChange={v => setValues(prev => ({ ...prev, [field.key]: v }))}
+            value={values[field.key]}
+            formValues={values}
+            onChange={value => updateValue(field, value)}
           />
-        </div>
+          {errors[field.key] ? <FormMessage>{errors[field.key]}</FormMessage> : null}
+        </FormItem>
       ))}
-      <div className="flex gap-2 pt-2">
-        <button
-          type="submit"
-          disabled={submitting}
-          className="flex-1 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-60 transition-colors"
-        >
-          {submitting ? '儲存中...' : '儲存'}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="flex-1 py-2 border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
-        >
+
+      <div className="flex justify-end gap-2 pt-2">
+        <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>
           取消
-        </button>
+        </Button>
+        <Button type="submit" disabled={submitting}>
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          {submitting ? '儲存中...' : '儲存'}
+        </Button>
       </div>
     </form>
   );
-}
-
-function FieldInput({
-  field,
-  value,
-  onChange,
-}: {
-  field: FieldDef;
-  value: unknown;
-  onChange: (v: unknown) => void;
-}) {
-  const baseClass = 'w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent';
-
-  switch (field.type) {
-    case 'textarea':
-      return (
-        <textarea
-          className={`${baseClass} min-h-[80px] resize-y`}
-          value={String(value ?? '')}
-          onChange={e => onChange(e.target.value)}
-          placeholder={field.placeholder}
-          required={field.required}
-        />
-      );
-    case 'select':
-      return (
-        <select
-          className={baseClass}
-          value={String(value ?? '')}
-          onChange={e => onChange(e.target.value)}
-          required={field.required}
-        >
-          <option value="">請選擇...</option>
-          {field.options?.map(opt => (
-            <option key={opt} value={opt}>{opt}</option>
-          ))}
-        </select>
-      );
-    case 'boolean':
-      return (
-        <input
-          type="checkbox"
-          className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-          checked={Boolean(value)}
-          onChange={e => onChange(e.target.checked)}
-        />
-      );
-    case 'number':
-      return (
-        <input
-          type="number"
-          className={baseClass}
-          value={String(value ?? '')}
-          onChange={e => onChange(e.target.value === '' ? '' : Number(e.target.value))}
-          placeholder={field.placeholder}
-          required={field.required}
-        />
-      );
-    case 'date':
-      return (
-        <input
-          type="date"
-          className={baseClass}
-          value={String(value ?? '')}
-          onChange={e => onChange(e.target.value)}
-          required={field.required}
-        />
-      );
-    default:
-      return (
-        <input
-          type="text"
-          className={baseClass}
-          value={String(value ?? '')}
-          onChange={e => onChange(e.target.value)}
-          placeholder={field.placeholder}
-          required={field.required}
-        />
-      );
-  }
 }

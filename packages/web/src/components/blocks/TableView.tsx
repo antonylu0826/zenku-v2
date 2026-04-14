@@ -1,160 +1,369 @@
-import { useState } from 'react';
-import { Pencil, Trash2, Plus } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { ColumnDef as TableColumnDef, PaginationState, SortingState } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { ArrowDown, ArrowUp, ArrowUpDown, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { createRow, deleteRow, getTableData, updateRow } from '../../api';
 import type { ViewDefinition } from '../../types';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
+import { Button } from '../ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
+import { Input } from '../ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
+import { toast } from 'sonner';
 import { FormView } from './FormView';
 
 interface Props {
   view: ViewDefinition;
-  rows: Record<string, unknown>[];
-  onRefresh: () => void;
-  onCreate: (data: Record<string, unknown>) => Promise<void>;
-  onUpdate: (id: unknown, data: Record<string, unknown>) => Promise<void>;
-  onDelete: (id: unknown) => Promise<void>;
 }
 
-export function TableView({ view, rows, onRefresh, onCreate, onUpdate, onDelete }: Props) {
-  const [showForm, setShowForm] = useState(false);
-  const [editingRow, setEditingRow] = useState<Record<string, unknown> | null>(null);
+type RowData = Record<string, unknown>;
 
-  const handleCreate = async (data: Record<string, unknown>) => {
-    await onCreate(data);
-    setShowForm(false);
-    onRefresh();
-  };
+export function TableView({ view }: Props) {
+  const [rows, setRows] = useState<RowData[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [editingRow, setEditingRow] = useState<RowData | null>(null);
+  const [deletingRow, setDeletingRow] = useState<RowData | null>(null);
 
-  const handleUpdate = async (data: Record<string, unknown>) => {
-    if (!editingRow) return;
-    await onUpdate(editingRow.id, data);
-    setEditingRow(null);
-    onRefresh();
-  };
+  useEffect(() => {
+    setPagination({ pageIndex: 0, pageSize: 20 });
+    setSorting([]);
+    setSearch('');
+    setSearchInput('');
+  }, [view.id]);
 
-  const handleDelete = async (row: Record<string, unknown>) => {
-    if (!confirm('確定刪除這筆資料？')) return;
-    await onDelete(row.id);
-    onRefresh();
-  };
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    }, 300);
+    return () => window.clearTimeout(timeout);
+  }, [searchInput]);
+
+  const fetchRows = useCallback(async () => {
+    setLoading(true);
+    try {
+      const sort = sorting[0];
+      const result = await getTableData(view.table_name, {
+        page: pagination.pageIndex + 1,
+        limit: pagination.pageSize,
+        sort: sort?.id,
+        order: sort ? (sort.desc ? 'desc' : 'asc') : undefined,
+        search: search || undefined,
+      });
+
+      setRows(result.rows);
+      setTotal(result.total);
+    } catch (error) {
+      toast.error('載入資料失敗', { description: String(error) });
+    } finally {
+      setLoading(false);
+    }
+  }, [pagination.pageIndex, pagination.pageSize, search, sorting, view.table_name]);
+
+  useEffect(() => {
+    void fetchRows();
+  }, [fetchRows]);
 
   const canCreate = view.actions.includes('create');
   const canEdit = view.actions.includes('edit');
   const canDelete = view.actions.includes('delete');
 
-  return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-800">{view.name}</h2>
-        {canCreate && (
-          <button
-            onClick={() => { setShowForm(true); setEditingRow(null); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700 transition-colors"
-          >
-            <Plus size={14} />
-            新增
-          </button>
-        )}
-      </div>
+  const columns = useMemo<TableColumnDef<RowData>[]>(() => {
+    const dataColumns = view.columns.map(col => ({
+      id: col.key,
+      accessorFn: (row: RowData) => row[col.key],
+      header: col.label,
+      cell: ({ getValue, row }: { getValue: () => unknown; row: { original: RowData } }) => (
+            <CellValue value={getValue()} colKey={col.key} type={col.type} row={row.original} />
+          ),
+      enableSorting: col.sortable !== false,
+      size: col.width ?? 180,
+      minSize: 120,
+      maxSize: 480,
+    }));
 
-      {/* Table */}
-      <div className="flex-1 overflow-auto">
-        {rows.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-            目前沒有資料，點擊「新增」開始建立
+    if (!(canEdit || canDelete)) {
+      return dataColumns;
+    }
+
+    const actionsColumn: TableColumnDef<RowData> = {
+      id: '_actions',
+      header: '操作',
+      cell: ({ row }) => {
+        const data = row.original;
+        return (
+          <div className="flex items-center justify-end gap-1">
+            {canEdit ? (
+              <Button variant="ghost" size="icon" onClick={() => setEditingRow(data)} aria-label="編輯">
+                <Pencil className="h-4 w-4" />
+              </Button>
+            ) : null}
+            {canDelete ? (
+              <Button variant="ghost" size="icon" onClick={() => setDeletingRow(data)} aria-label="刪除">
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            ) : null}
           </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 sticky top-0">
-              <tr>
-                {view.columns.map(col => (
-                  <th key={col.key} className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
-                    {col.label}
-                  </th>
-                ))}
-                {(canEdit || canDelete) && (
-                  <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-500 uppercase tracking-wide">
-                    操作
-                  </th>
-                )}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {rows.map((row, i) => (
-                <tr key={i} className="hover:bg-gray-50">
-                  {view.columns.map(col => (
-                    <td key={col.key} className="px-4 py-3 text-gray-700">
-                      <CellValue value={row[col.key]} type={col.type} />
-                    </td>
-                  ))}
-                  {(canEdit || canDelete) && (
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {canEdit && (
-                          <button
-                            onClick={() => { setEditingRow(row); setShowForm(false); }}
-                            className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
-                          >
-                            <Pencil size={14} />
-                          </button>
-                        )}
-                        {canDelete && (
-                          <button
-                            onClick={() => handleDelete(row)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+        );
+      },
+      size: 110,
+      minSize: 100,
+      maxSize: 140,
+      enableSorting: false,
+    };
 
-      {/* Create Form Modal */}
-      {showForm && (
-        <Modal title={`新增${view.name}`} onClose={() => setShowForm(false)}>
-          <FormView fields={view.form.fields} onSubmit={handleCreate} onCancel={() => setShowForm(false)} />
-        </Modal>
-      )}
+    return [...dataColumns, actionsColumn];
+  }, [canDelete, canEdit, view.columns]);
 
-      {/* Edit Form Modal */}
-      {editingRow && (
-        <Modal title={`編輯${view.name}`} onClose={() => setEditingRow(null)}>
-          <FormView
-            fields={view.form.fields}
-            initialValues={editingRow}
-            onSubmit={handleUpdate}
-            onCancel={() => setEditingRow(null)}
-          />
-        </Modal>
-      )}
-    </div>
-  );
-}
+  const table = useReactTable({
+    data: rows,
+    columns,
+    state: { sorting, pagination },
+    onSortingChange: setSorting,
+    onPaginationChange: setPagination,
+    getCoreRowModel: getCoreRowModel(),
+    manualSorting: true,
+    manualPagination: true,
+    pageCount: Math.max(1, Math.ceil(total / pagination.pageSize)),
+    columnResizeMode: 'onChange',
+  });
 
-function CellValue({ value, type }: { value: unknown; type: string }) {
-  if (value === null || value === undefined) return <span className="text-gray-300">—</span>;
-  if (type === 'boolean') return <span>{value ? '✓' : '✗'}</span>;
-  return <span>{String(value)}</span>;
-}
+  const totalPages = Math.max(1, Math.ceil(total / pagination.pageSize));
+  const currentPage = pagination.pageIndex + 1;
+  const pageStart = total === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1;
+  const pageEnd = Math.min(total, pagination.pageIndex * pagination.pageSize + rows.length);
 
-function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
+  const handleCreate = async (data: Record<string, unknown>) => {
+    try {
+      await createRow(view.table_name, data);
+      toast.success('儲存成功');
+      setShowCreate(false);
+      void fetchRows();
+    } catch (error) {
+      toast.error('新增失敗', { description: String(error) });
+    }
+  };
+
+  const handleUpdate = async (data: Record<string, unknown>) => {
+    const id = editingRow?.id;
+    if (id === undefined || id === null) {
+      toast.error('找不到資料識別碼');
+      return;
+    }
+
+    try {
+      await updateRow(view.table_name, id, data);
+      toast.success('更新成功');
+      setEditingRow(null);
+      void fetchRows();
+    } catch (error) {
+      toast.error('更新失敗', { description: String(error) });
+    }
+  };
+
+  const handleDelete = async () => {
+    const id = deletingRow?.id;
+    if (id === undefined || id === null) {
+      toast.error('找不到資料識別碼');
+      return;
+    }
+
+    try {
+      await deleteRow(view.table_name, id);
+      toast.success('刪除成功');
+      setDeletingRow(null);
+      void fetchRows();
+    } catch (error) {
+      toast.error('刪除失敗', { description: String(error) });
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div
-        className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
-          <h3 className="font-semibold text-gray-800">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+    <div className="flex h-full flex-col">
+      <div className="flex flex-wrap items-center justify-end gap-3 border-b px-6 py-3">
+        <div className="flex items-center gap-2">
+          <div className="relative w-64">
+            <Search className="pointer-events-none absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={searchInput}
+              onChange={event => setSearchInput(event.target.value)}
+              placeholder="搜尋文字欄位..."
+              className="pl-8"
+            />
+          </div>
+          {canCreate ? (
+            <Button onClick={() => setShowCreate(true)}>
+              <Plus className="h-4 w-4" />
+              新增
+            </Button>
+          ) : null}
         </div>
-        <div className="px-5 py-4">{children}</div>
       </div>
+
+      <div className="flex-1 overflow-auto">
+        <Table>
+          <TableHeader className="sticky top-0 z-10 bg-muted/70 backdrop-blur">
+            {table.getHeaderGroups().map(headerGroup => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map(header => {
+                  const canSort = header.column.getCanSort();
+                  return (
+                    <TableHead key={header.id} style={{ width: header.getSize() }} className="relative">
+                      <div className={canSort ? 'flex cursor-pointer items-center gap-1 select-none' : 'flex items-center'} onClick={canSort ? header.column.getToggleSortingHandler() : undefined}>
+                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                        {canSort ? <SortIcon state={header.column.getIsSorted()} /> : null}
+                      </div>
+                      {header.column.getCanResize() ? (
+                        <div
+                          onMouseDown={header.getResizeHandler()}
+                          onTouchStart={header.getResizeHandler()}
+                          className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none bg-border/20 opacity-0 transition hover:opacity-100"
+                        />
+                      ) : null}
+                    </TableHead>
+                  );
+                })}
+              </TableRow>
+            ))}
+          </TableHeader>
+
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={columns.length} className="h-40 text-center text-muted-foreground">
+                  載入資料中...
+                </TableCell>
+              </TableRow>
+            ) : table.getRowModel().rows.length ? (
+              table.getRowModel().rows.map(row => (
+                <TableRow key={row.id}>
+                  {row.getVisibleCells().map(cell => (
+                    <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={columns.length} className="h-40 text-center text-muted-foreground">
+                  沒有符合條件的資料
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <div className="flex items-center justify-between border-t px-6 py-3 text-sm text-muted-foreground">
+        <span>
+          顯示 {pageStart}-{pageEnd} / 共 {total}
+        </span>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => table.setPageIndex(currentPage - 2)}>
+            上一頁
+          </Button>
+          <span>
+            第 {currentPage} / {totalPages} 頁
+          </span>
+          <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => table.setPageIndex(currentPage)}>
+            下一頁
+          </Button>
+        </div>
+      </div>
+
+      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>新增 {view.name}</DialogTitle>
+            <DialogDescription>填入欄位資料後儲存。</DialogDescription>
+          </DialogHeader>
+          <FormView fields={view.form.fields} onSubmit={handleCreate} onCancel={() => setShowCreate(false)} />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(editingRow)} onOpenChange={open => (!open ? setEditingRow(null) : null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>編輯 {view.name}</DialogTitle>
+            <DialogDescription>更新資料後按下儲存。</DialogDescription>
+          </DialogHeader>
+          {editingRow ? (
+            <FormView
+              fields={view.form.fields}
+              initialValues={editingRow}
+              onSubmit={handleUpdate}
+              onCancel={() => setEditingRow(null)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={Boolean(deletingRow)} onOpenChange={open => (!open ? setDeletingRow(null) : null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確認刪除資料？</AlertDialogTitle>
+            <AlertDialogDescription>刪除後無法還原。</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>刪除</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
+}
+
+function CellValue({ value, colKey, type, row }: { value: unknown; colKey: string; type: string; row: RowData }) {
+  // 關聯欄位：顯示 JOIN 出來的 display 值
+  if (type === 'relation') {
+    const display = row[`${colKey}__display`];
+    const text = display ?? value;
+    if (text === null || text === undefined || text === '') return <span className="text-muted-foreground">-</span>;
+    return <span>{String(text)}</span>;
+  }
+
+  if (value === null || value === undefined || value === '') {
+    return <span className="text-muted-foreground">-</span>;
+  }
+
+  switch (type) {
+    case 'boolean':
+      return <span>{Boolean(value) ? '是' : '否'}</span>;
+
+    case 'currency': {
+      const num = Number(value);
+      return <span>{isFinite(num) ? `$${num.toLocaleString('zh-TW', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : String(value)}</span>;
+    }
+
+    case 'phone':
+      return <a href={`tel:${value}`} className="text-primary hover:underline" onClick={e => e.stopPropagation()}>{String(value)}</a>;
+
+    case 'email':
+      return <a href={`mailto:${value}`} className="text-primary hover:underline" onClick={e => e.stopPropagation()}>{String(value)}</a>;
+
+    case 'url':
+      return (
+        <a href={String(value)} target="_blank" rel="noreferrer" className="text-primary hover:underline" onClick={e => e.stopPropagation()}>
+          連結
+        </a>
+      );
+
+    case 'enum':
+      return <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">{String(value)}</span>;
+
+    default:
+      return <span>{String(value)}</span>;
+  }
+}
+
+function SortIcon({ state }: { state: false | 'asc' | 'desc' }) {
+  if (state === 'asc') return <ArrowUp className="h-4 w-4" />;
+  if (state === 'desc') return <ArrowDown className="h-4 w-4" />;
+  return <ArrowUpDown className="h-4 w-4 text-muted-foreground" />;
 }

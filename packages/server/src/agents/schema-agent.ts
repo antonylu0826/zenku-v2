@@ -1,15 +1,24 @@
 import { createTable, alterTable, describeTables } from '../tools/db-tools';
 import type { AgentResult } from '../types';
 
+interface ReferenceDef {
+  table: string;
+  column?: string; // 預設 'id'
+}
+
+interface ColumnInput {
+  name: string;
+  type: string;
+  required?: boolean;
+  default_value?: string;
+  options?: string[];
+  references?: ReferenceDef;
+}
+
 interface CreateTableInput {
   action: 'create_table';
   table_name: string;
-  columns: {
-    name: string;
-    type: string;
-    required?: boolean;
-    options?: string[];
-  }[];
+  columns: ColumnInput[];
 }
 
 interface AlterTableInput {
@@ -17,12 +26,7 @@ interface AlterTableInput {
   table_name: string;
   changes: {
     operation: 'add_column';
-    column: {
-      name: string;
-      type: string;
-      required?: boolean;
-      options?: string[];
-    };
+    column: ColumnInput;
   }[];
 }
 

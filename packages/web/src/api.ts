@@ -2,14 +2,44 @@ import type { ViewDefinition, SSEChunk } from './types';
 
 const BASE = '/api';
 
-export async function getViews(): Promise<{ definition: ViewDefinition }[]> {
-  const res = await fetch(`${BASE}/views`);
-  return res.json();
+export interface TableQuery {
+  page: number;
+  limit: number;
+  sort?: string;
+  order?: 'asc' | 'desc';
+  search?: string;
 }
 
-export async function getTableData(table: string): Promise<Record<string, unknown>[]> {
-  const res = await fetch(`${BASE}/data/${table}`);
-  return res.json();
+export interface TableQueryResult {
+  rows: Record<string, unknown>[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+async function parseJsonOrThrow<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Request failed: ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+export async function getViews(): Promise<{ definition: ViewDefinition }[]> {
+  const res = await fetch(`${BASE}/views`);
+  return parseJsonOrThrow<{ definition: ViewDefinition }[]>(res);
+}
+
+export async function getTableData(table: string, query: TableQuery): Promise<TableQueryResult> {
+  const params = new URLSearchParams();
+  params.set('page', String(query.page));
+  params.set('limit', String(query.limit));
+  if (query.sort) params.set('sort', query.sort);
+  if (query.order) params.set('order', query.order);
+  if (query.search) params.set('search', query.search);
+
+  const res = await fetch(`${BASE}/data/${table}?${params.toString()}`);
+  return parseJsonOrThrow<TableQueryResult>(res);
 }
 
 export async function createRow(table: string, data: Record<string, unknown>): Promise<Record<string, unknown>> {
@@ -18,7 +48,7 @@ export async function createRow(table: string, data: Record<string, unknown>): P
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  return res.json();
+  return parseJsonOrThrow<Record<string, unknown>>(res);
 }
 
 export async function updateRow(table: string, id: unknown, data: Record<string, unknown>): Promise<Record<string, unknown>> {
@@ -27,11 +57,12 @@ export async function updateRow(table: string, id: unknown, data: Record<string,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  return res.json();
+  return parseJsonOrThrow<Record<string, unknown>>(res);
 }
 
 export async function deleteRow(table: string, id: unknown): Promise<void> {
-  await fetch(`${BASE}/data/${table}/${id}`, { method: 'DELETE' });
+  const res = await fetch(`${BASE}/data/${table}/${id}`, { method: 'DELETE' });
+  await parseJsonOrThrow<{ success: boolean }>(res);
 }
 
 export async function* sendChat(

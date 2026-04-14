@@ -2,12 +2,17 @@ import { useState, useRef, useEffect } from 'react';
 import { Send, Loader2, Wrench, CheckCircle, XCircle } from 'lucide-react';
 import { sendChat } from '../api';
 import type { ChatMessage, SSEChunk, ToolEvent } from '../types';
+import { Button } from './ui/button';
+import { Textarea } from './ui/textarea';
+import { Badge } from './ui/badge';
+import { cn } from '../lib/cn';
 
 interface Props {
   onViewsChanged: () => void;
+  className?: string;
 }
 
-export function ChatPanel({ onViewsChanged }: Props) {
+export function ChatPanel({ onViewsChanged, className }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
@@ -112,24 +117,18 @@ export function ChatPanel({ onViewsChanged }: Props) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white border-l border-gray-200">
-      <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
-        <h2 className="text-sm font-semibold text-gray-700">Zenku 禪空</h2>
-      </div>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+    <div className={cn('flex h-full flex-col bg-background', className)}>
+      <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
         {messages.map(msg => (
           <MessageBubble key={msg.id} message={msg} />
         ))}
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
-      <div className="px-4 py-3 border-t border-gray-200">
+      <div className="border-t px-4 py-3">
         <div className="flex gap-2">
-          <textarea
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          <Textarea
+            className="min-h-[74px] flex-1 resize-none"
             rows={2}
             value={input}
             onChange={e => setInput(e.target.value)}
@@ -142,13 +141,14 @@ export function ChatPanel({ onViewsChanged }: Props) {
             placeholder="描述你想要的功能... (Enter 送出)"
             disabled={loading}
           />
-          <button
+          <Button
             onClick={handleSend}
             disabled={loading || !input.trim()}
-            className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors self-end"
+            size="icon"
+            className="self-end"
           >
             {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -162,12 +162,11 @@ function MessageBubble({ message }: { message: ChatMessage }) {
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div className={`max-w-[85%] ${isUser ? 'order-1' : 'order-2'}`}>
         {isUser ? (
-          <div className="bg-indigo-600 text-white px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm">
+          <div className="rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground">
             {message.content}
           </div>
         ) : (
           <div>
-            {/* Tool events */}
             {message.toolEvents && message.toolEvents.length > 0 && (
               <div className="mb-2 space-y-1">
                 {message.toolEvents.map((event, i) => (
@@ -175,16 +174,14 @@ function MessageBubble({ message }: { message: ChatMessage }) {
                 ))}
               </div>
             )}
-            {/* Text content */}
             {message.content && (
-              <div className="bg-gray-100 text-gray-800 px-4 py-2.5 rounded-2xl rounded-tl-sm text-sm whitespace-pre-wrap">
+              <div className="whitespace-pre-wrap rounded-2xl rounded-tl-sm bg-muted px-4 py-2.5 text-sm text-foreground">
                 {message.content}
               </div>
             )}
-            {/* Loading indicator */}
             {!message.content && (!message.toolEvents || message.toolEvents.length === 0) && (
-              <div className="bg-gray-100 px-4 py-2.5 rounded-2xl rounded-tl-sm">
-                <Loader2 size={14} className="animate-spin text-gray-400" />
+              <div className="rounded-2xl rounded-tl-sm bg-muted px-4 py-2.5">
+                <Loader2 size={14} className="animate-spin text-muted-foreground" />
               </div>
             )}
           </div>
@@ -205,7 +202,7 @@ function ToolEventBadge({ event }: { event: ToolEvent }) {
 
   if (event.type === 'tool_start') {
     return (
-      <div className="flex items-center gap-1.5 text-xs text-gray-400">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Wrench size={11} className="animate-pulse" />
         <span>更新{label}中...</span>
       </div>
@@ -215,9 +212,9 @@ function ToolEventBadge({ event }: { event: ToolEvent }) {
   if (event.type === 'tool_result') {
     const ok = event.result?.success;
     return (
-      <div className={`flex items-center gap-1.5 text-xs ${ok ? 'text-green-600' : 'text-red-500'}`}>
+      <div className="flex items-center gap-1.5 text-xs">
         {ok ? <CheckCircle size={11} /> : <XCircle size={11} />}
-        <span>{event.result?.message}</span>
+        <Badge variant={ok ? 'secondary' : 'destructive'}>{event.result?.message}</Badge>
       </div>
     );
   }

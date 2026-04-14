@@ -481,6 +481,6 @@ export function extractDependencies(formula: string): string[];
 
 ## 驗收標準
 
-- [ ] `packages/shared` 能被 server 和 web 都 import
-- [ ] `npx tsc --noEmit` 在三個 package 都通過
-- [ ] 現有功能（對話建表、CRUD）不受影響
+- [x] `packages/shared` 能被 server 和 web 都 import
+- [x] `npx tsc --noEmit` 在三個 package 都通過
+- [x] 現有功能（對話建表、CRUD）不受影響

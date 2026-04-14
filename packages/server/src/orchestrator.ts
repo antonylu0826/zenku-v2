@@ -11,10 +11,113 @@ function getClient(): Anthropic {
   return _client;
 }
 
+// ===== Column definition (shared between create_table and alter_table) =====
+
+const COLUMN_DEF_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    name: { type: 'string', description: '欄位名（英文小寫底線）' },
+    type: {
+      type: 'string',
+      enum: ['TEXT', 'INTEGER', 'REAL', 'BOOLEAN', 'DATE', 'DATETIME'],
+    },
+    required: { type: 'boolean' },
+    options: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'enum 性質的欄位，列出所有允許值',
+    },
+    references: {
+      type: 'object',
+      description: '外鍵關聯。此欄位的值對應目標表的某個欄位（預設 id）',
+      properties: {
+        table: { type: 'string', description: '關聯目標表名' },
+        column: { type: 'string', description: '關聯目標欄位，預設 id' },
+      },
+      required: ['table'],
+    },
+  },
+  required: ['name', 'type'],
+};
+
+// ===== Form field schema (for manage_ui) =====
+
+const FORM_FIELD_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    key: { type: 'string', description: 'DB 欄位名' },
+    label: { type: 'string', description: '欄位標題（繁體中文）' },
+    type: {
+      type: 'string',
+      enum: [
+        'text', 'number', 'select', 'boolean', 'date', 'textarea',
+        'relation', 'currency', 'phone', 'email', 'url',
+      ],
+    },
+    required: { type: 'boolean' },
+    placeholder: { type: 'string' },
+    options: {
+      type: 'array',
+      items: { type: 'string' },
+      description: '靜態下拉選項（select 型別用）',
+    },
+    source: {
+      type: 'object',
+      description: '動態下拉來源（取代靜態 options，從另一張表即時載入選項）',
+      properties: {
+        table: { type: 'string' },
+        value_field: { type: 'string', description: '存入表單的值欄位（如 name）' },
+        display_field: { type: 'string', description: '下拉顯示的文字欄位' },
+      },
+      required: ['table', 'value_field', 'display_field'],
+    },
+    relation: {
+      type: 'object',
+      description: '關聯欄位定義（type 為 relation 時必填）。使用搜尋式下拉，存 value_field 值',
+      properties: {
+        table: { type: 'string', description: '關聯的表名' },
+        value_field: { type: 'string', description: '存入的值欄位（通常是 id）' },
+        display_field: { type: 'string', description: '下拉中顯示的欄位（如 name）' },
+      },
+      required: ['table', 'value_field', 'display_field'],
+    },
+    computed: {
+      type: 'object',
+      description: '計算欄位。公式用欄位名引用，如 "quantity * unit_price"。前後端都會計算',
+      properties: {
+        formula: { type: 'string', description: '計算公式，支援 + - * / 和括號' },
+        dependencies: {
+          type: 'array',
+          items: { type: 'string' },
+          description: '公式中引用的欄位名列表',
+        },
+        format: {
+          type: 'string',
+          enum: ['currency', 'number', 'percent'],
+          description: '顯示格式',
+        },
+      },
+      required: ['formula', 'dependencies'],
+    },
+  },
+  required: ['key', 'label', 'type'],
+};
+
 const TOOLS: Anthropic.Tool[] = [
   {
     name: 'manage_schema',
-    description: '建立或修改資料表結構。當使用者想要建立新的資料類型或修改現有資料結構時使用。建立新表後，必須同時呼叫 manage_ui 建立對應介面。',
+    description: `建立或修改資料表結構。
+
+建立新表後，必須接著呼叫 manage_ui 建立對應介面。
+
+欄位類型對照：
+- 一般文字 → TEXT
+- 數字（整數）→ INTEGER
+- 數字（小數/金額）→ REAL
+- 是/否 → BOOLEAN
+- 日期 → DATE
+- 日期時間 → DATETIME
+- 關聯到其他表 → INTEGER + references: { table: '目標表' }`,
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -29,45 +132,17 @@ const TOOLS: Anthropic.Tool[] = [
         },
         columns: {
           type: 'array',
-          description: 'create_table 時需要提供的欄位定義',
-          items: {
-            type: 'object',
-            properties: {
-              name: { type: 'string' },
-              type: {
-                type: 'string',
-                enum: ['TEXT', 'INTEGER', 'REAL', 'BOOLEAN', 'DATE', 'DATETIME'],
-              },
-              required: { type: 'boolean' },
-              options: {
-                type: 'array',
-                items: { type: 'string' },
-                description: '如果是 enum 性質的欄位，列出允許的值',
-              },
-            },
-            required: ['name', 'type'],
-          },
+          description: 'create_table 時的欄位定義',
+          items: COLUMN_DEF_SCHEMA,
         },
         changes: {
           type: 'array',
-          description: 'alter_table 時需要提供的修改項目',
+          description: 'alter_table 時的修改項目',
           items: {
             type: 'object',
             properties: {
               operation: { type: 'string', enum: ['add_column'] },
-              column: {
-                type: 'object',
-                properties: {
-                  name: { type: 'string' },
-                  type: {
-                    type: 'string',
-                    enum: ['TEXT', 'INTEGER', 'REAL', 'BOOLEAN', 'DATE', 'DATETIME'],
-                  },
-                  required: { type: 'boolean' },
-                  options: { type: 'array', items: { type: 'string' } },
-                },
-                required: ['name', 'type'],
-              },
+              column: COLUMN_DEF_SCHEMA,
             },
             required: ['operation', 'column'],
           },
@@ -78,7 +153,16 @@ const TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'manage_ui',
-    description: '建立或更新使用者介面（列表 + 表單）。在 manage_schema 建表或改表後呼叫，讓介面與資料結構保持同步。',
+    description: `建立或更新使用者介面（列表 + 表單）。在 manage_schema 後呼叫，保持介面與資料結構同步。
+
+欄位 type 決定前端渲染方式：
+- text/number/date/boolean/textarea：基本輸入
+- select + options：靜態下拉
+- select + source：動態下拉（從指定表載入）
+- relation + relation：關聯欄位（搜尋式下拉，存 id）
+- currency：金額（千分位格式）
+- phone/email/url：特殊文字（可點擊）
+- computed：只需在 form.fields 設定，columns 用 number 型別即可`,
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -91,18 +175,34 @@ const TOOLS: Anthropic.Tool[] = [
           description: 'View 定義',
           properties: {
             id: { type: 'string', description: '唯一 ID，通常等於 table_name' },
-            name: { type: 'string', description: '顯示名稱，如「客戶管理」' },
+            name: { type: 'string', description: '顯示名稱（繁體中文）' },
             table_name: { type: 'string' },
             type: { type: 'string', enum: ['table'] },
             columns: {
               type: 'array',
+              description: '列表欄位定義',
               items: {
                 type: 'object',
                 properties: {
-                  key: { type: 'string' },
-                  label: { type: 'string' },
-                  type: { type: 'string', enum: ['text', 'number', 'select', 'boolean', 'date'] },
+                  key: { type: 'string', description: 'DB 欄位名' },
+                  label: { type: 'string', description: '欄位標題（繁體中文）' },
+                  type: {
+                    type: 'string',
+                    enum: [
+                      'text', 'number', 'select', 'boolean', 'date',
+                      'relation', 'currency', 'phone', 'email', 'url', 'enum',
+                    ],
+                  },
                   sortable: { type: 'boolean' },
+                  relation: {
+                    type: 'object',
+                    description: 'relation 型別的列表顯示設定',
+                    properties: {
+                      table: { type: 'string' },
+                      display_field: { type: 'string', description: '列表顯示關聯表的哪個欄位' },
+                    },
+                    required: ['table', 'display_field'],
+                  },
                 },
                 required: ['key', 'label', 'type'],
               },
@@ -112,21 +212,8 @@ const TOOLS: Anthropic.Tool[] = [
               properties: {
                 fields: {
                   type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      key: { type: 'string' },
-                      label: { type: 'string' },
-                      type: {
-                        type: 'string',
-                        enum: ['text', 'number', 'select', 'boolean', 'date', 'textarea'],
-                      },
-                      required: { type: 'boolean' },
-                      options: { type: 'array', items: { type: 'string' } },
-                      placeholder: { type: 'string' },
-                    },
-                    required: ['key', 'label', 'type'],
-                  },
+                  description: '表單欄位定義',
+                  items: FORM_FIELD_SCHEMA,
                 },
               },
               required: ['fields'],
@@ -148,14 +235,8 @@ const TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: 'object' as const,
       properties: {
-        sql: {
-          type: 'string',
-          description: 'SELECT SQL 語句',
-        },
-        explanation: {
-          type: 'string',
-          description: '這個查詢在做什麼',
-        },
+        sql: { type: 'string', description: 'SELECT SQL 語句' },
+        explanation: { type: 'string', description: '這個查詢在做什麼' },
       },
       required: ['sql', 'explanation'],
     },
@@ -184,13 +265,34 @@ function buildSystemPrompt(): string {
 - query_data：查詢資料、回答統計問題
 
 重要規則：
-1. 使用者要求建立新資料類型時：先呼叫 manage_schema（create_table），成功後必須立即呼叫 manage_ui（create_view）生成對應介面
-2. 使用者要求修改資料結構時：先呼叫 manage_schema（alter_table），成功後呼叫 manage_ui（update_view）更新介面
-3. 使用者詢問資料相關統計問題時：呼叫 query_data
-4. 表名使用英文小寫＋底線，欄位名也是
+1. 建立新資料類型：先 manage_schema（create_table），再 manage_ui（create_view）
+2. 修改資料結構：先 manage_schema（alter_table），再 manage_ui（update_view）
+3. 統計問題：呼叫 query_data
+4. 表名和欄位名用英文小寫底線
 5. 所有回應使用繁體中文
-6. 每次操作後，簡潔告知使用者完成了什麼
-7. View 的 id 與 table_name 保持一致
+6. View 的 id 與 table_name 保持一致
+
+建立關聯欄位時（如「訂單關聯客戶」）：
+1. manage_schema：欄位用 INTEGER + references: { table: 'customers' }
+2. manage_ui columns：type 用 relation，relation: { table: 'customers', display_field: 'name' }
+3. manage_ui form.fields：type 用 relation，relation: { table: 'customers', value_field: 'id', display_field: 'name' }
+
+建立動態下拉時（如「分類從分類表載入」）：
+1. 確保來源表已存在
+2. form.fields：type 用 select，加上 source: { table: 'categories', value_field: 'name', display_field: 'name' }
+
+建立計算欄位時（如「小計 = 數量 × 單價」）：
+1. manage_schema：欄位用 REAL
+2. manage_ui form.fields：加 computed: { formula: 'quantity * unit_price', dependencies: ['quantity', 'unit_price'], format: 'currency' }
+3. manage_ui columns：type 用 currency 或 number
+
+欄位類型指引：
+- 金額 → schema: REAL，ui type: currency
+- 電話 → schema: TEXT，ui type: phone
+- Email → schema: TEXT，ui type: email
+- 網址 → schema: TEXT，ui type: url
+- 狀態/分類（固定選項）→ schema: TEXT，ui type: select + options
+- 狀態/分類（動態載入）→ schema: TEXT，ui type: select + source
 
 目前資料庫：
 ${schemaStr}
@@ -220,7 +322,6 @@ export async function* chat(
       messages: currentMessages,
     });
 
-    // 先處理文字內容
     for (const block of response.content) {
       if (block.type === 'text' && block.text) {
         yield JSON.stringify({ type: 'text', content: block.text }) + '\n';

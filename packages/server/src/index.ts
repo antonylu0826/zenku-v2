@@ -7,7 +7,32 @@ console.log('[dotenv] loaded:', !envResult.error, '| ANTHROPIC_API_KEY set:', !!
 
 import express from 'express';
 import cors from 'cors';
-import { getDb, getAllViews } from './db';
+import { getDb, getAllViews, getTableSchema } from './db';
+
+// 安全欄位名驗證
+function isSafeFieldName(name: string): boolean {
+  return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
+}
+
+// 從 view definition 取出 relation columns（供 JOIN 使用）
+interface RelationColumnDef {
+  key: string;
+  relation: { table: string; display_field: string };
+}
+
+function getRelationColumns(tableName: string): RelationColumnDef[] {
+  const views = getAllViews();
+  const view = views.find(v => v.table_name === tableName);
+  if (!view) return [];
+  try {
+    const def = JSON.parse(view.definition) as { columns?: { key: string; type: string; relation?: { table: string; display_field: string } }[] };
+    return (def.columns ?? [])
+      .filter(c => c.type === 'relation' && c.relation?.table && c.relation?.display_field)
+      .map(c => ({ key: c.key, relation: c.relation! }));
+  } catch {
+    return [];
+  }
+}
 import { chat } from './orchestrator';
 
 const app = express();
@@ -57,16 +82,120 @@ app.get('/api/views', (_req, res) => {
 // ──────────────────────────────────────────────
 // Generic CRUD for user tables
 // ──────────────────────────────────────────────
+// ──────────────────────────────────────────────
+// 關聯欄位選項端點
+// ──────────────────────────────────────────────
+app.get('/api/data/:table/options', (req, res) => {
+  const { table } = req.params;
+  if (table.startsWith('_zenku_')) {
+    res.status(403).json({ error: '不允許存取系統表' });
+    return;
+  }
+
+  const valueField = String(req.query.value_field ?? 'id');
+  const displayField = String(req.query.display_field ?? 'name');
+  const search = String(req.query.search ?? '').trim();
+  const id = String(req.query.id ?? '').trim();
+
+  if (!isSafeFieldName(valueField) || !isSafeFieldName(displayField)) {
+    res.status(400).json({ error: '無效的欄位名' });
+    return;
+  }
+
+  try {
+    const db = getDb();
+
+    if (id) {
+      // 取得特定記錄的顯示值（RelationField 初始化用）
+      const row = db.prepare(
+        `SELECT "${valueField}" as value, "${displayField}" as label FROM "${table}" WHERE id = ? LIMIT 1`
+      ).get(id);
+      res.json(row ? [row] : []);
+      return;
+    }
+
+    if (search) {
+      const escaped = search.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_');
+      const rows = db.prepare(
+        `SELECT "${valueField}" as value, "${displayField}" as label FROM "${table}" WHERE "${displayField}" LIKE ? ESCAPE '\\' ORDER BY "${displayField}" LIMIT 50`
+      ).all(`%${escaped}%`);
+      res.json(rows);
+      return;
+    }
+
+    const rows = db.prepare(
+      `SELECT "${valueField}" as value, "${displayField}" as label FROM "${table}" ORDER BY "${displayField}" LIMIT 100`
+    ).all();
+    res.json(rows);
+  } catch (err) {
+    res.status(400).json({ error: String(err) });
+  }
+});
+
 app.get('/api/data/:table', (req, res) => {
   const { table } = req.params;
   if (table.startsWith('_zenku_')) {
     res.status(403).json({ error: '不允許存取系統表' });
     return;
   }
+
   try {
     const db = getDb();
-    const rows = db.prepare(`SELECT * FROM "${table}" ORDER BY id DESC`).all();
-    res.json(rows);
+    const schema = getTableSchema(table);
+    if (schema.length === 0) {
+      res.status(400).json({ error: `找不到資料表或欄位：${table}` });
+      return;
+    }
+
+    const fieldNames = new Set(schema.map(column => column.name));
+    const textFieldNames = schema
+      .filter(column => column.type.toUpperCase().includes('TEXT'))
+      .map(column => column.name);
+
+    const page = Math.max(1, Number.parseInt(String(req.query.page ?? '1'), 10) || 1);
+    const limit = Math.min(100, Math.max(1, Number.parseInt(String(req.query.limit ?? '20'), 10) || 20));
+    const offset = (page - 1) * limit;
+
+    const sort = String(req.query.sort ?? '');
+    const order = String(req.query.order ?? '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+    const sortBy = fieldNames.has(sort) ? sort : fieldNames.has('id') ? 'id' : schema[0]?.name;
+
+    const search = String(req.query.search ?? '').trim();
+    const escapedSearch = search.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_');
+    const whereClause =
+      search && textFieldNames.length > 0
+        ? `WHERE ${textFieldNames.map(name => `"${table}"."${name}" LIKE ? ESCAPE '\\'`).join(' OR ')}`
+        : '';
+    const whereParams = search && textFieldNames.length > 0 ? textFieldNames.map(() => `%${escapedSearch}%`) : [];
+
+    // 關聯欄位 LEFT JOIN
+    const relationCols = getRelationColumns(table);
+    const joinClauses = relationCols.map(rc =>
+      `LEFT JOIN "${rc.relation.table}" ON "${table}"."${rc.key}" = "${rc.relation.table}"."id"`
+    );
+    const joinSelects = relationCols.map(rc =>
+      `"${rc.relation.table}"."${rc.relation.display_field}" AS "${rc.key}__display"`
+    );
+
+    const selectClause = joinSelects.length > 0
+      ? `"${table}".*, ${joinSelects.join(', ')}`
+      : `"${table}".*`;
+    const joinClause = joinClauses.join(' ');
+
+    const rows = db
+      .prepare(`SELECT ${selectClause} FROM "${table}" ${joinClause} ${whereClause} ORDER BY "${table}"."${sortBy}" ${order} LIMIT ? OFFSET ?`)
+      .all(...whereParams, limit, offset);
+
+    const totalResult = db
+      .prepare(`SELECT COUNT(*) AS count FROM "${table}" ${joinClause} ${whereClause}`)
+      .get(...whereParams) as { count: number };
+
+    res.json({
+      rows,
+      total: totalResult.count,
+      page,
+      limit,
+    });
   } catch (err) {
     res.status(400).json({ error: String(err) });
   }

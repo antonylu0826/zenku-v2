@@ -10,12 +10,18 @@ function isSafeTableName(name: string): boolean {
   return true;
 }
 
+interface ReferenceDef {
+  table: string;
+  column?: string;
+}
+
 interface ColumnInput {
   name: string;
   type: string;
   required?: boolean;
   default_value?: string;
   options?: string[];
+  references?: ReferenceDef;
 }
 
 export function createTable(
@@ -29,9 +35,9 @@ export function createTable(
 
   const db = getDb();
 
-  const existing = db.prepare(`
-    SELECT name FROM sqlite_master WHERE type='table' AND name=?
-  `).get(tableName);
+  const existing = db.prepare(
+    `SELECT name FROM sqlite_master WHERE type='table' AND name=?`
+  ).get(tableName);
   if (existing) {
     return { success: false, message: `表 ${tableName} 已存在` };
   }
@@ -41,8 +47,15 @@ export function createTable(
     if (!ALLOWED_TYPES.has(type)) {
       throw new Error(`不支援的型別：${col.type}`);
     }
-    const notNull = col.required ? ' NOT NULL' : '';
-    return `"${col.name}" ${type}${notNull}`;
+    let def = `"${col.name}" ${type}`;
+    if (col.required) def += ' NOT NULL';
+    if (col.references) {
+      const refTable = col.references.table;
+      const refCol = col.references.column ?? 'id';
+      if (!isSafeTableName(refTable)) throw new Error(`無效的關聯表名：${refTable}`);
+      def += ` REFERENCES "${refTable}"("${refCol}")`;
+    }
+    return def;
   });
 
   const sql = `CREATE TABLE "${tableName}" (
@@ -53,7 +66,6 @@ export function createTable(
   )`;
 
   db.exec(sql);
-
   logChange('schema-agent', 'create_table', { tableName, columns }, userRequest);
 
   return {
@@ -87,7 +99,18 @@ export function alterTable(
       if (!ALLOWED_TYPES.has(type)) {
         return { success: false, message: `不支援的型別：${col.type}` };
       }
-      db.exec(`ALTER TABLE "${tableName}" ADD COLUMN "${col.name}" ${type}`);
+
+      let colDef = `"${col.name}" ${type}`;
+      if (col.references) {
+        const refTable = col.references.table;
+        const refCol = col.references.column ?? 'id';
+        if (!isSafeTableName(refTable)) {
+          return { success: false, message: `無效的關聯表名：${refTable}` };
+        }
+        colDef += ` REFERENCES "${refTable}"("${refCol}")`;
+      }
+
+      db.exec(`ALTER TABLE "${tableName}" ADD COLUMN ${colDef}`);
       results.push(`新增欄位 ${col.name}`);
     }
   }

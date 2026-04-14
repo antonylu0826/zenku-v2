@@ -4,6 +4,9 @@ import type { ViewDefinition } from './types';
 import { Sidebar } from './components/Sidebar';
 import { AppArea } from './components/AppArea';
 import { ChatPanel } from './components/ChatPanel';
+import { AppShell } from './components/layout/AppShell';
+import { ThemeProvider } from './components/layout/ThemeProvider';
+import { Toaster } from './components/ui/sonner';
 
 export default function App() {
   const [views, setViews] = useState<ViewDefinition[]>([]);
@@ -27,23 +30,22 @@ export default function App() {
   const hasViews = views.length > 0;
 
   return (
-    <div className="h-screen flex overflow-hidden bg-gray-50">
-      {/* Sidebar — 只有有 views 才顯示 */}
-      {hasViews && (
-        <Sidebar
-          views={views}
-          activeViewId={activeViewId}
-          onSelect={setActiveViewId}
-        />
-      )}
-
-      {/* App Area */}
-      <AppArea view={activeView} />
-
-      {/* Chat Panel */}
-      <div className={`flex flex-col ${hasViews ? 'w-80' : 'w-full max-w-lg mx-auto my-auto h-[600px] rounded-xl shadow-xl overflow-hidden'}`}>
-        <ChatPanel onViewsChanged={fetchViews} />
-      </div>
-    </div>
+    <ThemeProvider>
+      <AppShell
+        hasViews={hasViews}
+        viewName={activeView?.name}
+        sidebar={(collapsed) => (
+          <Sidebar
+            views={views}
+            activeViewId={activeViewId}
+            onSelect={setActiveViewId}
+            collapsed={collapsed}
+          />
+        )}
+        appArea={<AppArea view={activeView} />}
+        chatPanel={<ChatPanel onViewsChanged={fetchViews} />}
+      />
+      <Toaster position="top-right" />
+    </ThemeProvider>
   );
 }

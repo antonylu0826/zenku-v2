@@ -263,11 +263,11 @@ app.get('/api/data/:table', (req, res) => {
 
 ## 驗收標準
 
-- [ ] 所有手寫元件替換為 shadcn
-- [ ] 明暗模式可切換，偏好持久化
-- [ ] ChatPanel 可拖曳調整寬度
-- [ ] Sidebar 可折疊
-- [ ] 表格有分頁、排序、搜尋
-- [ ] 表單有驗證回饋和 toast 提示
-- [ ] 初始狀態（無 view）ChatPanel 居中顯示
-- [ ] 暗色模式下所有元件正常顯示
+- [x] 所有手寫元件替換為 shadcn
+- [x] 明暗模式可切換，偏好持久化
+- [x] ChatPanel 可拖曳調整寬度
+- [x] Sidebar 可折疊
+- [x] 表格有分頁、排序、搜尋
+- [x] 表單有驗證回饋和 toast 提示
+- [x] 初始狀態（無 view）ChatPanel 居中顯示
+- [x] 暗色模式下所有元件正常顯示
