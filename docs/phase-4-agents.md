@@ -6,7 +6,20 @@
 
 ---
 
-## 4.1 Orchestrator 升級
+## 進度總覽
+
+| 項目 | 狀態 |
+|------|------|
+| 4.1 Orchestrator 升級（manage_rules + assess_impact） | ✅ 完成 |
+| 4.4 Logic Agent（規則 CRUD） | ✅ 完成 |
+| 4.5 Test Agent（assess_impact） | ✅ 完成 |
+| Rule Engine（before/after hooks + FK 路徑條件） | ✅ 完成 |
+| 4.2 Agent 權限矩陣 | ⬜ 待實作 |
+| 4.3 File Agent（CSV 匯入、圖片 OCR、附件） | ⬜ 待實作 |
+
+---
+
+## 4.1 Orchestrator 升級 ✅
 
 ### Tool 清單擴展
 
@@ -38,7 +51,7 @@ const TOOLS: Anthropic.Tool[] = [
 
 ---
 
-## 4.2 Agent 權限矩陣
+## 4.2 Agent 權限矩陣 ⬜
 
 ### 權限表
 
@@ -52,7 +65,7 @@ const TOOLS: Anthropic.Tool[] = [
 | Logic Agent | 規則表讀寫 | 無 | 無 | ✓ | ✓ | ✗ |
 | Test Agent | SELECT | 讀 | 無 | ✓ | ✓ | ✗ |
 
-### 實作
+### 實作（待完成）
 
 ```typescript
 // server/src/middleware/permission.ts
@@ -71,7 +84,7 @@ if (toolName === 'manage_schema' && !canUserAccessAgent(user.role, 'schema')) {
 }
 ```
 
-### Orchestrator System Prompt 動態調整
+### Orchestrator System Prompt 動態調整（待完成）
 
 ```typescript
 // 依使用者角色，只提供可用的 tools
@@ -85,7 +98,7 @@ function getToolsForRole(role: UserRole): Anthropic.Tool[] {
 
 ---
 
-## 4.3 File Agent
+## 4.3 File Agent ⬜
 
 ### 系統表
 
@@ -184,7 +197,7 @@ components/fields/FileField.tsx    — 檔案上傳 + 下載連結
 
 ---
 
-## 4.4 Logic Agent
+## 4.4 Logic Agent ✅
 
 ### 系統表
 
@@ -204,130 +217,45 @@ CREATE TABLE _zenku_rules (
 );
 ```
 
-### Tool 定義
+### 實作位置
 
-```typescript
+- `server/src/agents/logic-agent.ts` — CRUD 操作（create/update/delete/list）
+- `server/src/engine/rule-engine.ts` — 執行引擎（executeBefore / executeAfter）
+- `server/src/db.ts` — getRulesForTable、getAllRules
+
+### Rule Engine 實作細節
+
+**支援的 trigger：**
+- `before_insert / before_update / before_delete`：同步攔截，可修改資料或拒絕操作
+- `after_insert / after_update / after_delete`：非同步副作用，不阻塞回應
+
+**Action 類型：**
+
+| type | 時機 | 說明 |
+|------|------|------|
+| `set_field` | before/after | 設定欄位值，value 支援公式（`quantity * unit_price * 0.9`） |
+| `validate` | before | 條件成立時拒絕操作並回傳 message |
+| `create_record` | after | 在另一張表插入新記錄，record_data 值支援表達式 |
+| `webhook` | after | POST 到外部 URL |
+| `notify` | after | console.log 通知（未來可擴展為推播） |
+
+**Condition 支援 FK 路徑（跨表條件）：**
+
+`condition.field` 可使用點路徑沿 FK 跨表查詢：
+
+```json
 {
-  name: 'manage_rules',
-  input_schema: {
-    properties: {
-      action: { enum: ['create_rule', 'update_rule', 'delete_rule', 'list_rules'] },
-      rule: {
-        properties: {
-          name: { type: 'string' },
-          description: { type: 'string' },
-          table_name: { type: 'string' },
-          trigger_type: { enum: ['before_insert', 'after_insert', 'before_update', 'after_update', 'before_delete'] },
-          condition: {
-            properties: {
-              field: { type: 'string' },
-              operator: { enum: ['eq', 'neq', 'gt', 'lt', 'contains', 'changed'] },
-              value: {}
-            }
-          },
-          actions: {
-            type: 'array',
-            items: {
-              properties: {
-                type: { enum: ['set_field', 'validate', 'webhook', 'create_record', 'notify'] },
-                // ... 各 type 的參數
-              }
-            }
-          }
-        }
-      }
-    }
-  }
+  "field": "order_id.customer_id.tier",
+  "operator": "eq",
+  "value": "VIP"
 }
 ```
 
-### Rule Engine
+引擎會自動解析：`order_items.order_id` → 查 `orders` → `orders.customer_id` → 查 `customers` → 取 `customers.tier`。
 
-```typescript
-// server/src/engine/rule-engine.ts
+這讓規則可以在明細表（order_items）上根據主檔關聯的欄位（客戶等級）觸發。
 
-export class RuleEngine {
-  // 在 CRUD API 的適當時機呼叫
-  async executeBefore(
-    table: string,
-    action: 'insert' | 'update' | 'delete',
-    data: Record<string, unknown>,
-    oldData?: Record<string, unknown>
-  ): Promise<{ allowed: boolean; data: Record<string, unknown>; errors: string[] }> {
-
-    const rules = this.getRulesForTrigger(table, `before_${action}`);
-    let errors: string[] = [];
-    let currentData = { ...data };
-
-    for (const rule of rules) {
-      if (!this.evaluateCondition(rule.condition, currentData, oldData)) continue;
-
-      for (const action of rule.actions) {
-        if (action.type === 'validate') {
-          if (!this.evaluateValidation(action, currentData)) {
-            errors.push(action.message);
-          }
-        }
-        if (action.type === 'set_field') {
-          currentData[action.field] = this.evaluateExpression(action.value, currentData);
-        }
-      }
-    }
-
-    return { allowed: errors.length === 0, data: currentData, errors };
-  }
-
-  async executeAfter(
-    table: string,
-    action: 'insert' | 'update' | 'delete',
-    data: Record<string, unknown>
-  ): Promise<void> {
-
-    const rules = this.getRulesForTrigger(table, `after_${action}`);
-
-    for (const rule of rules) {
-      if (!this.evaluateCondition(rule.condition, data)) continue;
-
-      for (const action of rule.actions) {
-        if (action.type === 'webhook') {
-          await fetch(action.url, {
-            method: action.method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ table, action, data, rule: rule.name })
-          });
-        }
-        if (action.type === 'create_record') {
-          // 在另一張表建記錄
-        }
-        if (action.type === 'notify') {
-          // 記 log 或呼叫 webhook
-        }
-      }
-    }
-  }
-}
-```
-
-### 整合到 CRUD API
-
-```typescript
-// server/src/index.ts
-app.post('/api/data/:table', async (req, res) => {
-  // 1. before rules
-  const beforeResult = await ruleEngine.executeBefore(table, 'insert', req.body);
-  if (!beforeResult.allowed) {
-    return res.status(400).json({ errors: beforeResult.errors });
-  }
-
-  // 2. 實際寫入 DB（用 beforeResult.data，可能被 set_field 修改過）
-  const created = insertRow(table, beforeResult.data);
-
-  // 3. after rules（非阻塞）
-  ruleEngine.executeAfter(table, 'insert', created).catch(console.error);
-
-  res.json(created);
-});
-```
+**Condition operator：** `eq`, `neq`, `gt`, `lt`, `gte`, `lte`, `contains`, `changed`
 
 ### 對話→動作 範例
 
@@ -338,84 +266,44 @@ Orchestrator → manage_rules({
   action: 'create_rule',
   rule: {
     name: 'VIP 自動折扣',
-    description: 'VIP 客戶的訂單自動打 9 折',
-    table_name: 'orders',
+    table_name: 'order_items',
     trigger_type: 'before_insert',
-    condition: { field: 'customer_tier', operator: 'eq', value: 'vip' },
+    condition: { field: 'order_id.customer_id.tier', operator: 'eq', value: 'VIP' },
     actions: [
-      { type: 'set_field', field: 'discount', value: '0.1' },
-      { type: 'set_field', field: 'final_amount', value: 'total_amount * 0.9' }
+      { type: 'set_field', field: 'subtotal', value: 'quantity * unit_price * 0.9' }
     ]
   }
 })
 ```
 
----
-
-## 4.5 Test Agent
-
-### Tool 定義
-
-```typescript
-{
-  name: 'assess_impact',
-  input_schema: {
-    properties: {
-      table_name: { type: 'string' },
-      change_type: { enum: ['drop_column', 'rename_column', 'change_type', 'drop_table'] },
-      details: { type: 'object' }
-    }
-  }
-}
-```
-
-### 實作
-
-```typescript
-// server/src/agents/test-agent.ts
-export function assessImpact(input: AssessInput): AgentResult {
-  const { table_name, change_type, details } = input;
-
-  // 1. 查受影響的 views
-  const views = getAllViews().filter(v => {
-    const def = JSON.parse(v.definition);
-    return def.table_name === table_name
-      || def.detail_views?.some(d => d.table_name === table_name);
-  });
-
-  // 2. 查受影響的 rules
-  const rules = db.prepare(
-    'SELECT * FROM _zenku_rules WHERE table_name = ?'
-  ).all(table_name);
-
-  // 3. 查受影響的資料筆數
-  const rowCount = db.prepare(
-    `SELECT COUNT(*) as count FROM "${table_name}"`
-  ).get();
-
-  // 4. 查引用此表的其他表（外鍵）
-  const referencing = findReferencingTables(table_name);
-
-  return {
-    success: true,
-    message: formatImpactReport({ views, rules, rowCount, referencing, change_type, details }),
-    data: { views: views.length, rules: rules.length, rows: rowCount.count, referencing }
-  };
-}
-
-function formatImpactReport(info): string {
-  return `⚠️ 影響評估：
-- 受影響的介面：${info.views} 個
-- 受影響的規則：${info.rules} 個
-- 受影響的資料：${info.rows} 筆
-${info.referencing.length > 0 ? `- 被引用的表：${info.referencing.join(', ')}` : ''}
-建議${info.rows > 100 ? '謹慎操作' : '可以執行'}，是否繼續？`;
-}
-```
+> **注意：** 若客戶等級（tier）在關聯表上，condition.field 須使用 FK 路徑，而非直接欄位名。
 
 ---
 
-## 新增依賴
+## 4.5 Test Agent ✅
+
+### 實作位置
+
+- `server/src/agents/test-agent.ts`
+
+### 分析範圍
+
+- 受影響的 views（table_name 或 detail_views 中引用）
+- 受影響的 rules（同表名）
+- 資料筆數
+- 外鍵依賴表（PRAGMA foreign_key_list 逐表掃描）
+- 欄位級影響（哪些 view column / rule action 引用了該欄位）
+
+### 嚴重度判斷
+
+| 條件 | 嚴重度 |
+|------|--------|
+| 資料筆數 > 100 或有外鍵依賴表 | 高風險 |
+| 其他 | 中風險 |
+
+---
+
+## 新增依賴（File Agent 待安裝）
 
 ```bash
 npm install multer @types/multer   # 檔案上傳
@@ -427,16 +315,14 @@ npm install uuid                    # 檔案 ID 生成
 ## 新增檔案
 
 ```
-server/src/agents/file-agent.ts
-server/src/agents/logic-agent.ts
-server/src/agents/test-agent.ts
-server/src/tools/file-tools.ts
-server/src/tools/rule-tools.ts
-server/src/engine/rule-engine.ts
-server/src/middleware/permission.ts
+server/src/agents/file-agent.ts         ⬜ 待實作
+server/src/agents/logic-agent.ts        ✅
+server/src/agents/test-agent.ts         ✅
+server/src/engine/rule-engine.ts        ✅
+server/src/middleware/permission.ts     ⬜ 待實作
 
-web/src/components/fields/ImageField.tsx
-web/src/components/fields/FileField.tsx
+web/src/components/fields/ImageField.tsx  ⬜ 待實作
+web/src/components/fields/FileField.tsx   ⬜ 待實作
 ```
 
 ---
@@ -444,7 +330,7 @@ web/src/components/fields/FileField.tsx
 ## 驗收標準
 
 - [ ] 上傳 CSV → AI 自動建表 + 匯入資料 + 建 UI
-- [ ] 「VIP 客戶下單打 9 折」→ 自動建 rule，新增訂單時自動套用
-- [ ] 破壞性 schema 變更 → 先顯示影響評估 → 使用者確認後才執行
+- [x] 「VIP 客戶下單打 9 折」→ 自動建 rule，新增訂單時自動套用（含 FK 跨表條件）
+- [x] 破壞性 schema 變更 → 先顯示影響評估 → 使用者確認後才執行
 - [ ] user 角色無法使用 manage_schema（被拒絕並提示）
 - [ ] Webhook rule → 觸發後正確呼叫外部 URL

@@ -8,6 +8,7 @@ console.log('[dotenv] loaded:', !envResult.error, '| ANTHROPIC_API_KEY set:', !!
 import express from 'express';
 import cors from 'cors';
 import { getDb, getAllViews, getTableSchema } from './db';
+import { executeBefore, executeAfter } from './engine/rule-engine';
 
 // 安全欄位名驗證
 function isSafeFieldName(name: string): boolean {
@@ -132,7 +133,7 @@ app.get('/api/data/:table/options', (req, res) => {
   }
 });
 
-// GET single record by id
+// GET single record by id (with relation JOIN)
 app.get('/api/data/:table/:id', (req, res) => {
   const { table, id } = req.params;
   if (table.startsWith('_zenku_')) {
@@ -141,7 +142,21 @@ app.get('/api/data/:table/:id', (req, res) => {
   }
   try {
     const db = getDb();
-    const row = db.prepare(`SELECT * FROM "${table}" WHERE id = ?`).get(id);
+    const relationCols = getRelationColumns(table);
+    const joinClauses = relationCols.map(rc =>
+      `LEFT JOIN "${rc.relation.table}" ON "${table}"."${rc.key}" = "${rc.relation.table}"."id"`
+    );
+    const joinSelects = relationCols.map(rc =>
+      `"${rc.relation.table}"."${rc.relation.display_field}" AS "${rc.key}__display"`
+    );
+    const selectClause = joinSelects.length > 0
+      ? `"${table}".*, ${joinSelects.join(', ')}`
+      : `"${table}".*`;
+    const joinClause = joinClauses.join(' ');
+
+    const row = db.prepare(
+      `SELECT ${selectClause} FROM "${table}" ${joinClause} WHERE "${table}".id = ?`
+    ).get(id);
     if (!row) {
       res.status(404).json({ error: '找不到資料' });
       return;
@@ -180,14 +195,16 @@ app.get('/api/data/:table', (req, res) => {
     const order = String(req.query.order ?? '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
     const sortBy = fieldNames.has(sort) ? sort : fieldNames.has('id') ? 'id' : schema[0]?.name;
 
-    // 解析 filter[field]=value 參數
+    // 解析 filter 參數（qs 將 filter[field]=value 解析為 req.query.filter = { field: value }）
     const filterClauses: string[] = [];
     const filterParams: unknown[] = [];
-    for (const [key, value] of Object.entries(req.query)) {
-      const match = key.match(/^filter\[([a-zA-Z_][a-zA-Z0-9_]*)\]$/);
-      if (match && fieldNames.has(match[1])) {
-        filterClauses.push(`"${table}"."${match[1]}" = ?`);
-        filterParams.push(value);
+    const filterObj = req.query.filter;
+    if (filterObj && typeof filterObj === 'object' && !Array.isArray(filterObj)) {
+      for (const [field, value] of Object.entries(filterObj as Record<string, unknown>)) {
+        if (isSafeFieldName(field) && fieldNames.has(field)) {
+          filterClauses.push(`"${table}"."${field}" = ?`);
+          filterParams.push(value);
+        }
       }
     }
 
@@ -243,7 +260,7 @@ app.get('/api/data/:table', (req, res) => {
   }
 });
 
-app.post('/api/data/:table', (req, res) => {
+app.post('/api/data/:table', async (req, res) => {
   const { table } = req.params;
   if (table.startsWith('_zenku_')) {
     res.status(403).json({ error: '不允許存取系統表' });
@@ -256,23 +273,35 @@ app.post('/api/data/:table', (req, res) => {
     delete body.created_at;
     delete body.updated_at;
 
-    const keys = Object.keys(body);
+    // Before rules
+    const beforeResult = executeBefore(table, 'insert', body);
+    if (!beforeResult.allowed) {
+      res.status(400).json({ error: beforeResult.errors.join('；') });
+      return;
+    }
+    const finalData = beforeResult.data;
+
+    const keys = Object.keys(finalData);
     const placeholders = keys.map(() => '?').join(', ');
-    const values = Object.values(body);
+    const values = Object.values(finalData);
 
     const result = db.prepare(
       `INSERT INTO "${table}" (${keys.map(k => `"${k}"`).join(', ')}) VALUES (${placeholders})`
     ).run(...(values as (string | number | bigint | null)[]));
 
-
-    const created = db.prepare(`SELECT * FROM "${table}" WHERE id = ?`).get(result.lastInsertRowid);
+    const created = db.prepare(`SELECT * FROM "${table}" WHERE id = ?`).get(result.lastInsertRowid) as Record<string, unknown>;
     res.json(created);
+
+    // After rules (non-blocking)
+    executeAfter(table, 'insert', created).catch(err =>
+      console.error('[RuleEngine] after_insert error:', err)
+    );
   } catch (err) {
     res.status(400).json({ error: String(err) });
   }
 });
 
-app.put('/api/data/:table/:id', (req, res) => {
+app.put('/api/data/:table/:id', async (req, res) => {
   const { table, id } = req.params;
   if (table.startsWith('_zenku_')) {
     res.status(403).json({ error: '不允許存取系統表' });
@@ -280,25 +309,42 @@ app.put('/api/data/:table/:id', (req, res) => {
   }
   try {
     const db = getDb();
+
+    // Fetch old data for "changed" condition
+    const oldData = db.prepare(`SELECT * FROM "${table}" WHERE id = ?`).get(id) as Record<string, unknown> | undefined;
+
     const body = { ...req.body } as Record<string, unknown>;
     delete body.id;
     delete body.created_at;
     body.updated_at = new Date().toISOString();
 
-    const keys = Object.keys(body);
+    // Before rules
+    const beforeResult = executeBefore(table, 'update', body, oldData);
+    if (!beforeResult.allowed) {
+      res.status(400).json({ error: beforeResult.errors.join('；') });
+      return;
+    }
+    const finalData = beforeResult.data;
+
+    const keys = Object.keys(finalData);
     const setClause = keys.map(k => `"${k}" = ?`).join(', ');
-    const values = [...Object.values(body), id];
+    const values = [...Object.values(finalData), id];
 
     db.prepare(`UPDATE "${table}" SET ${setClause} WHERE id = ?`).run(...(values as (string | number | bigint | null)[]));
 
-    const updated = db.prepare(`SELECT * FROM "${table}" WHERE id = ?`).get(id);
+    const updated = db.prepare(`SELECT * FROM "${table}" WHERE id = ?`).get(id) as Record<string, unknown>;
     res.json(updated);
+
+    // After rules (non-blocking)
+    executeAfter(table, 'update', updated).catch(err =>
+      console.error('[RuleEngine] after_update error:', err)
+    );
   } catch (err) {
     res.status(400).json({ error: String(err) });
   }
 });
 
-app.delete('/api/data/:table/:id', (req, res) => {
+app.delete('/api/data/:table/:id', async (req, res) => {
   const { table, id } = req.params;
   if (table.startsWith('_zenku_')) {
     res.status(403).json({ error: '不允許存取系統表' });
@@ -306,6 +352,18 @@ app.delete('/api/data/:table/:id', (req, res) => {
   }
   try {
     const db = getDb();
+
+    // Fetch record before delete (for rule conditions + after trigger)
+    const deletedData = db.prepare(`SELECT * FROM "${table}" WHERE id = ?`).get(id) as Record<string, unknown> | undefined;
+
+    // Before rules
+    if (deletedData) {
+      const beforeResult = executeBefore(table, 'delete', deletedData);
+      if (!beforeResult.allowed) {
+        res.status(400).json({ error: beforeResult.errors.join('；') });
+        return;
+      }
+    }
 
     // 找出所有以 FK 指向此表的其他使用者表，先刪其明細
     const allTables = (db.prepare(
@@ -331,6 +389,13 @@ app.delete('/api/data/:table/:id', (req, res) => {
       throw innerErr;
     }
     res.json({ success: true });
+
+    // After rules (non-blocking)
+    if (deletedData) {
+      executeAfter(table, 'delete', deletedData).catch(err =>
+        console.error('[RuleEngine] after_delete error:', err)
+      );
+    }
   } catch (err) {
     res.status(400).json({ error: String(err) });
   }

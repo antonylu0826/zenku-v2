@@ -24,6 +24,10 @@ export function FormView({ fields, initialValues = {}, mode = 'create', onSubmit
 
   const [values, setValues] = useState<Record<string, unknown>>(() => {
     const init: Record<string, unknown> = {};
+    // 先複製所有 __display 欄位（relation 顯示用）
+    for (const [key, val] of Object.entries(initialValues)) {
+      if (key.endsWith('__display')) init[key] = val;
+    }
     for (const field of visibleFields) {
       init[field.key] = initialValues[field.key] ?? (field.type === 'boolean' ? false : '');
     }
@@ -115,7 +119,7 @@ export function FormView({ fields, initialValues = {}, mode = 'create', onSubmit
             {field.computed ? <span className="ml-1 text-xs text-muted-foreground">（自動計算）</span> : null}
           </Label>
           {isViewMode ? (
-            <ReadonlyValue field={field} value={values[field.key]} />
+            <ReadonlyValue field={field} value={values[field.key]} allValues={values} />
           ) : (
             <FieldInput
               field={field}
@@ -150,7 +154,16 @@ export function FormView({ fields, initialValues = {}, mode = 'create', onSubmit
   );
 }
 
-function ReadonlyValue({ field, value }: { field: FieldDef; value: unknown }) {
+function ReadonlyValue({ field, value, allValues }: { field: FieldDef; value: unknown; allValues: Record<string, unknown> }) {
+  // relation: 優先顯示 __display 值
+  if (field.type === 'relation') {
+    const display = allValues[`${field.key}__display`] ?? value;
+    if (display === null || display === undefined || display === '') {
+      return <p className="py-1 text-sm text-muted-foreground">-</p>;
+    }
+    return <p className="py-1 text-sm">{String(display)}</p>;
+  }
+
   if (value === null || value === undefined || value === '') {
     return <p className="py-1 text-sm text-muted-foreground">-</p>;
   }
@@ -161,6 +174,12 @@ function ReadonlyValue({ field, value }: { field: FieldDef; value: unknown }) {
       const num = Number(value);
       return <p className="py-1 text-sm">{isFinite(num) ? `$${num.toLocaleString('zh-TW', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : String(value)}</p>;
     }
+    case 'phone':
+      return <a href={`tel:${value}`} className="py-1 text-sm text-primary hover:underline">{String(value)}</a>;
+    case 'email':
+      return <a href={`mailto:${value}`} className="py-1 text-sm text-primary hover:underline">{String(value)}</a>;
+    case 'url':
+      return <a href={String(value)} target="_blank" rel="noreferrer" className="py-1 text-sm text-primary hover:underline">{String(value)}</a>;
     default:
       return <p className="py-1 text-sm">{String(value)}</p>;
   }

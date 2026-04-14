@@ -1,8 +1,10 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { getAllSchemas, getAllViews } from './db';
+import { getAllSchemas, getAllViews, getAllRules } from './db';
 import { runSchemaAgent } from './agents/schema-agent';
 import { runUiAgent } from './agents/ui-agent';
 import { runQueryAgent } from './agents/query-agent';
+import { runLogicAgent } from './agents/logic-agent';
+import { runTestAgent } from './agents/test-agent';
 import type { ViewDefinition } from './types';
 
 let _client: Anthropic | null = null;
@@ -268,6 +270,109 @@ const TOOLS: Anthropic.Tool[] = [
       required: ['sql', 'explanation'],
     },
   },
+  {
+    name: 'manage_rules',
+    description: `建立或修改業務規則（自動化流程、驗證）。
+
+規則在 CRUD 操作前後自動執行：
+- before_insert / before_update / before_delete：可攔截、修改資料、驗證
+- after_insert / after_update / after_delete：可觸發副作用（webhook、建記錄）
+
+Action 類型：
+- set_field：設定欄位值（value 可以是公式如 "total * 0.9"）
+- validate：驗證規則（條件成立時拒絕操作，回傳 message）
+- create_record：在另一張表建記錄
+- webhook：呼叫外部 URL
+- notify：記錄通知
+
+Condition operator：eq, neq, gt, lt, gte, lte, contains, changed
+
+Condition field 支援 FK 路徑（跨表條件）：
+- 若要在 order_items 的規則中檢查客戶等級，condition.field 填 "order_id.customer_id.tier"
+- 引擎會自動沿 FK 查詢：order_items.order_id → orders → orders.customer_id → customers → customers.tier`,
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['create_rule', 'update_rule', 'delete_rule', 'list_rules'],
+        },
+        rule_id: { type: 'string', description: 'update_rule / delete_rule 時的規則 ID' },
+        table_name: { type: 'string', description: 'list_rules 時篩選特定表' },
+        rule: {
+          type: 'object',
+          description: '規則定義（create_rule / update_rule 時必填）',
+          properties: {
+            name: { type: 'string', description: '規則名稱（繁體中文）' },
+            description: { type: 'string' },
+            table_name: { type: 'string', description: '作用的表名' },
+            trigger_type: {
+              type: 'string',
+              enum: ['before_insert', 'after_insert', 'before_update', 'after_update', 'before_delete', 'after_delete'],
+            },
+            condition: {
+              type: 'object',
+              description: '觸發條件（不設 = 永遠觸發）。field 支援 FK 路徑：如 order_items 要檢查客戶等級，寫 "order_id.customer_id.tier"（沿 FK 逐層查）',
+              properties: {
+                field: {
+                  type: 'string',
+                  description: '欄位名。可用 FK 點路徑跨表，如 "order_id.customer_id.tier"',
+                },
+                operator: { type: 'string', enum: ['eq', 'neq', 'gt', 'lt', 'gte', 'lte', 'contains', 'changed'] },
+                value: {},
+              },
+              required: ['field', 'operator'],
+            },
+            actions: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  type: { type: 'string', enum: ['set_field', 'validate', 'create_record', 'webhook', 'notify'] },
+                  field: { type: 'string', description: 'set_field 的目標欄位' },
+                  value: { type: 'string', description: 'set_field 的值或公式' },
+                  message: { type: 'string', description: 'validate 的錯誤訊息' },
+                  target_table: { type: 'string', description: 'create_record 的目標表' },
+                  record_data: { type: 'object', description: 'create_record 的欄位對應（欄位名 → 表達式）' },
+                  url: { type: 'string', description: 'webhook URL' },
+                  method: { type: 'string', description: 'webhook HTTP 方法，預設 POST' },
+                  text: { type: 'string', description: 'notify 的文字' },
+                },
+                required: ['type'],
+              },
+            },
+            priority: { type: 'number', description: '優先序（數字越小越先執行），預設 0' },
+          },
+          required: ['name', 'table_name', 'trigger_type', 'actions'],
+        },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'assess_impact',
+    description: `評估破壞性 schema 變更的影響。在執行 drop_column、rename_column、change_type、drop_table 前必須先呼叫此工具。
+回報受影響的介面、規則、資料筆數及外鍵依賴。`,
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        table_name: { type: 'string', description: '要變更的表名' },
+        change_type: {
+          type: 'string',
+          enum: ['drop_column', 'rename_column', 'change_type', 'drop_table'],
+        },
+        details: {
+          type: 'object',
+          properties: {
+            column_name: { type: 'string' },
+            new_name: { type: 'string' },
+            new_type: { type: 'string' },
+          },
+        },
+      },
+      required: ['table_name', 'change_type'],
+    },
+  },
 ];
 
 function buildSystemPrompt(): string {
@@ -290,6 +395,8 @@ function buildSystemPrompt(): string {
 - manage_schema：建立或修改資料表結構
 - manage_ui：建立或更新使用者介面（列表＋表單）
 - query_data：查詢資料、回答統計問題
+- manage_rules：建立或修改業務規則（自動化流程、驗證、觸發器）
+- assess_impact：評估破壞性 schema 變更的影響（變更前必須先呼叫）
 
 重要規則：
 1. 建立新資料類型：先 manage_schema（create_table），再 manage_ui（create_view）
@@ -321,6 +428,17 @@ function buildSystemPrompt(): string {
 2. manage_ui form.fields：加 computed: { formula: 'quantity * unit_price', dependencies: ['quantity', 'unit_price'], format: 'currency' }
 3. manage_ui columns：type 用 currency 或 number
 
+建立業務規則時（如「VIP 客戶打 9 折」）：
+1. manage_rules → create_rule
+2. trigger_type 決定時機：before_insert（寫入前修改/驗證）、after_insert（寫入後觸發副作用）
+3. condition 決定觸發條件：{ field: 'customer_tier', operator: 'eq', value: 'vip' }
+4. actions 決定動作：set_field 修改值、validate 拒絕、create_record 建記錄、webhook 呼叫 URL
+
+破壞性 schema 變更（drop_column, rename_column, change_type, drop_table）：
+1. 必須先呼叫 assess_impact 評估影響
+2. 把影響報告告知使用者
+3. 使用者確認後才執行 manage_schema
+
 欄位類型指引：
 - 金額 → schema: REAL，ui type: currency
 - 電話 → schema: TEXT，ui type: phone
@@ -333,7 +451,15 @@ function buildSystemPrompt(): string {
 ${schemaStr}
 
 目前介面：
-${viewStr}`;
+${viewStr}
+
+目前規則：
+${(() => {
+  const rules = getAllRules();
+  return rules.length > 0
+    ? rules.map(r => `- ${r.name}（${r.trigger_type} on ${r.table_name}）${r.enabled ? '' : '（停用）'}`).join('\n')
+    : '（目前沒有任何規則）';
+})()}`;
 }
 
 export async function* chat(
@@ -385,6 +511,15 @@ export async function* chat(
             );
           } else if (toolName === 'query_data') {
             result = runQueryAgent(toolInput as { sql: string; explanation: string });
+          } else if (toolName === 'manage_rules') {
+            result = runLogicAgent(
+              toolInput as unknown as Parameters<typeof runLogicAgent>[0],
+              userMessage
+            );
+          } else if (toolName === 'assess_impact') {
+            result = runTestAgent(
+              toolInput as unknown as Parameters<typeof runTestAgent>[0]
+            );
           } else {
             result = { success: false, message: `未知工具：${toolName}` };
           }

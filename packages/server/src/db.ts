@@ -34,6 +34,20 @@ function initSystemTables(db: DatabaseSync): void {
       detail TEXT,
       user_request TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS _zenku_rules (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      table_name TEXT NOT NULL,
+      trigger_type TEXT NOT NULL,
+      condition TEXT,
+      actions TEXT NOT NULL,
+      priority INTEGER DEFAULT 0,
+      enabled INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 }
 
@@ -73,6 +87,39 @@ export function getAllViews() {
     created_at: string;
     updated_at: string;
   }[];
+}
+
+// ===== Rules =====
+
+export interface RuleRow {
+  id: string;
+  name: string;
+  description: string | null;
+  table_name: string;
+  trigger_type: string;
+  condition: string | null;
+  actions: string;
+  priority: number;
+  enabled: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export function getRulesForTable(tableName: string, triggerType?: string): RuleRow[] {
+  const db = getDb();
+  if (triggerType) {
+    return db.prepare(
+      'SELECT * FROM _zenku_rules WHERE table_name = ? AND trigger_type = ? AND enabled = 1 ORDER BY priority ASC'
+    ).all(tableName, triggerType) as unknown as RuleRow[];
+  }
+  return db.prepare(
+    'SELECT * FROM _zenku_rules WHERE table_name = ? AND enabled = 1 ORDER BY priority ASC'
+  ).all(tableName) as unknown as RuleRow[];
+}
+
+export function getAllRules(): RuleRow[] {
+  const db = getDb();
+  return db.prepare('SELECT * FROM _zenku_rules ORDER BY table_name, priority ASC').all() as unknown as RuleRow[];
 }
 
 export function logChange(agent: string, action: string, detail: unknown, userRequest: string): void {

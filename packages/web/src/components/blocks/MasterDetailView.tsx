@@ -71,6 +71,7 @@ export function MasterDetailView({ view, recordId }: Props) {
           <p className="text-sm text-muted-foreground">載入中...</p>
         ) : record ? (
           <FormView
+            key={JSON.stringify(record)}
             fields={view.form.fields}
             initialValues={record}
             mode="view"
