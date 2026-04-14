@@ -91,14 +91,26 @@ export async function runQuery(sql: string): Promise<Record<string, unknown>[]> 
   return parseJsonOrThrow<Record<string, unknown>[]>(res);
 }
 
+export interface AIProviderInfo {
+  name: string;
+  models: string[];
+  default_model: string;
+}
+
+export async function getAIProviders(): Promise<AIProviderInfo[]> {
+  const res = await fetch(`${BASE}/ai/providers`, { headers: authHeaders() });
+  return parseJsonOrThrow<AIProviderInfo[]>(res);
+}
+
 export async function* sendChat(
   message: string,
-  history: { role: 'user' | 'assistant'; content: string }[]
+  history: { role: 'user' | 'assistant'; content: string }[],
+  options?: { provider?: string; model?: string }
 ): AsyncGenerator<SSEChunk> {
   const res = await fetch(`${BASE}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    body: JSON.stringify({ message, history }),
+    body: JSON.stringify({ message, history, provider: options?.provider, model: options?.model }),
   });
 
   if (!res.body) throw new Error('No response body');

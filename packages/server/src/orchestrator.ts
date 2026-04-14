@@ -1,4 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { getAllSchemas, getAllViews, getAllRules } from './db';
 import { runSchemaAgent } from './agents/schema-agent';
 import { runUiAgent } from './agents/ui-agent';
@@ -6,13 +5,9 @@ import { runQueryAgent } from './agents/query-agent';
 import { runLogicAgent } from './agents/logic-agent';
 import { runTestAgent } from './agents/test-agent';
 import { undoLast, undoById, undoSince, buildJournalContext } from './tools/journal-tools';
-import type { ViewDefinition } from './types';
-
-let _client: Anthropic | null = null;
-function getClient(): Anthropic {
-  if (!_client) _client = new Anthropic();
-  return _client;
-}
+import { createProvider, getDefaultProviderName, getDefaultModel } from './ai';
+import type { ToolDefinition } from './ai';
+import type { ViewDefinition, LLMMessage, ToolResult, AIProvider as AIProviderName } from './types';
 
 // ===== Column definition (shared between create_table and alter_table) =====
 
@@ -106,7 +101,7 @@ const FORM_FIELD_SCHEMA = {
   required: ['key', 'label', 'type'],
 };
 
-const TOOLS: Anthropic.Tool[] = [
+const TOOLS: ToolDefinition[] = [
   {
     name: 'manage_schema',
     description: `建立或修改資料表結構。
@@ -548,112 +543,131 @@ ${(() => {
 ${buildJournalContext()}`;
 }
 
+// ===== Tool dispatch =====
+
 type UserRole = 'admin' | 'builder' | 'user';
 
-function getToolsForRole(role: UserRole): Anthropic.Tool[] {
+function getToolsForRole(role: UserRole): ToolDefinition[] {
   if (role === 'user') {
-    // user 只能查詢，不能修改結構、介面、規則
     return TOOLS.filter(t => t.name === 'query_data');
   }
   if (role === 'builder') {
-    // builder 不能 undo
     return TOOLS.filter(t => t.name !== 'undo_action');
   }
-  return TOOLS; // admin 全部
+  return TOOLS;
+}
+
+function executeTool(
+  toolName: string,
+  toolInput: Record<string, unknown>,
+  userMessage: string
+): { success: boolean; message: string; data?: unknown } {
+  if (toolName === 'manage_schema') {
+    return runSchemaAgent(toolInput as unknown as Parameters<typeof runSchemaAgent>[0], userMessage);
+  } else if (toolName === 'manage_ui') {
+    return runUiAgent(
+      toolInput as { action: 'create_view' | 'update_view'; view: ViewDefinition },
+      userMessage
+    );
+  } else if (toolName === 'query_data') {
+    return runQueryAgent(toolInput as { sql: string; explanation: string });
+  } else if (toolName === 'manage_rules') {
+    return runLogicAgent(
+      toolInput as unknown as Parameters<typeof runLogicAgent>[0],
+      userMessage
+    );
+  } else if (toolName === 'assess_impact') {
+    return runTestAgent(
+      toolInput as unknown as Parameters<typeof runTestAgent>[0]
+    );
+  } else if (toolName === 'undo_action') {
+    const { target, journal_id, since } = toolInput as { target: string; journal_id?: number; since?: string };
+    if (target === 'last') return undoLast(userMessage);
+    if (target === 'by_id' && journal_id != null) return undoById(journal_id, userMessage);
+    if (target === 'by_time' && since) return undoSince(since, userMessage);
+    return { success: false, message: '無效的 undo 參數' };
+  } else {
+    return { success: false, message: `未知工具：${toolName}` };
+  }
+}
+
+// ===== Main chat loop =====
+
+export interface ChatOptions {
+  provider?: AIProviderName;
+  model?: string;
 }
 
 export async function* chat(
   userMessage: string,
   history: { role: 'user' | 'assistant'; content: string }[],
-  userRole: UserRole = 'admin'
+  userRole: UserRole = 'admin',
+  options?: ChatOptions
 ): AsyncGenerator<string> {
-  const messages: Anthropic.MessageParam[] = [
+  const providerName = options?.provider ?? getDefaultProviderName();
+  const model = options?.model ?? getDefaultModel(providerName);
+  const provider = createProvider(providerName);
+  const tools = getToolsForRole(userRole);
+
+  // Build initial messages from history
+  const currentMessages: LLMMessage[] = [
     ...history.map(h => ({ role: h.role as 'user' | 'assistant', content: h.content })),
-    { role: 'user', content: userMessage },
+    { role: 'user' as const, content: userMessage },
   ];
 
   let continueLoop = true;
-  const currentMessages = [...messages];
 
   while (continueLoop) {
-    const response = await getClient().messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 4096,
+    const response = await provider.chat({
+      model,
       system: buildSystemPrompt(),
-      tools: getToolsForRole(userRole),
       messages: currentMessages,
+      tools,
+      maxTokens: 4096,
     });
 
-    for (const block of response.content) {
-      if (block.type === 'text' && block.text) {
-        yield JSON.stringify({ type: 'text', content: block.text }) + '\n';
-      }
+    // Yield text content
+    if (response.content) {
+      yield JSON.stringify({ type: 'text', content: response.content }) + '\n';
     }
 
-    if (response.stop_reason === 'tool_use') {
-      const toolResults: Anthropic.ToolResultBlockParam[] = [];
+    if (response.stop_reason === 'tool_use' && response.tool_calls.length > 0) {
+      const toolResults: ToolResult[] = [];
 
-      for (const block of response.content) {
-        if (block.type !== 'tool_use') continue;
-
-        const toolName = block.name;
-        const toolInput = block.input as Record<string, unknown>;
-
-        yield JSON.stringify({ type: 'tool_start', tool: toolName }) + '\n';
+      for (const tc of response.tool_calls) {
+        yield JSON.stringify({ type: 'tool_start', tool: tc.name }) + '\n';
 
         let result;
         try {
-          if (toolName === 'manage_schema') {
-            result = runSchemaAgent(toolInput as unknown as Parameters<typeof runSchemaAgent>[0], userMessage);
-          } else if (toolName === 'manage_ui') {
-            result = runUiAgent(
-              toolInput as { action: 'create_view' | 'update_view'; view: ViewDefinition },
-              userMessage
-            );
-          } else if (toolName === 'query_data') {
-            result = runQueryAgent(toolInput as { sql: string; explanation: string });
-          } else if (toolName === 'manage_rules') {
-            result = runLogicAgent(
-              toolInput as unknown as Parameters<typeof runLogicAgent>[0],
-              userMessage
-            );
-          } else if (toolName === 'assess_impact') {
-            result = runTestAgent(
-              toolInput as unknown as Parameters<typeof runTestAgent>[0]
-            );
-          } else if (toolName === 'undo_action') {
-            const { target, journal_id, since } = toolInput as { target: string; journal_id?: number; since?: string };
-            if (target === 'last') {
-              result = undoLast(userMessage);
-            } else if (target === 'by_id' && journal_id != null) {
-              result = undoById(journal_id, userMessage);
-            } else if (target === 'by_time' && since) {
-              result = undoSince(since, userMessage);
-            } else {
-              result = { success: false, message: '無效的 undo 參數' };
-            }
-          } else {
-            result = { success: false, message: `未知工具：${toolName}` };
-          }
+          result = executeTool(tc.name, tc.input, userMessage);
         } catch (err) {
           result = { success: false, message: String(err) };
         }
 
-        yield JSON.stringify({ type: 'tool_result', tool: toolName, result }) + '\n';
+        yield JSON.stringify({ type: 'tool_result', tool: tc.name, result }) + '\n';
 
         toolResults.push({
-          type: 'tool_result',
-          tool_use_id: block.id,
+          tool_use_id: tc.id,
           content: JSON.stringify(result),
         });
       }
 
-      currentMessages.push({ role: 'assistant', content: response.content });
-      currentMessages.push({ role: 'user', content: toolResults });
+      // Append assistant response + tool results to the conversation
+      currentMessages.push({
+        role: 'assistant',
+        content: response.content,
+        tool_calls: response.tool_calls,
+      });
+      currentMessages.push({
+        role: 'user',
+        content: '',
+        tool_results: toolResults,
+      });
     } else {
       continueLoop = false;
     }
   }
 
-  yield JSON.stringify({ type: 'done' }) + '\n';
+  // Yield usage info so the frontend can display it
+  yield JSON.stringify({ type: 'done', provider: providerName, model }) + '\n';
 }

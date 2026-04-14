@@ -40,6 +40,7 @@ function getRelationColumns(tableName: string): RelationColumnDef[] {
   }
 }
 import { chat } from './orchestrator';
+import { getAvailableProviders } from './ai';
 import {
   requireAuth, requireAdmin,
   registerHandler, loginHandler, meHandler, logoutHandler, statusHandler,
@@ -59,6 +60,13 @@ app.post('/api/auth/register', (req, res) => { void registerHandler(req, res); }
 app.post('/api/auth/login', (req, res) => { void loginHandler(req, res); });
 app.get('/api/auth/me', requireAuth, meHandler);
 app.post('/api/auth/logout', requireAuth, logoutHandler);
+
+// ──────────────────────────────────────────────
+// AI providers
+// ──────────────────────────────────────────────
+app.get('/api/ai/providers', requireAuth, (_req, res) => {
+  res.json(getAvailableProviders());
+});
 
 // ──────────────────────────────────────────────
 // Admin endpoints
@@ -85,9 +93,11 @@ app.put('/api/admin/users/:id/role', requireAdmin, (req, res) => {
 // Chat endpoint (SSE)
 // ──────────────────────────────────────────────
 app.post('/api/chat', requireAuth, async (req, res) => {
-  const { message, history = [] } = req.body as {
+  const { message, history = [], provider, model } = req.body as {
     message: string;
     history: { role: 'user' | 'assistant'; content: string }[];
+    provider?: string;
+    model?: string;
   };
 
   if (!message) {
@@ -101,7 +111,10 @@ app.post('/api/chat', requireAuth, async (req, res) => {
 
   try {
     const role = req.user!.role;
-    for await (const chunk of chat(message, history, role)) {
+    const aiOptions = provider || model
+      ? { provider: provider as 'claude' | 'openai' | 'gemini' | undefined, model }
+      : undefined;
+    for await (const chunk of chat(message, history, role, aiOptions)) {
       res.write(`data: ${chunk}\n`);
     }
   } catch (err) {

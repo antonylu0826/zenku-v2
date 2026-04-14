@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Wrench, CheckCircle, XCircle } from 'lucide-react';
-import { sendChat } from '../api';
+import { Send, Loader2, Wrench, CheckCircle, XCircle, ChevronDown } from 'lucide-react';
+import { sendChat, getAIProviders, type AIProviderInfo } from '../api';
 import type { ChatMessage, SSEChunk, ToolEvent } from '../types';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
@@ -23,6 +23,21 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // AI provider/model state
+  const [providers, setProviders] = useState<AIProviderInfo[]>([]);
+  const [selectedProvider, setSelectedProvider] = useState('');
+  const [selectedModel, setSelectedModel] = useState('');
+
+  useEffect(() => {
+    getAIProviders().then(list => {
+      setProviders(list);
+      if (list.length > 0 && !selectedProvider) {
+        setSelectedProvider(list[0].name);
+        setSelectedModel(list[0].default_model);
+      }
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -56,7 +71,8 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
     let hasViewChange = false;
 
     try {
-      for await (const chunk of sendChat(text, history)) {
+      const aiOptions = selectedProvider ? { provider: selectedProvider, model: selectedModel } : undefined;
+      for await (const chunk of sendChat(text, history, aiOptions)) {
         const c = chunk as SSEChunk;
 
         if (c.type === 'text') {
@@ -126,6 +142,19 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
       </div>
 
       <div className="border-t px-4 py-3">
+        {providers.length > 1 && (
+          <ProviderSelector
+            providers={providers}
+            selectedProvider={selectedProvider}
+            selectedModel={selectedModel}
+            onProviderChange={(p) => {
+              setSelectedProvider(p);
+              const info = providers.find(x => x.name === p);
+              if (info) setSelectedModel(info.default_model);
+            }}
+            onModelChange={setSelectedModel}
+          />
+        )}
         <div className="flex gap-2">
           <Textarea
             className="min-h-[74px] flex-1 resize-none"
@@ -190,6 +219,61 @@ function MessageBubble({ message }: { message: ChatMessage }) {
     </div>
   );
 }
+
+// ===== Provider selector =====
+
+const PROVIDER_LABELS: Record<string, string> = {
+  claude: 'Claude',
+  openai: 'OpenAI',
+  gemini: 'Gemini',
+};
+
+function ProviderSelector({
+  providers,
+  selectedProvider,
+  selectedModel,
+  onProviderChange,
+  onModelChange,
+}: {
+  providers: AIProviderInfo[];
+  selectedProvider: string;
+  selectedModel: string;
+  onProviderChange: (p: string) => void;
+  onModelChange: (m: string) => void;
+}) {
+  const currentModels = providers.find(p => p.name === selectedProvider)?.models ?? [];
+
+  return (
+    <div className="mb-2 flex items-center gap-2">
+      <div className="relative">
+        <select
+          value={selectedProvider}
+          onChange={e => onProviderChange(e.target.value)}
+          className="appearance-none rounded border bg-background py-1 pl-2 pr-6 text-xs font-medium outline-none focus:ring-1 focus:ring-primary"
+        >
+          {providers.map(p => (
+            <option key={p.name} value={p.name}>{PROVIDER_LABELS[p.name] ?? p.name}</option>
+          ))}
+        </select>
+        <ChevronDown size={10} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+      </div>
+      <div className="relative">
+        <select
+          value={selectedModel}
+          onChange={e => onModelChange(e.target.value)}
+          className="appearance-none rounded border bg-background py-1 pl-2 pr-6 text-xs outline-none focus:ring-1 focus:ring-primary"
+        >
+          {currentModels.map(m => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
+        <ChevronDown size={10} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+      </div>
+    </div>
+  );
+}
+
+// ===== Tool event badges =====
 
 const TOOL_LABELS: Record<string, string> = {
   manage_schema: '資料結構',
