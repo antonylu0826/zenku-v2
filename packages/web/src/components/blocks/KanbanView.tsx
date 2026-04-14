@@ -116,7 +116,7 @@ export function KanbanView({ view }: Props) {
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="flex h-full gap-3 overflow-x-auto p-4">
+      <div className="flex h-full items-start gap-3 overflow-auto p-4">
         {allGroups.map(group => (
           <KanbanColumn
             key={group}
@@ -152,7 +152,7 @@ function KanbanColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`flex w-64 shrink-0 flex-col rounded-lg border bg-muted/40 transition-colors ${
+      className={`w-64 shrink-0 rounded-lg border bg-muted/40 transition-colors ${
         isOver ? 'border-primary/50 bg-primary/5' : ''
       }`}
     >
@@ -163,7 +163,7 @@ function KanbanColumn({
       </div>
 
       {/* Cards */}
-      <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-2">
+      <div className="space-y-2 p-2">
         {rows.map(row => (
           <KanbanCard
             key={String(row.id)}
