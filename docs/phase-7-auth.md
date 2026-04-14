@@ -307,9 +307,34 @@ web/src/components/admin/UserManagement.tsx
 
 ## 驗收標準
 
-- [ ] 第一個使用者自動成為 admin
-- [ ] 登入 / 註冊流程正常
-- [ ] user 角色無法修改結構（AI 回覆「權限不足」）
-- [ ] user 角色只能看到自己建立的資料
-- [ ] admin 可以管理使用者角色
-- [ ] 登出後需要重新登入
+- [x] 第一個使用者自動成為 admin
+- [x] 登入 / 註冊流程正常
+- [x] user 角色無法修改結構（AI 工具被過濾，只剩 query_data）
+- [ ] user 角色只能看到自己建立的資料（RLS，尚未實作）
+- [x] admin 可以管理使用者角色
+- [x] 登出後需要重新登入
+
+---
+
+## 實作紀錄（2026-04-14）
+
+### 已完成
+
+**Server：**
+- `db.ts`：新增 `_zenku_users`、`_zenku_sessions` 系統表；`getUserCount()` helper
+- `middleware/auth.ts`：DB session token（UUID，30 天到期）；`requireAuth` / `requireAdmin`；register（第一位自動 admin）/ login / me / logout / status handlers
+- `index.ts`：掛載 `/api/auth/*` 和 `/api/admin/*`；所有 CRUD 端點加 `requireAuth`；user role 傳入 `chat()`
+- `orchestrator.ts`：`getToolsForRole()` 依角色過濾工具（admin 全部 / builder 不含 undo / user 只有 query_data）
+
+**Web：**
+- `contexts/AuthContext.tsx`：AuthProvider + useAuth hook
+- `components/auth/LoginPage.tsx`：登入 + 註冊表單，初次使用顯示「建立管理員帳號」
+- `components/auth/UserMenu.tsx`：側欄底部頭像 + 下拉（登出、使用者管理）
+- `components/admin/UserManagement.tsx`：管理員模態視窗，列出所有用戶可改角色
+- `api.ts`：所有請求自動帶 `Authorization: Bearer <token>` header
+- `App.tsx`：AuthProvider 包裹，fallback 顯示 LoginPage
+
+### 待完成
+
+- [ ] Row-Level Security（RLS）：user 只能看自己建立的資料（需在資料表加 `created_by`）
+- [ ] 多租戶（未來選項）
