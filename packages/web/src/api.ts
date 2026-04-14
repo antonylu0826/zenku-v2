@@ -8,6 +8,8 @@ export interface TableQuery {
   sort?: string;
   order?: 'asc' | 'desc';
   search?: string;
+  /** Filter by specific field values: { field_name: value } */
+  filters?: Record<string, string | number>;
 }
 
 export interface TableQueryResult {
@@ -37,9 +39,19 @@ export async function getTableData(table: string, query: TableQuery): Promise<Ta
   if (query.sort) params.set('sort', query.sort);
   if (query.order) params.set('order', query.order);
   if (query.search) params.set('search', query.search);
+  if (query.filters) {
+    for (const [key, value] of Object.entries(query.filters)) {
+      params.set(`filter[${key}]`, String(value));
+    }
+  }
 
   const res = await fetch(`${BASE}/data/${table}?${params.toString()}`);
   return parseJsonOrThrow<TableQueryResult>(res);
+}
+
+export async function getRecord(table: string, id: string | number): Promise<Record<string, unknown>> {
+  const res = await fetch(`${BASE}/data/${table}/${id}`);
+  return parseJsonOrThrow<Record<string, unknown>>(res);
 }
 
 export async function createRow(table: string, data: Record<string, unknown>): Promise<Record<string, unknown>> {

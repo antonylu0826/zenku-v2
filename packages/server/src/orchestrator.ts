@@ -177,7 +177,7 @@ const TOOLS: Anthropic.Tool[] = [
             id: { type: 'string', description: '唯一 ID，通常等於 table_name' },
             name: { type: 'string', description: '顯示名稱（繁體中文）' },
             table_name: { type: 'string' },
-            type: { type: 'string', enum: ['table'] },
+            type: { type: 'string', enum: ['table', 'master-detail'] },
             columns: {
               type: 'array',
               description: '列表欄位定義',
@@ -223,6 +223,33 @@ const TOOLS: Anthropic.Tool[] = [
               items: { type: 'string', enum: ['create', 'edit', 'delete'] },
             },
           },
+          detail_views: {
+              type: 'array',
+              description: 'master-detail 型別時的明細定義',
+              items: {
+                type: 'object',
+                properties: {
+                  table_name: { type: 'string', description: '明細表名' },
+                  foreign_key: { type: 'string', description: '明細表中指向主表的外鍵欄位名' },
+                  tab_label: { type: 'string', description: 'Tab 標籤名（繁體中文）' },
+                  view: {
+                    type: 'object',
+                    description: '明細的 view 定義（type 必須是 table）',
+                    properties: {
+                      id: { type: 'string' },
+                      name: { type: 'string' },
+                      table_name: { type: 'string' },
+                      type: { type: 'string', enum: ['table'] },
+                      columns: { type: 'array', items: { type: 'object' } },
+                      form: { type: 'object' },
+                      actions: { type: 'array', items: { type: 'string' } },
+                    },
+                    required: ['id', 'name', 'table_name', 'type', 'columns', 'form', 'actions'],
+                  },
+                },
+                required: ['table_name', 'foreign_key', 'tab_label', 'view'],
+              },
+            },
           required: ['id', 'name', 'table_name', 'type', 'columns', 'form', 'actions'],
         },
       },
@@ -280,6 +307,14 @@ function buildSystemPrompt(): string {
 建立動態下拉時（如「分類從分類表載入」）：
 1. 確保來源表已存在
 2. form.fields：type 用 select，加上 source: { table: 'categories', value_field: 'name', display_field: 'name' }
+
+建立一對多關係（如「訂單 + 訂單明細」）時：
+1. manage_schema → 建主表（如 orders）
+2. manage_schema → 建明細表（如 order_items），含外鍵：INTEGER + references: { table: 'orders' }
+3. manage_ui → 建 master-detail view，type: 'master-detail'，detail_views 定義明細
+   - detail_views[0].foreign_key：明細表中指向主表的欄位名（如 'order_id'）
+   - detail_views[0].view.type 必須是 'table'
+   - 明細的 form.fields 不需包含外鍵欄位（系統自動注入）
 
 建立計算欄位時（如「小計 = 數量 × 單價」）：
 1. manage_schema：欄位用 REAL

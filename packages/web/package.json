@@ -15,6 +15,7 @@
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-separator": "^1.1.8",
     "@radix-ui/react-slot": "^1.2.4",
+    "@radix-ui/react-tabs": "^1.1.13",
     "@tanstack/react-table": "^8.21.3",
     "@zenku/shared": "*",
     "class-variance-authority": "^0.7.1",
@@ -23,6 +24,7 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-resizable-panels": "^4.10.0",
+    "react-router-dom": "^7.14.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0"
   },

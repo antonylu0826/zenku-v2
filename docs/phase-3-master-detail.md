@@ -2,7 +2,7 @@
 
 > **目標：** 支援「訂單 + 訂單明細」、「採購單 + 採購明細」等一對多場景。
 > **依賴：** Phase 2（關聯欄位、計算欄位）
-> **建議模型：Sonnet**（UI 密集，模式清晰）
+> **狀態：✅ 完成**
 
 ---
 
@@ -34,7 +34,6 @@
 ## View Schema 擴充
 
 ```typescript
-// @zenku/shared/types/view.ts 已定義
 interface ViewDefinition {
   type: 'table' | 'master-detail';  // 新增 master-detail
 
@@ -50,226 +49,80 @@ interface DetailViewDef {
 }
 ```
 
-### AI 生成範例
+---
+
+## 新增流程（草稿明細模式）
+
+點「新增」不開 Dialog，而是跳到全頁面 `/view/:viewId/new`：
 
 ```
-使用者：「建立訂單管理，每張訂單有多筆明細，明細包含產品、數量、單價」
-
-Orchestrator 呼叫：
-1. manage_schema → 建 orders 表
-2. manage_schema → 建 order_items 表（含 order_id REFERENCES orders）
-3. manage_ui → 建 master-detail view：
-
-{
-  id: 'orders',
-  name: '訂單管理',
-  table_name: 'orders',
-  type: 'master-detail',
-  columns: [...],
-  form: { fields: [...] },
-  actions: ['create', 'edit', 'delete'],
-  detail_views: [{
-    table_name: 'order_items',
-    foreign_key: 'order_id',
-    tab_label: '訂單明細',
-    view: {
-      id: 'order_items',
-      name: '訂單明細',
-      table_name: 'order_items',
-      type: 'table',
-      columns: [
-        { key: 'product_name', label: '品名', type: 'text' },
-        { key: 'quantity', label: '數量', type: 'number' },
-        { key: 'unit_price', label: '單價', type: 'currency' },
-        { key: 'subtotal', label: '小計', type: 'currency' }
-      ],
-      form: { fields: [
-        { key: 'product_name', label: '品名', type: 'text', required: true },
-        { key: 'quantity', label: '數量', type: 'number', required: true },
-        { key: 'unit_price', label: '單價', type: 'currency', required: true },
-        { key: 'subtotal', label: '小計', type: 'currency',
-          computed: { formula: 'quantity * unit_price', dependencies: ['quantity', 'unit_price'] },
-          hidden_in_form: false
-        }
-      ]},
-      actions: ['create', 'edit', 'delete']
-    }
-  }]
-}
+┌─ MasterDetailCreateView ────────────────────────┐
+│  主檔資料                                         │
+│  ┌─────────────────────────────────────────────┐ │
+│  │  客戶: [...]   日期: [...]   備註: [...]     │ │
+│  └─────────────────────────────────────────────┘ │
+│                                                   │
+│  訂單明細                          [+ 新增明細]   │
+│  ┌─────────────────────────────────────────────┐ │
+│  │  品名   數量  單價  小計   [待寫入]  [刪]   │ │  ← amber 底色
+│  └─────────────────────────────────────────────┘ │
+│                                                   │
+│  主檔與所有待寫入明細將一併儲存     [取消] [全部儲存] │
+└───────────────────────────────────────────────────┘
 ```
+
+**儲存邏輯：**
+1. POST 主表 → 取得 master id
+2. 批次 POST 所有草稿明細（自動注入 FK）
+3. 跳至 `/view/:viewId/:masterId`
 
 ---
 
 ## 前端路由
 
-### 新增依賴
-
-```bash
-npm install react-router-dom
-```
-
-### 路由設計
-
 ```tsx
-// App.tsx
 <Routes>
   <Route path="/" element={<AppShell />}>
     <Route path="view/:viewId" element={<AppArea />} />
-    <Route path="view/:viewId/:recordId" element={<AppArea />} />  {/* master-detail */}
+    <Route path="view/:viewId/:recordId" element={<AppArea />} />
+    {/* recordId === 'new' → MasterDetailCreateView */}
+    {/* recordId === '123' → MasterDetailView       */}
   </Route>
 </Routes>
 ```
 
 | URL | 行為 |
 |-----|------|
-| `/view/orders` | 訂單列表（TableView） |
+| `/view/orders` | 訂單列表（TableView，點列進入詳情） |
+| `/view/orders/new` | 新增訂單（主檔 + 草稿明細，一鍵儲存） |
 | `/view/orders/3` | 訂單 #3 的 master-detail view |
-| `/view/orders/new` | 新增訂單表單 |
-
-### Sidebar 連結
-
-```tsx
-// Sidebar.tsx — 點擊時 navigate 到 /view/:viewId
-<Link to={`/view/${view.id}`}>{view.name}</Link>
-```
-
-### TableView 行點擊
-
-```tsx
-// 如果 view.type === 'master-detail'，行點擊進入詳情
-// 如果 view.type === 'table'，行點擊打開編輯 dialog（現有行為）
-onClick={() => {
-  if (view.type === 'master-detail') {
-    navigate(`/view/${view.id}/${row.id}`);
-  } else {
-    setEditingRow(row);
-  }
-}}
-```
 
 ---
 
-## MasterDetailView 元件
+## 架構說明
 
-```
-components/blocks/MasterDetailView.tsx
-```
-
-### 架構
+### ViewsContext
 
 ```tsx
-function MasterDetailView({ view, recordId }: Props) {
-  const [record, setRecord] = useState(null);
-  const [activeTab, setActiveTab] = useState(0);
-
-  // 讀取主檔
-  useEffect(() => {
-    fetchRecord(view.table_name, recordId).then(setRecord);
-  }, [recordId]);
-
-  return (
-    <div className="flex flex-col h-full">
-      {/* 上半：主檔表單（唯讀模式，可切換編輯） */}
-      <div className="border-b p-6">
-        <FormView
-          fields={view.form.fields}
-          initialValues={record}
-          mode="view"                    // 新增 view/edit mode
-          onSave={handleUpdateMaster}
-        />
-      </div>
-
-      {/* 下半：明細 Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          {view.detail_views?.map((dv, i) => (
-            <TabsTrigger key={i} value={i}>{dv.tab_label}</TabsTrigger>
-          ))}
-        </TabsList>
-
-        {view.detail_views?.map((dv, i) => (
-          <TabsContent key={i} value={i}>
-            <DetailTable
-              view={dv.view}
-              foreignKey={dv.foreign_key}
-              masterRecordId={recordId}
-            />
-          </TabsContent>
-        ))}
-      </Tabs>
-    </div>
-  );
-}
+// src/contexts/ViewsContext.tsx
+// 全域 views 狀態，取代 prop drilling
+const { views, fetchViews } = useViews();
 ```
 
-### DetailTable 元件
+AppShell、Sidebar、AppArea 均從 context 讀取，無需逐層傳 props。
+
+### AppShell
+
+- 使用 `<Outlet />` 渲染中間面板（react-router-dom nested routes）
+- `useParams` 取得 viewId，從 context 查詢 viewName 顯示 breadcrumb
+- Sidebar 改用 `NavLink`（active 狀態自動追蹤）
+
+### FormView mode
 
 ```tsx
-// 就是 TableView，但自動篩選 + 新增時帶入 foreign key
-function DetailTable({ view, foreignKey, masterRecordId }: Props) {
-  // GET /api/data/order_items?filter[order_id]=3
-  const rows = useTableData(view.table_name, { [foreignKey]: masterRecordId });
-
-  return (
-    <TableView
-      view={view}
-      rows={rows}
-      onCreate={data => createRow(view.table_name, { ...data, [foreignKey]: masterRecordId })}
-      // ...
-    />
-  );
-}
-```
-
----
-
-## 後端 API 調整
-
-### 篩選支援
-
-```typescript
-// GET /api/data/:table?filter[order_id]=3
-app.get('/api/data/:table', (req, res) => {
-  // 解析 filter 參數
-  const filters: Record<string, string> = {};
-  for (const [key, value] of Object.entries(req.query)) {
-    const match = key.match(/^filter\[(\w+)\]$/);
-    if (match) filters[match[1]] = value as string;
-  }
-
-  let where = '';
-  const whereValues: unknown[] = [];
-  if (Object.keys(filters).length > 0) {
-    const clauses = Object.entries(filters).map(([k, v]) => {
-      whereValues.push(v);
-      return `"${k}" = ?`;
-    });
-    where = 'WHERE ' + clauses.join(' AND ');
-  }
-  // ... 接分頁排序
-});
-```
-
-### 主檔總金額自動計算
-
-```
-觸發時機：明細表 INSERT/UPDATE/DELETE 後
-方式一（Phase 4 Logic Agent）：建 rule
-方式二（簡易版）：後端 middleware 在 order_items 變動後，
-  UPDATE orders SET total = (SELECT SUM(subtotal) FROM order_items WHERE order_id = ?)
-```
-
----
-
-## FormView 擴充：view/edit 模式
-
-```tsx
-interface FormViewProps {
-  mode?: 'create' | 'edit' | 'view';  // 新增 'view' 模式
-}
-
-// view 模式：欄位全部唯讀，右上角有「編輯」按鈕
-// 點編輯切換為 edit 模式
+<FormView mode="view"  />  // 唯讀 + 右上角「編輯」按鈕
+<FormView mode="edit"  />  // 可編輯
+<FormView mode="create" /> // 預設
 ```
 
 ---
@@ -278,8 +131,42 @@ interface FormViewProps {
 
 | 檔案 | 用途 |
 |------|------|
-| `components/blocks/MasterDetailView.tsx` | 主檔+明細元件 |
-| `hooks/useTableData.ts` | 通用資料取得 hook（含篩選） |
+| `src/contexts/ViewsContext.tsx` | 全域 views 狀態 |
+| `src/components/ui/tabs.tsx` | Radix Tabs 元件 |
+| `src/components/blocks/MasterDetailView.tsx` | 已存主檔詳情（view/edit + 明細 tabs） |
+| `src/components/blocks/MasterDetailCreateView.tsx` | 新增主檔（含草稿明細） |
+
+---
+
+## 後端 API 調整
+
+### 篩選支援
+
+```
+GET /api/data/:table?filter[order_id]=3
+```
+
+明細表按外鍵篩選，對應 `DetailTable` 的資料載入。
+
+### 單筆查詢
+
+```
+GET /api/data/:table/:id
+```
+
+MasterDetailView 讀取主檔用。
+
+### Cascade Delete
+
+刪除主檔時，server 自動查詢 `PRAGMA foreign_key_list` 找到所有子表，
+在同一 transaction 內先刪明細再刪主檔。
+
+```typescript
+// 自動 cascade，不需前端額外處理
+DELETE /api/data/orders/3
+// → 先刪 order_items WHERE order_id = 3
+// → 再刪 orders WHERE id = 3
+```
 
 ---
 
@@ -287,18 +174,23 @@ interface FormViewProps {
 
 ```
 建立一對多關係時：
-1. 先建主表（如 orders）
-2. 再建明細表（如 order_items），明細表需包含指向主表的外鍵（如 order_id INTEGER REFERENCES orders(id)）
-3. UI 使用 type: 'master-detail'，並在 detail_views 定義明細的 view
+1. manage_schema → 建主表（如 orders）
+2. manage_schema → 建明細表（如 order_items），含外鍵 INTEGER + references: { table: 'orders' }
+3. manage_ui → type: 'master-detail'，detail_views 定義明細
+   - detail_views[0].foreign_key：明細表中指向主表的欄位名
+   - detail_views[0].view.type 必須是 'table'
 ```
 
 ---
 
-## 驗收標準
+## 驗收結果
 
-- [ ] 「訂單有明細」→ AI 自動建兩張表 + master-detail view
-- [ ] 訂單列表點擊 → 進入 master-detail 畫面
-- [ ] 上半部顯示主檔資訊（可編輯）
-- [ ] 下半部 Tab 顯示明細列表（可新增/編輯/刪除）
-- [ ] 新增明細時自動帶入 order_id
-- [ ] 返回列表（上一頁）
+- [x] 「訂單有明細」→ AI 自動建兩張表 + master-detail view
+- [x] 新增訂單時可同步加入草稿明細（待寫入標示）
+- [x] 全部儲存：主檔 + 明細一次寫入
+- [x] 訂單列表點擊 → 進入 master-detail 畫面
+- [x] 上半部顯示主檔資訊（view/edit 模式切換）
+- [x] 下半部 Tab 顯示明細列表（可新增/編輯/刪除）
+- [x] 新增明細時自動帶入 FK（order_id）
+- [x] 刪除主檔自動 cascade 刪明細
+- [x] 返回列表（上一頁）

@@ -132,6 +132,26 @@ app.get('/api/data/:table/options', (req, res) => {
   }
 });
 
+// GET single record by id
+app.get('/api/data/:table/:id', (req, res) => {
+  const { table, id } = req.params;
+  if (table.startsWith('_zenku_')) {
+    res.status(403).json({ error: '不允許存取系統表' });
+    return;
+  }
+  try {
+    const db = getDb();
+    const row = db.prepare(`SELECT * FROM "${table}" WHERE id = ?`).get(id);
+    if (!row) {
+      res.status(404).json({ error: '找不到資料' });
+      return;
+    }
+    res.json(row);
+  } catch (err) {
+    res.status(400).json({ error: String(err) });
+  }
+});
+
 app.get('/api/data/:table', (req, res) => {
   const { table } = req.params;
   if (table.startsWith('_zenku_')) {
@@ -160,13 +180,34 @@ app.get('/api/data/:table', (req, res) => {
     const order = String(req.query.order ?? '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
     const sortBy = fieldNames.has(sort) ? sort : fieldNames.has('id') ? 'id' : schema[0]?.name;
 
+    // 解析 filter[field]=value 參數
+    const filterClauses: string[] = [];
+    const filterParams: unknown[] = [];
+    for (const [key, value] of Object.entries(req.query)) {
+      const match = key.match(/^filter\[([a-zA-Z_][a-zA-Z0-9_]*)\]$/);
+      if (match && fieldNames.has(match[1])) {
+        filterClauses.push(`"${table}"."${match[1]}" = ?`);
+        filterParams.push(value);
+      }
+    }
+
     const search = String(req.query.search ?? '').trim();
     const escapedSearch = search.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_');
-    const whereClause =
-      search && textFieldNames.length > 0
-        ? `WHERE ${textFieldNames.map(name => `"${table}"."${name}" LIKE ? ESCAPE '\\'`).join(' OR ')}`
-        : '';
-    const whereParams = search && textFieldNames.length > 0 ? textFieldNames.map(() => `%${escapedSearch}%`) : [];
+
+    // Build WHERE combining filters + search
+    const whereParts: string[] = [];
+    const whereParams: unknown[] = [];
+
+    if (filterClauses.length > 0) {
+      whereParts.push(...filterClauses);
+      whereParams.push(...filterParams);
+    }
+    if (search && textFieldNames.length > 0) {
+      whereParts.push(`(${textFieldNames.map(name => `"${table}"."${name}" LIKE ? ESCAPE '\\'`).join(' OR ')})`);
+      whereParams.push(...textFieldNames.map(() => `%${escapedSearch}%`));
+    }
+
+    const whereClause = whereParts.length > 0 ? `WHERE ${whereParts.join(' AND ')}` : '';
 
     // 關聯欄位 LEFT JOIN
     const relationCols = getRelationColumns(table);
@@ -182,13 +223,14 @@ app.get('/api/data/:table', (req, res) => {
       : `"${table}".*`;
     const joinClause = joinClauses.join(' ');
 
+    type SQLVal = string | number | bigint | null;
     const rows = db
       .prepare(`SELECT ${selectClause} FROM "${table}" ${joinClause} ${whereClause} ORDER BY "${table}"."${sortBy}" ${order} LIMIT ? OFFSET ?`)
-      .all(...whereParams, limit, offset);
+      .all(...(whereParams as SQLVal[]), limit, offset);
 
     const totalResult = db
       .prepare(`SELECT COUNT(*) AS count FROM "${table}" ${joinClause} ${whereClause}`)
-      .get(...whereParams) as { count: number };
+      .get(...(whereParams as SQLVal[])) as { count: number };
 
     res.json({
       rows,
@@ -264,7 +306,30 @@ app.delete('/api/data/:table/:id', (req, res) => {
   }
   try {
     const db = getDb();
-    db.prepare(`DELETE FROM "${table}" WHERE id = ?`).run(id);
+
+    // 找出所有以 FK 指向此表的其他使用者表，先刪其明細
+    const allTables = (db.prepare(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_zenku_%'`
+    ).all() as { name: string }[]).map(r => r.name).filter(t => t !== table);
+
+    db.exec('BEGIN');
+    try {
+      for (const childTable of allTables) {
+        const fkList = db.prepare(`PRAGMA foreign_key_list("${childTable}")`).all() as {
+          table: string; from: string;
+        }[];
+        for (const fk of fkList) {
+          if (fk.table === table) {
+            db.prepare(`DELETE FROM "${childTable}" WHERE "${fk.from}" = ?`).run(id);
+          }
+        }
+      }
+      db.prepare(`DELETE FROM "${table}" WHERE id = ?`).run(id);
+      db.exec('COMMIT');
+    } catch (innerErr) {
+      db.exec('ROLLBACK');
+      throw innerErr;
+    }
     res.json({ success: true });
   } catch (err) {
     res.status(400).json({ error: String(err) });
@@ -277,6 +342,7 @@ app.delete('/api/data/:table/:id', (req, res) => {
 app.post('/api/reset', (_req, res) => {
   try {
     const db = getDb();
+    db.exec('PRAGMA foreign_keys = OFF');
     const tables = db.prepare(`
       SELECT name FROM sqlite_master
       WHERE type='table' AND name NOT LIKE 'sqlite_%'
@@ -285,6 +351,7 @@ app.post('/api/reset', (_req, res) => {
     for (const { name } of tables) {
       db.exec(`DROP TABLE IF EXISTS "${name}"`);
     }
+    db.exec('PRAGMA foreign_keys = ON');
 
     // 重建系統表
     db.exec(`

@@ -1,20 +1,20 @@
-import type React from 'react';
 import { useState } from 'react';
+import { Outlet, useParams } from 'react-router-dom';
 import { Group, type PanelSize, Panel, Separator, usePanelRef } from 'react-resizable-panels';
 import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, ChevronRight } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ThemeToggle } from './ThemeToggle';
 import { Card } from '../ui/card';
+import { Sidebar } from '../Sidebar';
+import { ChatPanel } from '../ChatPanel';
+import { useViews } from '../../contexts/ViewsContext';
 
-interface AppShellProps {
-  hasViews: boolean;
-  viewName?: string;
-  sidebar: (collapsed: boolean) => React.ReactNode;
-  appArea: React.ReactNode;
-  chatPanel: React.ReactNode;
-}
+export function AppShell() {
+  const { views, fetchViews } = useViews();
+  const { viewId } = useParams();
+  const hasViews = views.length > 0;
+  const currentView = views.find(v => v.id === viewId);
 
-export function AppShell({ hasViews, viewName, sidebar, appArea, chatPanel }: AppShellProps) {
   const sidebarPanelRef = usePanelRef();
   const chatPanelRef = usePanelRef();
 
@@ -52,7 +52,9 @@ export function AppShell({ hasViews, viewName, sidebar, appArea, chatPanel }: Ap
           showPanelToggles={false}
         />
         <div className="flex flex-1 items-center justify-center p-6">
-          <Card className="h-[640px] w-full max-w-2xl overflow-hidden">{chatPanel}</Card>
+          <Card className="h-[640px] w-full max-w-2xl overflow-hidden">
+            <ChatPanel onViewsChanged={fetchViews} />
+          </Card>
         </div>
       </div>
     );
@@ -61,7 +63,7 @@ export function AppShell({ hasViews, viewName, sidebar, appArea, chatPanel }: Ap
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       <AppBar
-        viewName={viewName}
+        viewName={currentView?.name}
         sidebarCollapsed={sidebarCollapsed}
         chatCollapsed={chatCollapsed}
         onToggleSidebar={toggleSidebar}
@@ -77,12 +79,16 @@ export function AppShell({ hasViews, viewName, sidebar, appArea, chatPanel }: Ap
           panelRef={sidebarPanelRef}
           onResize={handleSidebarResize}
         >
-          <div className="h-full border-r">{sidebar(sidebarCollapsed)}</div>
+          <div className="h-full border-r">
+            <Sidebar collapsed={sidebarCollapsed} />
+          </div>
         </Panel>
         <Separator className="w-1 bg-border/60 transition hover:bg-border data-[resize-handle-active]:bg-border" />
 
         <Panel defaultSize="56%" minSize="30%">
-          {appArea}
+          <div className="h-full overflow-hidden bg-background">
+            <Outlet />
+          </div>
         </Panel>
         <Separator className="w-1 bg-border/60 transition hover:bg-border data-[resize-handle-active]:bg-border" />
 
@@ -95,7 +101,9 @@ export function AppShell({ hasViews, viewName, sidebar, appArea, chatPanel }: Ap
           panelRef={chatPanelRef}
           onResize={handleChatResize}
         >
-          <div className="h-full border-l">{chatPanel}</div>
+          <div className="h-full border-l">
+            <ChatPanel onViewsChanged={fetchViews} />
+          </div>
         </Panel>
       </Group>
     </div>

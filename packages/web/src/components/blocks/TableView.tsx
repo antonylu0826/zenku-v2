@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { ColumnDef as TableColumnDef, PaginationState, SortingState } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { ArrowDown, ArrowUp, ArrowUpDown, Pencil, Plus, Search, Trash2 } from 'lucide-react';
@@ -14,11 +15,18 @@ import { FormView } from './FormView';
 
 interface Props {
   view: ViewDefinition;
+  /** Optional FK filter — key=field name, value=the value to filter by */
+  filters?: Record<string, string | number>;
+  /** Called after create when used inside DetailTable (to inject FK value) */
+  onCreateData?: (data: Record<string, unknown>) => Record<string, unknown>;
 }
 
 type RowData = Record<string, unknown>;
 
-export function TableView({ view }: Props) {
+export function TableView({ view, filters, onCreateData }: Props) {
+  const navigate = useNavigate();
+  const isMasterDetail = view.type === 'master-detail';
+
   const [rows, setRows] = useState<RowData[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -35,7 +43,7 @@ export function TableView({ view }: Props) {
     setSorting([]);
     setSearch('');
     setSearchInput('');
-  }, [view.id]);
+  }, [view.id, filters]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -55,6 +63,7 @@ export function TableView({ view }: Props) {
         sort: sort?.id,
         order: sort ? (sort.desc ? 'desc' : 'asc') : undefined,
         search: search || undefined,
+        filters,
       });
 
       setRows(result.rows);
@@ -64,7 +73,7 @@ export function TableView({ view }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [pagination.pageIndex, pagination.pageSize, search, sorting, view.table_name]);
+  }, [pagination.pageIndex, pagination.pageSize, search, sorting, view.table_name, filters]);
 
   useEffect(() => {
     void fetchRows();
@@ -98,8 +107,8 @@ export function TableView({ view }: Props) {
       cell: ({ row }) => {
         const data = row.original;
         return (
-          <div className="flex items-center justify-end gap-1">
-            {canEdit ? (
+          <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+            {canEdit && !isMasterDetail ? (
               <Button variant="ghost" size="icon" onClick={() => setEditingRow(data)} aria-label="編輯">
                 <Pencil className="h-4 w-4" />
               </Button>
@@ -112,14 +121,14 @@ export function TableView({ view }: Props) {
           </div>
         );
       },
-      size: 110,
-      minSize: 100,
-      maxSize: 140,
+      size: 80,
+      minSize: 70,
+      maxSize: 120,
       enableSorting: false,
     };
 
     return [...dataColumns, actionsColumn];
-  }, [canDelete, canEdit, view.columns]);
+  }, [canDelete, canEdit, isMasterDetail, view.columns]);
 
   const table = useReactTable({
     data: rows,
@@ -141,7 +150,8 @@ export function TableView({ view }: Props) {
 
   const handleCreate = async (data: Record<string, unknown>) => {
     try {
-      await createRow(view.table_name, data);
+      const payload = onCreateData ? onCreateData(data) : data;
+      await createRow(view.table_name, payload);
       toast.success('儲存成功');
       setShowCreate(false);
       void fetchRows();
@@ -184,6 +194,12 @@ export function TableView({ view }: Props) {
     }
   };
 
+  const handleRowClick = (row: RowData) => {
+    if (isMasterDetail) {
+      navigate(`/view/${view.id}/${row.id}`);
+    }
+  };
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-wrap items-center justify-end gap-3 border-b px-6 py-3">
@@ -198,7 +214,7 @@ export function TableView({ view }: Props) {
             />
           </div>
           {canCreate ? (
-            <Button onClick={() => setShowCreate(true)}>
+            <Button onClick={() => isMasterDetail ? navigate(`/view/${view.id}/new`) : setShowCreate(true)}>
               <Plus className="h-4 w-4" />
               新增
             </Button>
@@ -242,7 +258,11 @@ export function TableView({ view }: Props) {
               </TableRow>
             ) : table.getRowModel().rows.length ? (
               table.getRowModel().rows.map(row => (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  onClick={() => handleRowClick(row.original)}
+                  className={isMasterDetail ? 'cursor-pointer hover:bg-accent/50' : undefined}
+                >
                   {row.getVisibleCells().map(cell => (
                     <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                   ))}
@@ -320,7 +340,6 @@ export function TableView({ view }: Props) {
 }
 
 function CellValue({ value, colKey, type, row }: { value: unknown; colKey: string; type: string; row: RowData }) {
-  // 關聯欄位：顯示 JOIN 出來的 display 值
   if (type === 'relation') {
     const display = row[`${colKey}__display`];
     const text = display ?? value;

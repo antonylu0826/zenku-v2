@@ -1,16 +1,15 @@
+import { NavLink } from 'react-router-dom';
 import { Database } from 'lucide-react';
-import type { ViewDefinition } from '../types';
-import { Button } from './ui/button';
 import { cn } from '../lib/cn';
+import { useViews } from '../contexts/ViewsContext';
 
 interface Props {
-  views: ViewDefinition[];
-  activeViewId: string | null;
-  onSelect: (viewId: string) => void;
   collapsed?: boolean;
 }
 
-export function Sidebar({ views, activeViewId, onSelect, collapsed = false }: Props) {
+export function Sidebar({ collapsed = false }: Props) {
+  const { views } = useViews();
+
   return (
     <aside className="flex h-full flex-col bg-card">
       <nav className="flex-1 space-y-1 overflow-y-auto p-2">
@@ -20,21 +19,22 @@ export function Sidebar({ views, activeViewId, onSelect, collapsed = false }: Pr
           </div>
         ) : (
           views.map(view => (
-            <Button
+            <NavLink
               key={view.id}
-              onClick={() => onSelect(view.id)}
-              variant={activeViewId === view.id ? 'secondary' : 'ghost'}
-              className={cn(
-                'w-full justify-start gap-2.5',
-                collapsed && 'justify-center px-2',
-                activeViewId === view.id
-                  ? 'bg-primary/10 text-primary hover:bg-primary/15'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
+              to={`/view/${view.id}`}
+              className={({ isActive }) =>
+                cn(
+                  'flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                  collapsed && 'justify-center px-2',
+                  isActive
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )
+              }
             >
               <Database size={14} className="shrink-0" />
               {!collapsed && <span className="truncate">{view.name}</span>}
-            </Button>
+            </NavLink>
           ))
         )}
       </nav>
