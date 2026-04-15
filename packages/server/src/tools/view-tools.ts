@@ -20,7 +20,7 @@ export function createOrUpdateView(view: ViewDefinition, userRequest: string): A
     writeJournal({
       agent: 'ui',
       type: 'view_change',
-      description: `更新介面「${view.name}」`,
+      description: `Updated interface "${view.name}"`,
       diff: { before: oldDef, after: view },
       user_request: userRequest,
       reversible: true,
@@ -30,7 +30,7 @@ export function createOrUpdateView(view: ViewDefinition, userRequest: string): A
       }] : [{ type: 'sql', sql: `DELETE FROM _zenku_views WHERE id = ${JSON.stringify(view.id)}` }],
     });
 
-    return { success: true, message: `已更新介面「${view.name}」`, data: view };
+    return { success: true, message: `Updated interface "${view.name}"`, data: view };
   } else {
     db.prepare(`
       INSERT INTO _zenku_views (id, name, table_name, definition)
@@ -41,14 +41,14 @@ export function createOrUpdateView(view: ViewDefinition, userRequest: string): A
     writeJournal({
       agent: 'ui',
       type: 'view_change',
-      description: `建立介面「${view.name}」`,
+      description: `Created interface "${view.name}"`,
       diff: { before: null, after: view },
       user_request: userRequest,
       reversible: true,
       reverse_operations: [{ type: 'sql', sql: `DELETE FROM _zenku_views WHERE id = ${JSON.stringify(view.id)}` }],
     });
 
-    return { success: true, message: `已建立介面「${view.name}」`, data: view };
+    return { success: true, message: `Created interface "${view.name}"`, data: view };
   }
 }
 

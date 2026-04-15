@@ -57,18 +57,18 @@ export function runTestAgent(input: AssessInput): AgentResult {
   const impacts: string[] = [];
 
   if (change_type === 'drop_table') {
-    impacts.push(`將刪除表 ${table_name} 及其 ${rowCount} 筆資料`);
+    impacts.push(`Will delete table ${table_name} and ${rowCount} records`);
     if (referencingTables.length > 0) {
-      impacts.push(`以下表有外鍵依賴：${referencingTables.join(', ')}，可能造成資料孤兒或刪除失敗`);
+      impacts.push(`Following tables have foreign key dependencies: ${referencingTables.join(', ')}, may cause orphaned data or deletion failure`);
     }
     if (affectedViews.length > 0) {
-      impacts.push(`${affectedViews.length} 個介面將失效：${affectedViews.map(v => v.name).join(', ')}`);
+      impacts.push(`${affectedViews.length} interfaces will fail: ${affectedViews.map(v => v.name).join(', ')}`);
     }
     if (affectedRules.length > 0) {
-      impacts.push(`${affectedRules.length} 條規則將失效：${affectedRules.map(r => r.name).join(', ')}`);
+      impacts.push(`${affectedRules.length} rules will fail: ${affectedRules.map(r => r.name).join(', ')}`);
     }
   } else if (change_type === 'drop_column' && details?.column_name) {
-    impacts.push(`將刪除欄位 ${details.column_name}，${rowCount} 筆資料的該欄位值將遺失`);
+    impacts.push(`Will delete field ${details.column_name}, ${rowCount} records will lose values in this field`);
 
     // Check if any view column references this field
     for (const v of affectedViews) {
@@ -79,7 +79,7 @@ export function runTestAgent(input: AssessInput): AgentResult {
         const affectedCols = cols.filter((c: { key: string }) => c.key === details.column_name);
         const affectedFields = formFields.filter((f: { key: string }) => f.key === details.column_name);
         if (affectedCols.length > 0 || affectedFields.length > 0) {
-          impacts.push(`介面「${v.name}」中有使用此欄位，需同步更新`);
+          impacts.push(`Interface "${v.name}" uses this field, needs sync update`);
         }
       } catch { /* skip */ }
     }
@@ -89,26 +89,18 @@ export function runTestAgent(input: AssessInput): AgentResult {
       const cond = r.condition ? JSON.parse(r.condition) : null;
       const acts = JSON.parse(r.actions) as { field?: string; value?: string }[];
       if (cond?.field === details.column_name || acts.some(a => a.field === details.column_name)) {
-        impacts.push(`規則「${r.name}」引用了此欄位，需同步更新`);
+        impacts.push(`Rule "${r.name}" references this field, needs sync update`);
       }
     }
   } else if (change_type === 'rename_column' && details?.column_name) {
-    impacts.push(`將重新命名欄位 ${details.column_name} → ${details.new_name ?? '?'}，需同步更新所有引用`);
+    impacts.push(`Will rename field ${details.column_name} to ${details.new_name ?? '?'}, needs sync updating all references`);
   } else if (change_type === 'change_type' && details?.column_name) {
-    impacts.push(`將變更欄位 ${details.column_name} 的型別為 ${details.new_type ?? '?'}，可能造成 ${rowCount} 筆資料的型別轉換問題`);
+    impacts.push(`Will change type of field ${details.column_name} to ${details.new_type ?? '?'}, may cause ${rowCount} records type conversion issues`);
   }
 
-  const severity = rowCount > 100 || referencingTables.length > 0 ? '高風險' : '中風險';
+  const severity = rowCount > 100 || referencingTables.length > 0 ? 'HIGH_RISK' : 'MEDIUM_RISK';
 
-  const report = `⚠️ 變更影響評估（${severity}）：
-- 受影響的資料：${rowCount} 筆
-- 受影響的介面：${affectedViews.length} 個
-- 受影響的規則：${affectedRules.length} 條
-${referencingTables.length > 0 ? `- 外鍵依賴表：${referencingTables.join(', ')}` : ''}
-
-${impacts.length > 0 ? `具體影響：\n${impacts.map(i => `• ${i}`).join('\n')}` : ''}
-
-建議：${rowCount > 100 ? '請謹慎操作，建議先備份資料' : '資料量不大，可以執行'}。是否繼續？`;
+  const report = `⚠️ Change Impact Assessment (${severity}):\n- Affected records: ${rowCount}\n- Affected interfaces: ${affectedViews.length}\n- Affected rules: ${affectedRules.length}\n${referencingTables.length > 0 ? `- Foreign key dependent tables: ${referencingTables.join(', ')}` : ''}\n\n${impacts.length > 0 ? `Details:\n${impacts.map(i => `• ${i}`).join('\n')}` : ''}\n\nRecommendation: ${rowCount > 100 ? 'Proceed carefully, recommend backing up data first' : 'Record volume is small, can proceed'}. Continue?`;
 
   return {
     success: true,

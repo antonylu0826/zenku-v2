@@ -45,6 +45,6 @@ export function runSchemaAgent(input: SchemaInput, userRequest: string): AgentRe
     case 'describe_tables':
       return describeTables();
     default:
-      return { success: false, message: '未知的 schema 操作' };
+      return { success: false, message: 'Unknown schema operation' };
   }
 }

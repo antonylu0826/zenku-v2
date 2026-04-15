@@ -47,7 +47,7 @@ export function runLogicAgent(input: LogicInput, userRequest: string): AgentResu
     case 'list_rules':
       return listRules(input.table_name);
     default:
-      return { success: false, message: '未知的規則操作' };
+      return { success: false, message: 'Unknown rule operation' };
   }
 }
 
@@ -74,7 +74,7 @@ function createRule(rule: RuleDef, userRequest: string): AgentResult {
   writeJournal({
     agent: 'logic',
     type: 'rule_change',
-    description: `建立規則「${rule.name}」（${rule.trigger_type} on ${rule.table_name}）`,
+    description: `Created rule "${rule.name}" (${rule.trigger_type} on ${rule.table_name})`,
     diff: { before: null, after: { id, ...rule } },
     user_request: userRequest,
     reversible: true,
@@ -83,7 +83,7 @@ function createRule(rule: RuleDef, userRequest: string): AgentResult {
 
   return {
     success: true,
-    message: `已建立規則「${rule.name}」（${rule.trigger_type} on ${rule.table_name}）`,
+    message: `Created rule "${rule.name}" (${rule.trigger_type} on ${rule.table_name})`,
     data: { id },
   };
 }
@@ -93,7 +93,7 @@ function updateRule(ruleId: string, rule: RuleDef, userRequest: string): AgentRe
 
   const existing = db.prepare('SELECT id FROM _zenku_rules WHERE id = ?').get(ruleId);
   if (!existing) {
-    return { success: false, message: `找不到規則：${ruleId}` };
+    return { success: false, message: `Rule not found: ${ruleId}` };
   }
 
   db.prepare(`
@@ -118,7 +118,7 @@ function updateRule(ruleId: string, rule: RuleDef, userRequest: string): AgentRe
 
   return {
     success: true,
-    message: `已更新規則「${rule.name}」`,
+    message: `Updated rule "${rule.name}"`,
   };
 }
 
@@ -127,7 +127,7 @@ function deleteRule(ruleId: string, userRequest: string): AgentResult {
   const existing = db.prepare('SELECT * FROM _zenku_rules WHERE id = ?').get(ruleId) as Record<string, unknown> | undefined;
 
   if (!existing) {
-    return { success: false, message: `找不到規則：${ruleId}` };
+    return { success: false, message: `Rule not found: ${ruleId}` };
   }
 
   const restoreSQL = `INSERT OR IGNORE INTO _zenku_rules (id, name, description, table_name, trigger_type, condition, actions, priority, enabled, created_at, updated_at) VALUES (${
@@ -139,20 +139,20 @@ function deleteRule(ruleId: string, userRequest: string): AgentResult {
   const result = db.prepare('DELETE FROM _zenku_rules WHERE id = ?').run(ruleId);
 
   if (result.changes === 0) {
-    return { success: false, message: `找不到規則：${ruleId}` };
+    return { success: false, message: `Rule not found: ${ruleId}` };
   }
 
   logChange('logic-agent', 'delete_rule', { ruleId }, userRequest);
   writeJournal({
     agent: 'logic',
     type: 'rule_change',
-    description: `刪除規則「${String(existing.name)}」`,
+    description: `Deleted rule "${String(existing.name)}"`,
     diff: { before: existing, after: null },
     user_request: userRequest,
     reversible: true,
     reverse_operations: [{ type: 'sql', sql: restoreSQL }],
   });
-  return { success: true, message: `已刪除規則 ${ruleId}` };
+  return { success: true, message: `Deleted rule ${ruleId}` };
 }
 
 function listRules(tableName?: string): AgentResult {
@@ -163,7 +163,7 @@ function listRules(tableName?: string): AgentResult {
     ).all(tableName);
     return {
       success: true,
-      message: `表 ${tableName} 共有 ${rules.length} 條規則`,
+      message: `Table ${tableName} has ${rules.length} rules`,
       data: rules,
     };
   }
@@ -171,7 +171,7 @@ function listRules(tableName?: string): AgentResult {
   const rules = getAllRules();
   return {
     success: true,
-    message: `共有 ${rules.length} 條規則`,
+    message: `Total ${rules.length} rules found`,
     data: rules,
   };
 }

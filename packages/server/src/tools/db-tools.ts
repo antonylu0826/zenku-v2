@@ -34,7 +34,7 @@ export function createTable(
   userRequest: string
 ): AgentResult {
   if (!isSafeTableName(tableName)) {
-    return { success: false, message: `無效的表名：${tableName}` };
+    return { success: false, message: `Invalid table name: ${tableName}` };
   }
 
   const db = getDb();
@@ -43,20 +43,20 @@ export function createTable(
     `SELECT name FROM sqlite_master WHERE type='table' AND name=?`
   ).get(tableName);
   if (existing) {
-    return { success: false, message: `表 ${tableName} 已存在` };
+    return { success: false, message: `Table ${tableName} already exists` };
   }
 
   const colDefs = columns.map(col => {
     const type = col.type.toUpperCase();
     if (!ALLOWED_TYPES.has(type)) {
-      throw new Error(`不支援的型別：${col.type}`);
+        throw new Error(`Unsupported type: ${col.type}`);
     }
     let def = `"${col.name}" ${type}`;
     if (col.required) def += ' NOT NULL';
     if (col.references) {
       const refTable = col.references.table;
       const refCol = col.references.column ?? 'id';
-      if (!isSafeTableName(refTable)) throw new Error(`無效的關聯表名：${refTable}`);
+      if (!isSafeTableName(refTable)) throw new Error(`Invalid foreign key table name: ${refTable}`);
       def += ` REFERENCES "${refTable}"("${refCol}")`;
     }
     return def;
@@ -74,7 +74,7 @@ export function createTable(
   writeJournal({
     agent: 'schema',
     type: 'schema_change',
-    description: `建立表 ${tableName}（欄位：${columns.map(c => c.name).join(', ')}）`,
+    description: `Created table ${tableName} with fields: ${columns.map(c => c.name).join(', ')}`,
     diff: { before: null, after: { table: tableName, columns } },
     user_request: userRequest,
     reversible: true,
@@ -83,7 +83,7 @@ export function createTable(
 
   return {
     success: true,
-    message: `已建立表 ${tableName}，包含欄位：${columns.map(c => c.name).join(', ')}`,
+      message: `Created table ${tableName} with fields: ${columns.map(c => c.name).join(', ')}`,
     data: getTableSchema(tableName),
   };
 }
@@ -99,7 +99,7 @@ export function alterTable(
   userRequest: string
 ): AgentResult {
   if (!isSafeTableName(tableName)) {
-    return { success: false, message: `無效的表名：${tableName}` };
+    return { success: false, message: `Invalid table name: ${tableName}` };
   }
 
   const db = getDb();
@@ -110,7 +110,7 @@ export function alterTable(
       const col = change.column;
       const type = col.type.toUpperCase();
       if (!ALLOWED_TYPES.has(type)) {
-        return { success: false, message: `不支援的型別：${col.type}` };
+        return { success: false, message: `Unsupported type: ${col.type}` };
       }
 
       let colDef = `"${col.name}" ${type}`;
@@ -118,18 +118,18 @@ export function alterTable(
         const refTable = col.references.table;
         const refCol = col.references.column ?? 'id';
         if (!isSafeTableName(refTable)) {
-          return { success: false, message: `無效的關聯表名：${refTable}` };
+          return { success: false, message: `Invalid foreign key table name: ${refTable}` };
         }
         colDef += ` REFERENCES "${refTable}"("${refCol}")`;
       }
 
       db.exec(`ALTER TABLE "${tableName}" ADD COLUMN ${colDef}`);
-      results.push(`新增欄位 ${col.name}`);
+      results.push(`Added field ${col.name}`);
 
       writeJournal({
         agent: 'schema',
         type: 'schema_change',
-        description: `在表 ${tableName} 新增欄位 ${col.name}（${col.type}）`,
+        description: `Added field ${col.name} (${col.type}) to table ${tableName}`,
         diff: { before: null, after: { table: tableName, column: col } },
         user_request: userRequest,
         reversible: true,
@@ -142,7 +142,7 @@ export function alterTable(
 
   return {
     success: true,
-    message: `已修改表 ${tableName}：${results.join(', ')}`,
+      message: `Updated table ${tableName}: ${results.join(', ')}`,
     data: getTableSchema(tableName),
   };
 }
@@ -151,7 +151,7 @@ export function describeTables(): AgentResult {
   const schemas = getAllSchemas();
   return {
     success: true,
-    message: '目前資料庫結構',
+    message: 'Current database structure',
     data: schemas,
   };
 }
@@ -159,14 +159,14 @@ export function describeTables(): AgentResult {
 export function queryData(sql: string): AgentResult {
   const trimmed = sql.trim().toUpperCase();
   if (!trimmed.startsWith('SELECT')) {
-    return { success: false, message: '只允許 SELECT 查詢' };
+    return { success: false, message: 'Only SELECT queries are allowed' };
   }
 
   const db = getDb();
   const rows = db.prepare(sql).all();
   return {
     success: true,
-    message: `查詢完成，共 ${rows.length} 筆`,
+      message: `Query completed, ${rows.length} records found`,
     data: rows,
   };
 }
@@ -193,7 +193,7 @@ export function writeData(input: WriteDataInput, userRequest: string): AgentResu
   const { operation, table, data = {}, where } = input;
 
   if (!isSafeTableName(table)) {
-    return { success: false, message: `無效或不允許操作的表名：${table}` };
+    return { success: false, message: `Invalid or disallowed table name: ${table}` };
   }
 
   const db = getDb();
@@ -201,20 +201,20 @@ export function writeData(input: WriteDataInput, userRequest: string): AgentResu
     `SELECT name FROM sqlite_master WHERE type='table' AND name=?`
   ).get(table);
   if (!tableExists) {
-    return { success: false, message: `表 ${table} 不存在` };
+    return { success: false, message: `Table ${table} does not exist` };
   }
 
   // Validate all field names
   const allKeys = [...Object.keys(data), ...Object.keys(where ?? {})];
   for (const k of allKeys) {
     if (!isSafeFieldName(k)) {
-      return { success: false, message: `無效的欄位名：${k}` };
+      return { success: false, message: `Invalid field name: ${k}` };
     }
   }
 
   if (operation === 'insert') {
     const keys = Object.keys(data);
-    if (keys.length === 0) return { success: false, message: '新增資料不能為空' };
+    if (keys.length === 0) return { success: false, message: 'Data cannot be empty for insert' };
 
     const cols = keys.map(k => `"${k}"`).join(', ');
     const placeholders = keys.map(() => '?').join(', ');
@@ -229,7 +229,7 @@ export function writeData(input: WriteDataInput, userRequest: string): AgentResu
     writeJournal({
       agent: 'user',
       type: 'data_write',
-      description: `AI 新增一筆資料到 ${table}（id: ${insertedId}）`,
+      description: `AI inserted 1 record into ${table} (id: ${insertedId})`,
       diff: { before: null, after: { table, data } },
       user_request: userRequest,
       reversible: true,
@@ -238,7 +238,7 @@ export function writeData(input: WriteDataInput, userRequest: string): AgentResu
 
     return {
       success: true,
-      message: `已新增一筆資料到 ${table}，id = ${insertedId}`,
+      message: `Inserted 1 record into ${table}, id = ${insertedId}`,
       data: { id: Number(insertedId) },
     };
   }
@@ -246,10 +246,10 @@ export function writeData(input: WriteDataInput, userRequest: string): AgentResu
   if (operation === 'update') {
     const whereKeys = Object.keys(where ?? {});
     if (whereKeys.length === 0) {
-      return { success: false, message: 'update 必須提供 where 條件，不可全表更新' };
+      return { success: false, message: 'Update requires a "where" condition to prevent full table modification' };
     }
     const dataKeys = Object.keys(data);
-    if (dataKeys.length === 0) return { success: false, message: '更新欄位不能為空' };
+    if (dataKeys.length === 0) return { success: false, message: 'Update fields cannot be empty' };
 
     const sets = dataKeys.map(k => `"${k}" = ?`).join(', ');
     const wheres = whereKeys.map(k => `"${k}" = ?`).join(' AND ');
@@ -265,7 +265,7 @@ export function writeData(input: WriteDataInput, userRequest: string): AgentResu
     writeJournal({
       agent: 'user',
       type: 'data_write',
-      description: `AI 更新 ${table} 中 ${result.changes} 筆資料`,
+      description: `AI updated ${result.changes} records in ${table}`,
       diff: { before: where ?? null, after: { ...where, ...data } },
       user_request: userRequest,
       reversible: false,
@@ -273,7 +273,7 @@ export function writeData(input: WriteDataInput, userRequest: string): AgentResu
 
     return {
       success: true,
-      message: `已更新 ${result.changes} 筆資料`,
+      message: `Updated ${result.changes} records`,
       data: { changes: result.changes },
     };
   }
@@ -281,7 +281,7 @@ export function writeData(input: WriteDataInput, userRequest: string): AgentResu
   if (operation === 'delete') {
     const whereKeys = Object.keys(where ?? {});
     if (whereKeys.length === 0) {
-      return { success: false, message: 'delete 必須提供 where 條件，不可全表刪除' };
+      return { success: false, message: 'delete requires where condition, cannot delete full table' };
     }
 
     const wheres = whereKeys.map(k => `"${k}" = ?`).join(' AND ');
@@ -294,7 +294,7 @@ export function writeData(input: WriteDataInput, userRequest: string): AgentResu
     writeJournal({
       agent: 'user',
       type: 'data_write',
-      description: `AI 刪除 ${table} 中 ${result.changes} 筆資料`,
+      description: `AI deleted ${result.changes} records from ${table}`,
       diff: { before: where ?? null, after: null },
       user_request: userRequest,
       reversible: false,
@@ -302,10 +302,10 @@ export function writeData(input: WriteDataInput, userRequest: string): AgentResu
 
     return {
       success: true,
-      message: `已刪除 ${result.changes} 筆資料`,
+      message: `Deleted ${result.changes} records`,
       data: { changes: result.changes },
     };
   }
 
-  return { success: false, message: `不支援的操作類型：${String(operation)}` };
+  return { success: false, message: `Unsupported operation type: ${String(operation)}` };
 }
