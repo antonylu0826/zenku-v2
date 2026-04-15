@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
 import { cn } from '../../lib/cn';
 import type { FieldDef } from '../../types';
 
@@ -23,12 +24,9 @@ function getAuthHeaders(): Record<string, string> {
 
 export function RelationField({ field, value, onChange }: Props) {
   const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState('');
   const [options, setOptions] = useState<Option[]>([]);
   const [loading, setLoading] = useState(false);
   const [displayValue, setDisplayValue] = useState('');
-  const containerRef = useRef<HTMLDivElement>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
 
   const { table, value_field, display_field } = field.relation!;
 
@@ -44,96 +42,71 @@ export function RelationField({ field, value, onChange }: Props) {
       .catch(() => {});
   }, [value, table, value_field, display_field]);
 
-  // 下拉開啟時、搜尋詞改變時載入選項
+  // 下拉開啟時載入選項
   useEffect(() => {
     if (!open) return;
     setLoading(true);
     const params = new URLSearchParams({ value_field, display_field });
-    if (search) params.set('search', search);
     fetch(`/api/data/${table}/options?${params}`, { headers: getAuthHeaders() })
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then((data: unknown) => setOptions(Array.isArray(data) ? (data as Option[]) : []))
       .catch(() => setOptions([]))
       .finally(() => setLoading(false));
-  }, [open, search, table, value_field, display_field]);
-
-  // 開啟時 focus 搜尋欄
-  useEffect(() => {
-    if (open) setTimeout(() => searchRef.current?.focus(), 50);
-  }, [open]);
-
-  // 點擊外部關閉
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+  }, [open, table, value_field, display_field]);
 
   const handleSelect = (opt: Option) => {
     onChange(opt.value);
     setDisplayValue(opt.label);
     setOpen(false);
-    setSearch('');
   };
 
   return (
-    <div ref={containerRef} className="relative">
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full justify-between font-normal"
-        onClick={() => { setOpen(o => !o); setSearch(''); }}
-      >
-        <span className={cn('truncate', !displayValue && 'text-muted-foreground')}>
-          {displayValue || field.placeholder || '請選擇...'}
-        </span>
-        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-      </Button>
-
-      {open && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border bg-card shadow-lg">
-          <div className="p-1.5 border-b">
-            <Input
-              ref={searchRef}
-              placeholder="搜尋..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="h-8 text-sm"
-            />
-          </div>
-          <div className="max-h-52 overflow-y-auto py-1">
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal"
+        >
+          <span className={cn('truncate', !displayValue && 'text-muted-foreground')}>
+            {displayValue || field.placeholder || '請選擇...'}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="搜尋..." />
+          <CommandList>
             {loading ? (
               <div className="py-4 text-center text-sm text-muted-foreground">載入中...</div>
-            ) : options.length === 0 ? (
-              <div className="py-4 text-center text-sm text-muted-foreground">無符合結果</div>
             ) : (
-              options.map(opt => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  className={cn(
-                    'flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent text-left',
-                    String(value) === String(opt.value) && 'bg-accent',
-                  )}
-                  onClick={() => handleSelect(opt)}
-                >
-                  <Check
-                    className={cn(
-                      'h-3.5 w-3.5 shrink-0',
-                      String(value) === String(opt.value) ? 'opacity-100' : 'opacity-0',
-                    )}
-                  />
-                  {opt.label}
-                </button>
-              ))
+              <>
+                <CommandEmpty>無符合結果</CommandEmpty>
+                <CommandGroup>
+                  {options.map(opt => (
+                    <CommandItem
+                      key={opt.value}
+                      value={opt.label}
+                      onSelect={() => handleSelect(opt)}
+                    >
+                      <Check
+                        className={cn(
+                          'mr-2 h-4 w-4',
+                          String(value) === String(opt.value) ? 'opacity-100' : 'opacity-0',
+                        )}
+                      />
+                      {opt.label}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </>
             )}
-          </div>
-        </div>
-      )}
-    </div>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }

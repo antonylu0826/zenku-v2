@@ -1,9 +1,12 @@
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Checkbox } from '../ui/checkbox';
+import { Label } from '../ui/label';
 import { RelationField } from './RelationField';
 import { DynamicSelectField } from './DynamicSelectField';
 import { ComputedField } from './ComputedField';
+import { DatePickerField } from './DatePickerField';
 import type { FieldDef } from '../../types';
 
 export interface FieldInputProps {
@@ -17,7 +20,6 @@ export interface FieldInputProps {
 export function FieldInput({ field, value, formValues, onChange }: FieldInputProps) {
   const id = field.key;
   const stringValue = String(value ?? '');
-
   // 計算欄位優先（不論 type）
   if (field.computed) {
     return <ComputedField field={field} formValues={formValues} onChange={onChange} />;
@@ -63,16 +65,14 @@ export function FieldInput({ field, value, formValues, onChange }: FieldInputPro
 
     case 'boolean':
       return (
-        <label className="inline-flex items-center gap-2 text-sm">
-          <input
+        <div className="flex items-center gap-2">
+          <Checkbox
             id={id}
-            type="checkbox"
-            className="h-4 w-4 rounded border-input"
             checked={Boolean(value)}
-            onChange={e => onChange(e.target.checked)}
+            onCheckedChange={checked => onChange(checked === true)}
           />
-          <span>是</span>
-        </label>
+          <Label htmlFor={id} className="cursor-pointer font-normal">是</Label>
+        </div>
       );
 
     case 'number':
@@ -88,14 +88,7 @@ export function FieldInput({ field, value, formValues, onChange }: FieldInputPro
       );
 
     case 'date':
-      return (
-        <Input
-          id={id}
-          type="date"
-          value={stringValue}
-          onChange={e => onChange(e.target.value)}
-        />
-      );
+      return <DatePickerField value={value} onChange={onChange} placeholder={field.placeholder} />;
 
     case 'email':
       return (

@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Wrench, CheckCircle, XCircle, ChevronDown } from 'lucide-react';
+import { Send, Loader2, Wrench, CheckCircle, XCircle } from 'lucide-react';
 import { sendChat, getAIProviders, type AIProviderInfo } from '../api';
 import type { ChatMessage, SSEChunk, ToolEvent } from '../types';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { cn } from '../lib/cn';
 
 interface Props {
@@ -245,30 +246,30 @@ function ProviderSelector({
 
   return (
     <div className="mb-2 flex items-center gap-2">
-      <div className="relative">
-        <select
-          value={selectedProvider}
-          onChange={e => onProviderChange(e.target.value)}
-          className="appearance-none rounded border bg-background py-1 pl-2 pr-6 text-xs font-medium outline-none focus:ring-1 focus:ring-primary"
-        >
+      <Select value={selectedProvider} onValueChange={onProviderChange}>
+        <SelectTrigger className="h-7 w-auto min-w-[90px] px-2 py-0 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
           {providers.map(p => (
-            <option key={p.name} value={p.name}>{PROVIDER_LABELS[p.name] ?? p.name}</option>
+            <SelectItem key={p.name} value={p.name} className="text-xs">
+              {PROVIDER_LABELS[p.name] ?? p.name}
+            </SelectItem>
           ))}
-        </select>
-        <ChevronDown size={10} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-      </div>
-      <div className="relative">
-        <select
-          value={selectedModel}
-          onChange={e => onModelChange(e.target.value)}
-          className="appearance-none rounded border bg-background py-1 pl-2 pr-6 text-xs outline-none focus:ring-1 focus:ring-primary"
-        >
+        </SelectContent>
+      </Select>
+      <Select value={selectedModel} onValueChange={onModelChange}>
+        <SelectTrigger className="h-7 w-auto min-w-[140px] px-2 py-0 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
           {currentModels.map(m => (
-            <option key={m} value={m}>{m}</option>
+            <SelectItem key={m} value={m} className="text-xs">
+              {m}
+            </SelectItem>
           ))}
-        </select>
-        <ChevronDown size={10} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-      </div>
+        </SelectContent>
+      </Select>
     </div>
   );
 }

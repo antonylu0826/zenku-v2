@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 interface UserRow {
   id: string;
@@ -88,16 +89,22 @@ export function UserManagement({ onClose }: Props) {
                     </td>
                     <td className="px-6 py-3 text-muted-foreground">{u.email}</td>
                     <td className="px-6 py-3">
-                      <select
+                      <Select
                         value={u.role}
                         disabled={u.id === me.id || saving === u.id}
-                        onChange={e => { void changeRole(u.id, e.target.value as 'admin' | 'builder' | 'user'); }}
-                        className="rounded border bg-background px-2 py-1 text-xs disabled:opacity-50"
+                        onValueChange={v => { void changeRole(u.id, v as 'admin' | 'builder' | 'user'); }}
                       >
-                        {ROLES.map(r => (
-                          <option key={r.value} value={r.value}>{r.label}</option>
-                        ))}
-                      </select>
+                        <SelectTrigger className="h-7 w-[90px] px-2 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ROLES.map(r => (
+                            <SelectItem key={r.value} value={r.value} className="text-xs">
+                              {r.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </td>
                     <td className="px-6 py-3 text-muted-foreground">
                       {u.last_login_at
