@@ -250,40 +250,51 @@ export async function executeAfter(
           }
           const db = getDb();
 
-          // Build WHERE clause from the `where` map: target_col → source_expression
           const whereEntries = Object.entries(act.where);
           const whereClause = whereEntries.map(([col]) => `"${col}" = ?`).join(' AND ');
           const whereValues = whereEntries.map(([, expr]) => evaluateExpression(expr, data));
 
-          // Fetch the current target record so formulas can reference its existing values
           const targetRecord = db.prepare(
             `SELECT * FROM "${act.target_table}" WHERE ${whereClause} LIMIT 1`
           ).get(...(whereValues as (string | number | bigint | null)[])) as Record<string, unknown> | undefined;
 
-          if (!targetRecord) {
-            console.warn(`[RuleEngine] update_record rule "${rule.name}": no matching record found in "${act.target_table}" for WHERE ${JSON.stringify(act.where)}`);
-            break;
+          // Context: target current values with __old_ prefix; source data directly
+          // If no target record, __old_ values default to 0
+          const context: Record<string, unknown> = { ...data };
+          if (targetRecord) {
+            for (const [k, v] of Object.entries(targetRecord)) {
+              context[`__old_${k}`] = v;
+            }
           }
-
-          // Evaluation context: target record first (current values), then source data (new values override on conflicts)
-          // This means formulas like "stock_quantity + quantity" can reference both tables
-          const context = { ...targetRecord, ...data };
 
           const updates: Record<string, unknown> = {};
           for (const [key, expr] of Object.entries(act.record_data)) {
             updates[key] = evaluateExpression(expr, context);
           }
 
-          const updateKeys = Object.keys(updates);
-          const setClause = updateKeys.map(k => `"${k}" = ?`).join(', ');
-          db.prepare(
-            `UPDATE "${act.target_table}" SET ${setClause} WHERE ${whereClause}`
-          ).run(
-            ...(Object.values(updates) as (string | number | bigint | null)[]),
-            ...(whereValues as (string | number | bigint | null)[]),
-          );
-
-          console.log(`[RuleEngine] update_record — 已更新 "${act.target_table}" (${JSON.stringify(updates)}) WHERE ${JSON.stringify(act.where)}`);
+          if (targetRecord) {
+            // UPDATE existing record
+            const setClause = Object.keys(updates).map(k => `"${k}" = ?`).join(', ');
+            db.prepare(
+              `UPDATE "${act.target_table}" SET ${setClause} WHERE ${whereClause}`
+            ).run(
+              ...(Object.values(updates) as (string | number | bigint | null)[]),
+              ...(whereValues as (string | number | bigint | null)[]),
+            );
+            console.log(`[RuleEngine] update_record — 已更新 "${act.target_table}" ${JSON.stringify(updates)}`);
+          } else {
+            // INSERT: combine where-key values + record_data values
+            const insertRecord: Record<string, unknown> = { ...updates };
+            for (const [col, expr] of whereEntries) {
+              insertRecord[col] = evaluateExpression(expr, data);
+            }
+            const cols = Object.keys(insertRecord).map(k => `"${k}"`).join(', ');
+            const placeholders = Object.keys(insertRecord).map(() => '?').join(', ');
+            db.prepare(
+              `INSERT INTO "${act.target_table}" (${cols}) VALUES (${placeholders})`
+            ).run(...(Object.values(insertRecord) as (string | number | bigint | null)[]));
+            console.log(`[RuleEngine] update_record — 找不到記錄，已新增至 "${act.target_table}" ${JSON.stringify(insertRecord)}`);
+          }
           break;
         }
 
@@ -316,15 +327,13 @@ export async function executeAfter(
               `SELECT * FROM "${act.target_table}" WHERE ${whereClause} LIMIT 1`
             ).get(...(whereValues as (string | number | bigint | null)[])) as Record<string, unknown> | undefined;
 
-            if (!targetRecord) {
-              console.warn(`[RuleEngine] update_related_records: no matching record in "${act.target_table}" for via row ${JSON.stringify(viaRecord)}`);
-              continue;
-            }
-
-            // Context: via_table fields by name, target_table current values with __old_ prefix
+            // Context: via_table fields by name + target current values with __old_ prefix
+            // If no target record exists, __old_ values default to 0 → INSERT will be done
             const context: Record<string, unknown> = { ...viaRecord };
-            for (const [k, v] of Object.entries(targetRecord)) {
-              context[`__old_${k}`] = v;
+            if (targetRecord) {
+              for (const [k, v] of Object.entries(targetRecord)) {
+                context[`__old_${k}`] = v;
+              }
             }
 
             const updates: Record<string, unknown> = {};
@@ -332,18 +341,33 @@ export async function executeAfter(
               updates[key] = evaluateExpression(expr, context);
             }
 
-            const updateKeys = Object.keys(updates);
-            const setClause = updateKeys.map(k => `"${k}" = ?`).join(', ');
-            db.prepare(
-              `UPDATE "${act.target_table}" SET ${setClause} WHERE ${whereClause}`
-            ).run(
-              ...(Object.values(updates) as (string | number | bigint | null)[]),
-              ...(whereValues as (string | number | bigint | null)[]),
-            );
+            if (targetRecord) {
+              // UPDATE existing record
+              const setClause = Object.keys(updates).map(k => `"${k}" = ?`).join(', ');
+              db.prepare(
+                `UPDATE "${act.target_table}" SET ${setClause} WHERE ${whereClause}`
+              ).run(
+                ...(Object.values(updates) as (string | number | bigint | null)[]),
+                ...(whereValues as (string | number | bigint | null)[]),
+              );
+            } else {
+              // INSERT: combine where-key values (from via_table) + record_data values
+              const insertRecord: Record<string, unknown> = { ...updates };
+              const whereEntriesLocal = Object.entries(act.where);
+              for (const [col, expr] of whereEntriesLocal) {
+                insertRecord[col] = evaluateExpression(expr, viaRecord);
+              }
+              const cols = Object.keys(insertRecord).map(k => `"${k}"`).join(', ');
+              const placeholders = Object.keys(insertRecord).map(() => '?').join(', ');
+              db.prepare(
+                `INSERT INTO "${act.target_table}" (${cols}) VALUES (${placeholders})`
+              ).run(...(Object.values(insertRecord) as (string | number | bigint | null)[]));
+              console.log(`[RuleEngine] update_related_records — 找不到記錄，已新增至 "${act.target_table}" ${JSON.stringify(insertRecord)}`);
+            }
             updatedCount++;
           }
 
-          console.log(`[RuleEngine] update_related_records — 已更新 ${updatedCount} 筆 "${act.target_table}" via "${act.via_table}"`);
+          console.log(`[RuleEngine] update_related_records — 已處理 ${updatedCount} 筆 "${act.target_table}" via "${act.via_table}"`);
           break;
         }
 
