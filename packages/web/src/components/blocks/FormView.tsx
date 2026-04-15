@@ -79,7 +79,17 @@ export function FormView({ fields, initialValues = {}, mode = 'create', onSubmit
     if (!onSubmit) return;
     setSubmitting(true);
     try {
-      await onSubmit(values);
+      // 過濾掉空值、__display 欄位等系統欄位
+      const payload: Record<string, unknown> = {};
+      for (const field of visibleFields) {
+        const value = values[field.key];
+        // 跳過空值和不可見的系統欄位
+        if (value === '' || value === undefined || field.key.endsWith('__display')) {
+          continue;
+        }
+        payload[field.key] = value;
+      }
+      await onSubmit(payload);
       if (mode === 'view') setCurrentMode('view'); // go back to view after save
     } finally {
       setSubmitting(false);

@@ -332,7 +332,9 @@ type 選擇指南：
 Action 類型：
 - set_field：設定欄位值（value 可以是公式如 "total * 0.9"）
 - validate：驗證規則（條件成立時拒絕操作，回傳 message）
-- create_record：在另一張表建記錄
+- create_record：在另一張表新增一筆記錄（INSERT）
+- update_record：更新另一張表的現有記錄（UPDATE），適合 1:1 關係
+- update_related_records：透過中間明細表批次更新目標表（適合 1:多，如採購單→明細→庫存）
 - webhook：呼叫外部 URL
 - notify：記錄通知
 
@@ -379,12 +381,15 @@ Condition field 支援 FK 路徑（跨表條件）：
               items: {
                 type: 'object',
                 properties: {
-                  type: { type: 'string', enum: ['set_field', 'validate', 'create_record', 'webhook', 'notify'] },
+                  type: { type: 'string', enum: ['set_field', 'validate', 'create_record', 'update_record', 'update_related_records', 'webhook', 'notify'] },
                   field: { type: 'string', description: 'set_field 的目標欄位' },
                   value: { type: 'string', description: 'set_field 的值或公式' },
                   message: { type: 'string', description: 'validate 的錯誤訊息' },
-                  target_table: { type: 'string', description: 'create_record 的目標表' },
-                  record_data: { type: 'object', description: 'create_record 的欄位對應（欄位名 → 表達式）' },
+                  target_table: { type: 'string', description: 'create_record / update_record / update_related_records 的目標表' },
+                  record_data: { type: 'object', description: '欄位對應（欄位名 → 表達式）。update_related_records 中，明細欄位直接引用，目標表現值加 __old_ 前綴，如 "__old_quantity + quantity"' },
+                  where: { type: 'object', description: 'update_record / update_related_records：定位目標記錄的條件。key 為目標表欄位，value 為來源（或明細）表達式。例：{ product_id: "product_id" }' },
+                  via_table: { type: 'string', description: 'update_related_records 專用：中間明細表（如 purchase_order_items）' },
+                  via_foreign_key: { type: 'string', description: 'update_related_records 專用：明細表中指向來源表的 FK 欄位（如 purchase_order_id）' },
                   url: { type: 'string', description: 'webhook URL' },
                   method: { type: 'string', description: 'webhook HTTP 方法，預設 POST' },
                   text: { type: 'string', description: 'notify 的文字' },
@@ -514,7 +519,21 @@ function buildSystemPrompt(): string {
 1. manage_rules → create_rule
 2. trigger_type 決定時機：before_insert（寫入前修改/驗證）、after_insert（寫入後觸發副作用）
 3. condition.field 支援 FK 點路徑跨表：如 order_items 要檢查客戶等級，寫 "order_id.customer_id.tier"
-4. actions 決定動作：set_field 修改值、validate 拒絕、create_record 建記錄、webhook 呼叫 URL
+4. actions 決定動作：
+   - set_field：修改來源記錄的欄位值
+   - validate：拒絕操作
+   - create_record：在另一張表新增記錄（INSERT）
+   - update_record：更新另一張表的現有記錄（UPDATE）。需指定 where（定位條件）和 record_data（更新值）
+   - update_related_records：透過中間表（如明細表）批次更新目標表的多筆記錄
+     適用場景：採購到貨更新庫存（1 張採購單有多筆明細，每筆明細更新對應庫存）
+     - via_table：中間明細表（如 purchase_order_items）
+     - via_foreign_key：明細表中指向來源表的 FK（如 purchase_order_id）
+     - target_table：要更新的表（如 inventory）
+     - where：定位目標記錄的條件（key=目標表欄位, value=明細表欄位表達式）
+       如 { product_id: "product_id", warehouse_id: "warehouse_id" }
+     - record_data：更新表達式，明細表欄位直接引用，目標表現有值加 __old_ 前綴
+       如 { quantity: "__old_quantity + quantity" }（__old_quantity=庫存現況, quantity=採購數量）
+   - webhook：呼叫外部 URL
 
 破壞性 schema 變更（drop_column, rename_column, change_type, drop_table）：
 1. 必須先呼叫 assess_impact 評估影響

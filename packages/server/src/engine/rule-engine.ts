@@ -11,15 +11,24 @@ export interface RuleCondition {
 }
 
 export interface RuleAction {
-  type: 'set_field' | 'validate' | 'create_record' | 'webhook' | 'notify';
+  type: 'set_field' | 'validate' | 'create_record' | 'update_record' | 'update_related_records' | 'webhook' | 'notify';
   // set_field
   field?: string;
   value?: string; // literal or formula expression
   // validate
   message?: string;
-  // create_record
+  // create_record / update_record
   target_table?: string;
   record_data?: Record<string, string>; // field → expression
+  // update_record: WHERE conditions: key=target column, value=source expression
+  where?: Record<string, string>;
+  // update_related_records: iterate child records and update a third table
+  via_table?: string;       // intermediate table (e.g. purchase_order_items)
+  via_foreign_key?: string; // FK in via_table pointing back to source (e.g. purchase_order_id)
+  // (reuses where and target_table and record_data)
+  // In record_data expressions, via_table fields are accessible by name,
+  // and target_table's current values are accessible with __old_ prefix
+  // e.g. "__old_quantity + quantity" means target.quantity + via.quantity
   // webhook
   url?: string;
   method?: string;
@@ -233,6 +242,110 @@ export async function executeAfter(
             ).run(...(Object.values(record) as (string | number | bigint | null)[]));
           }
           break;
+
+        case 'update_record': {
+          if (!act.target_table || !act.record_data || !act.where) {
+            console.warn(`[RuleEngine] update_record rule "${rule.name}" missing target_table, record_data, or where`);
+            break;
+          }
+          const db = getDb();
+
+          // Build WHERE clause from the `where` map: target_col → source_expression
+          const whereEntries = Object.entries(act.where);
+          const whereClause = whereEntries.map(([col]) => `"${col}" = ?`).join(' AND ');
+          const whereValues = whereEntries.map(([, expr]) => evaluateExpression(expr, data));
+
+          // Fetch the current target record so formulas can reference its existing values
+          const targetRecord = db.prepare(
+            `SELECT * FROM "${act.target_table}" WHERE ${whereClause} LIMIT 1`
+          ).get(...(whereValues as (string | number | bigint | null)[])) as Record<string, unknown> | undefined;
+
+          if (!targetRecord) {
+            console.warn(`[RuleEngine] update_record rule "${rule.name}": no matching record found in "${act.target_table}" for WHERE ${JSON.stringify(act.where)}`);
+            break;
+          }
+
+          // Evaluation context: target record first (current values), then source data (new values override on conflicts)
+          // This means formulas like "stock_quantity + quantity" can reference both tables
+          const context = { ...targetRecord, ...data };
+
+          const updates: Record<string, unknown> = {};
+          for (const [key, expr] of Object.entries(act.record_data)) {
+            updates[key] = evaluateExpression(expr, context);
+          }
+
+          const updateKeys = Object.keys(updates);
+          const setClause = updateKeys.map(k => `"${k}" = ?`).join(', ');
+          db.prepare(
+            `UPDATE "${act.target_table}" SET ${setClause} WHERE ${whereClause}`
+          ).run(
+            ...(Object.values(updates) as (string | number | bigint | null)[]),
+            ...(whereValues as (string | number | bigint | null)[]),
+          );
+
+          console.log(`[RuleEngine] update_record — 已更新 "${act.target_table}" (${JSON.stringify(updates)}) WHERE ${JSON.stringify(act.where)}`);
+          break;
+        }
+
+        case 'update_related_records': {
+          // Iterate child records (via_table) linked to this source, and update target_table for each
+          if (!act.via_table || !act.via_foreign_key || !act.target_table || !act.record_data || !act.where) {
+            console.warn(`[RuleEngine] update_related_records rule "${rule.name}" missing required fields`);
+            break;
+          }
+          if (data.id === undefined) {
+            console.warn(`[RuleEngine] update_related_records rule "${rule.name}": source record has no id`);
+            break;
+          }
+          const db = getDb();
+
+          // Fetch all related via_table records
+          const viaRecords = db.prepare(
+            `SELECT * FROM "${act.via_table}" WHERE "${act.via_foreign_key}" = ?`
+          ).all(data.id as string | number | bigint) as Record<string, unknown>[];
+
+          let updatedCount = 0;
+          for (const viaRecord of viaRecords) {
+            // Resolve WHERE clause using via_table fields
+            const whereEntries = Object.entries(act.where);
+            const whereClause = whereEntries.map(([col]) => `"${col}" = ?`).join(' AND ');
+            const whereValues = whereEntries.map(([, expr]) => evaluateExpression(expr, viaRecord));
+
+            // Fetch the target record for current values
+            const targetRecord = db.prepare(
+              `SELECT * FROM "${act.target_table}" WHERE ${whereClause} LIMIT 1`
+            ).get(...(whereValues as (string | number | bigint | null)[])) as Record<string, unknown> | undefined;
+
+            if (!targetRecord) {
+              console.warn(`[RuleEngine] update_related_records: no matching record in "${act.target_table}" for via row ${JSON.stringify(viaRecord)}`);
+              continue;
+            }
+
+            // Context: via_table fields by name, target_table current values with __old_ prefix
+            const context: Record<string, unknown> = { ...viaRecord };
+            for (const [k, v] of Object.entries(targetRecord)) {
+              context[`__old_${k}`] = v;
+            }
+
+            const updates: Record<string, unknown> = {};
+            for (const [key, expr] of Object.entries(act.record_data)) {
+              updates[key] = evaluateExpression(expr, context);
+            }
+
+            const updateKeys = Object.keys(updates);
+            const setClause = updateKeys.map(k => `"${k}" = ?`).join(', ');
+            db.prepare(
+              `UPDATE "${act.target_table}" SET ${setClause} WHERE ${whereClause}`
+            ).run(
+              ...(Object.values(updates) as (string | number | bigint | null)[]),
+              ...(whereValues as (string | number | bigint | null)[]),
+            );
+            updatedCount++;
+          }
+
+          console.log(`[RuleEngine] update_related_records — 已更新 ${updatedCount} 筆 "${act.target_table}" via "${act.via_table}"`);
+          break;
+        }
 
         case 'webhook':
           if (act.url) {
