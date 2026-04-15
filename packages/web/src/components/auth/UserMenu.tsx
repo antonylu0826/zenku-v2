@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { LogOut, Users, ChevronUp, MessageSquare, BarChart2 } from 'lucide-react';
+import { LogOut, Users, ChevronUp, MessageSquare, BarChart2, Settings } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { UserManagement } from '../admin/UserManagement';
 import { ChatHistory } from '../admin/ChatHistory';
 import { UsageStats } from '../admin/UsageStats';
+import { ProfileDialog } from './ProfileDialog';
 
 const ROLE_LABEL: Record<string, string> = {
   admin: '管理員',
@@ -17,6 +18,7 @@ export function UserMenu() {
   const [showUserMgmt, setShowUserMgmt] = useState(false);
   const [showChatHistory, setShowChatHistory] = useState(false);
   const [showUsageStats, setShowUsageStats] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
 
   return (
     <>
@@ -74,6 +76,13 @@ export function UserMenu() {
                 </>
               )}
               <button
+                onClick={() => { setShowProfile(true); setOpen(false); }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
+              >
+                <Settings size={14} />
+                個人設定
+              </button>
+              <button
                 onClick={() => { logout(); setOpen(false); }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10"
               >
@@ -88,6 +97,7 @@ export function UserMenu() {
       {showUserMgmt && <UserManagement onClose={() => setShowUserMgmt(false)} />}
       {showChatHistory && <ChatHistory onClose={() => setShowChatHistory(false)} />}
       {showUsageStats && <UsageStats onClose={() => setShowUsageStats(false)} />}
+      <ProfileDialog open={showProfile} onClose={() => setShowProfile(false)} />
     </>
   );
 }

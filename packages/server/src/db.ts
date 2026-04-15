@@ -23,6 +23,7 @@ function initSystemTables(db: DatabaseSync): void {
       name TEXT NOT NULL,
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'user',
+      disabled INTEGER NOT NULL DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
       last_login_at TEXT
     );
@@ -136,6 +137,13 @@ function initSystemTables(db: DatabaseSync): void {
     CREATE INDEX IF NOT EXISTS idx_tool_events_session ON _zenku_tool_events(session_id);
     CREATE INDEX IF NOT EXISTS idx_tool_events_message ON _zenku_tool_events(message_id);
   `);
+
+  // Migrations for existing databases
+  try {
+    db.exec(`ALTER TABLE _zenku_users ADD COLUMN disabled INTEGER NOT NULL DEFAULT 0`);
+  } catch {
+    // Column already exists — ignore
+  }
 }
 
 // ===== Session =====

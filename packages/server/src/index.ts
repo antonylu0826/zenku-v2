@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 // CWD = packages/server（npm workspace 執行時），往上兩層到 monorepo root
 const envResult = dotenv.config({ path: path.resolve(process.cwd(), '../../.env') });
 console.log('[dotenv] path:', path.resolve(process.cwd(), '../../.env'));
@@ -84,6 +85,49 @@ app.get('/api/auth/me', requireAuth, meHandler);
 app.post('/api/auth/logout', requireAuth, logoutHandler);
 
 // ──────────────────────────────────────────────
+// User self-service (any authenticated user)
+// ──────────────────────────────────────────────
+app.put('/api/users/me', requireAuth, (req, res) => {
+  const { name } = req.body as { name?: string };
+  if (!name || !name.trim()) {
+    res.status(400).json({ error: '姓名不可為空' });
+    return;
+  }
+  const db = getDb();
+  db.prepare('UPDATE _zenku_users SET name = ? WHERE id = ?').run(name.trim(), req.user!.id);
+  res.json({ success: true, name: name.trim() });
+});
+
+app.put('/api/users/me/password', requireAuth, async (req, res) => {
+  const { old_password, new_password } = req.body as { old_password?: string; new_password?: string };
+  if (!old_password || !new_password) {
+    res.status(400).json({ error: '缺少必填欄位' });
+    return;
+  }
+  if (new_password.length < 6) {
+    res.status(400).json({ error: '新密碼至少 6 個字元' });
+    return;
+  }
+  const db = getDb();
+  const user = db.prepare('SELECT password_hash FROM _zenku_users WHERE id = ?').get(req.user!.id) as { password_hash: string } | undefined;
+  if (!user) {
+    res.status(404).json({ error: '使用者不存在' });
+    return;
+  }
+  const valid = await bcrypt.compare(old_password, user.password_hash);
+  if (!valid) {
+    res.status(400).json({ error: '舊密碼不正確' });
+    return;
+  }
+  const hash = await bcrypt.hash(new_password, 12);
+  db.prepare('UPDATE _zenku_users SET password_hash = ? WHERE id = ?').run(hash, req.user!.id);
+  // Invalidate all other sessions (keep current one)
+  const currentToken = req.headers.authorization!.slice(7);
+  db.prepare('DELETE FROM _zenku_sessions WHERE user_id = ? AND token != ?').run(req.user!.id, currentToken);
+  res.json({ success: true });
+});
+
+// ──────────────────────────────────────────────
 // AI providers
 // ──────────────────────────────────────────────
 app.get('/api/ai/providers', requireAuth, (_req, res) => {
@@ -96,7 +140,7 @@ app.get('/api/ai/providers', requireAuth, (_req, res) => {
 app.get('/api/admin/users', requireAdmin, (_req, res) => {
   const db = getDb();
   const users = db.prepare(
-    'SELECT id, email, name, role, created_at, last_login_at FROM _zenku_users ORDER BY created_at'
+    'SELECT id, email, name, role, disabled, created_at, last_login_at FROM _zenku_users ORDER BY created_at'
   ).all();
   res.json(users);
 });
@@ -108,6 +152,77 @@ app.put('/api/admin/users/:id/role', requireAdmin, (req, res) => {
     return;
   }
   getDb().prepare('UPDATE _zenku_users SET role = ? WHERE id = ?').run(role!, String(req.params.id));
+  res.json({ success: true });
+});
+
+app.post('/api/admin/users', requireAdmin, async (req, res) => {
+  const { email, name, password, role = 'user' } = req.body as {
+    email?: string; name?: string; password?: string; role?: string;
+  };
+  if (!email || !name || !password) {
+    res.status(400).json({ error: '缺少必填欄位' });
+    return;
+  }
+  if (password.length < 6) {
+    res.status(400).json({ error: '密碼至少 6 個字元' });
+    return;
+  }
+  if (!['admin', 'builder', 'user'].includes(role)) {
+    res.status(400).json({ error: '無效的角色' });
+    return;
+  }
+  const db = getDb();
+  if (db.prepare('SELECT id FROM _zenku_users WHERE email = ?').get(email)) {
+    res.status(409).json({ error: '此 Email 已被使用' });
+    return;
+  }
+  const id = crypto.randomUUID();
+  const hash = await bcrypt.hash(password, 12);
+  db.prepare('INSERT INTO _zenku_users (id, email, name, password_hash, role) VALUES (?, ?, ?, ?, ?)')
+    .run(id, email, name, hash, role);
+  res.json({ success: true, id });
+});
+
+app.patch('/api/admin/users/:id/disable', requireAdmin, (req, res) => {
+  const id = String(req.params.id);
+  if (id === req.user!.id) {
+    res.status(400).json({ error: '不可停用自己的帳號' });
+    return;
+  }
+  getDb().prepare('UPDATE _zenku_users SET disabled = 1 WHERE id = ?').run(id);
+  // Invalidate existing sessions
+  getDb().prepare('DELETE FROM _zenku_sessions WHERE user_id = ?').run(id);
+  res.json({ success: true });
+});
+
+app.patch('/api/admin/users/:id/enable', requireAdmin, (req, res) => {
+  getDb().prepare('UPDATE _zenku_users SET disabled = 0 WHERE id = ?').run(String(req.params.id));
+  res.json({ success: true });
+});
+
+app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
+  const id = String(req.params.id);
+  if (id === req.user!.id) {
+    res.status(400).json({ error: '不可刪除自己的帳號' });
+    return;
+  }
+  const db = getDb();
+  db.prepare('DELETE FROM _zenku_sessions WHERE user_id = ?').run(id);
+  db.prepare('DELETE FROM _zenku_users WHERE id = ?').run(id);
+  res.json({ success: true });
+});
+
+app.post('/api/admin/users/:id/reset-password', requireAdmin, async (req, res) => {
+  const { new_password } = req.body as { new_password?: string };
+  if (!new_password || new_password.length < 6) {
+    res.status(400).json({ error: '新密碼至少 6 個字元' });
+    return;
+  }
+  const hash = await bcrypt.hash(new_password, 12);
+  getDb().prepare('UPDATE _zenku_users SET password_hash = ? WHERE id = ?')
+    .run(hash, String(req.params.id));
+  // Invalidate existing sessions so user must re-login
+  getDb().prepare('DELETE FROM _zenku_sessions WHERE user_id = ?').run(String(req.params.id));
   res.json({ success: true });
 });
 

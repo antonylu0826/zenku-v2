@@ -42,7 +42,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     `SELECT s.user_id, u.id, u.email, u.name, u.role
      FROM _zenku_sessions s
      JOIN _zenku_users u ON u.id = s.user_id
-     WHERE s.token = ? AND s.expires_at > datetime('now')`
+     WHERE s.token = ? AND s.expires_at > datetime('now') AND u.disabled = 0`
   ).get(token) as (AuthUser & { user_id: string }) | undefined;
 
   if (!session) {

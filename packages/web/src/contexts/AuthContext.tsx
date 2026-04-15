@@ -11,6 +11,7 @@ interface AuthContextValue {
   user: AuthUser;
   token: string;
   logout: () => void;
+  updateUser: (patch: Partial<Pick<AuthUser, 'name'>>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -87,6 +88,10 @@ export function AuthProvider({ children, fallback }: Props) {
     setState(prev => ({ ...prev, status: 'unauthenticated', user: null, token: null }));
   };
 
+  const updateUser = (patch: Partial<Pick<AuthUser, 'name'>>) => {
+    setState(prev => prev.user ? { ...prev, user: { ...prev.user, ...patch } } : prev);
+  };
+
   if (state.status === 'loading') {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
@@ -100,7 +105,7 @@ export function AuthProvider({ children, fallback }: Props) {
   }
 
   return (
-    <AuthContext.Provider value={{ user: state.user, token: state.token, logout }}>
+    <AuthContext.Provider value={{ user: state.user, token: state.token, logout, updateUser }}>
       {children(state.user, state.token)}
     </AuthContext.Provider>
   );

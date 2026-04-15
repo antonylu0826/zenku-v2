@@ -250,3 +250,5 @@ interface ChatSession {
 
 [ ] 將 agent 提示詞和 tool descriptions 改寫為英文
 [ ] AI Chat 的對話內容要支援顯示 Markdown, table, 流程圖及 emoji，chat 的對話框要能適當的長高，適應多行的內容
+[ ] MasterDetailView 裡的 Detail Modal 內容也要支援多欄並寬度適合，避免 detail 欄位一多就變一長條
+[ ] 左側邊欄選單需要支援群組
