@@ -139,6 +139,10 @@ function evaluateExpression(expr: string, data: Record<string, unknown>): unknow
       for (const token of tokens) {
         if (token in data) {
           depValues[token] = Number(data[token]) || 0;
+        } else if (token.startsWith('__old_')) {
+          // __old_<field> references a target record's current value.
+          // If the target record doesn't exist (INSERT case), default to 0.
+          depValues[token] = 0;
         }
       }
       return evaluateFormula(expr, depValues);
