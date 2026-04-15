@@ -102,15 +102,65 @@ export async function getAIProviders(): Promise<AIProviderInfo[]> {
   return parseJsonOrThrow<AIProviderInfo[]>(res);
 }
 
+export interface SessionSummary {
+  id: string;
+  title: string | null;
+  provider: string;
+  model: string;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SessionMessage {
+  id: string;
+  session_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
+  tool_events: {
+    tool_name: string;
+    tool_input: Record<string, unknown>;
+    tool_output: { success: boolean; message: string };
+  }[];
+}
+
+export async function getSessions(limit = 20): Promise<SessionSummary[]> {
+  const res = await fetch(`${BASE}/sessions?limit=${limit}`, { headers: authHeaders() });
+  return parseJsonOrThrow<SessionSummary[]>(res);
+}
+
+export async function getSessionMessages(sessionId: string): Promise<SessionMessage[]> {
+  const res = await fetch(`${BASE}/sessions/${sessionId}/messages`, { headers: authHeaders() });
+  return parseJsonOrThrow<SessionMessage[]>(res);
+}
+
+export async function updateSessionTitle(sessionId: string, title: string): Promise<void> {
+  const res = await fetch(`${BASE}/sessions/${sessionId}/title`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ title }),
+  });
+  await parseJsonOrThrow<{ success: boolean }>(res);
+}
+
+export async function archiveSession(sessionId: string): Promise<void> {
+  const res = await fetch(`${BASE}/sessions/${sessionId}/archive`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+  });
+  await parseJsonOrThrow<{ success: boolean }>(res);
+}
+
 export async function* sendChat(
   message: string,
   history: { role: 'user' | 'assistant'; content: string }[],
-  options?: { provider?: string; model?: string }
+  options?: { provider?: string; model?: string; session_id?: string }
 ): AsyncGenerator<SSEChunk> {
   const res = await fetch(`${BASE}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    body: JSON.stringify({ message, history, provider: options?.provider, model: options?.model }),
+    body: JSON.stringify({ message, history, provider: options?.provider, model: options?.model, session_id: options?.session_id }),
   });
 
   if (!res.body) throw new Error('No response body');

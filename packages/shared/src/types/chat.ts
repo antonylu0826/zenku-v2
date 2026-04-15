@@ -93,7 +93,7 @@ export type SSEChunk =
   | { type: 'tool_start'; tool: string; agent: AgentName }
   | { type: 'tool_result'; tool: string; agent: AgentName; result: { success: boolean; message: string; data?: unknown } }
   | { type: 'usage'; usage: TokenUsage; latency_ms: number }
-  | { type: 'done' }
+  | { type: 'done'; session_id?: string | null }
   | { type: 'error'; message: string };
 
 // ===== 前端用的對話訊息（含 UI 狀態） =====

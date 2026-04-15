@@ -144,6 +144,11 @@ function initSystemTables(db: DatabaseSync): void {
   } catch {
     // Column already exists — ignore
   }
+  try {
+    db.exec(`ALTER TABLE _zenku_chat_sessions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0`);
+  } catch {
+    // Column already exists — ignore
+  }
 }
 
 // ===== Session =====

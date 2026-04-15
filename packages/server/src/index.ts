@@ -230,11 +230,12 @@ app.post('/api/admin/users/:id/reset-password', requireAdmin, async (req, res) =
 // Chat endpoint (SSE)
 // ──────────────────────────────────────────────
 app.post('/api/chat', requireAuth, async (req, res) => {
-  const { message, history = [], provider, model } = req.body as {
+  const { message, history = [], provider, model, session_id } = req.body as {
     message: string;
     history: { role: 'user' | 'assistant'; content: string }[];
     provider?: string;
     model?: string;
+    session_id?: string;
   };
 
   if (!message) {
@@ -248,10 +249,19 @@ app.post('/api/chat', requireAuth, async (req, res) => {
 
   try {
     const role = req.user!.role;
+    // Verify session belongs to this user if provided
+    let existingSessionId: string | undefined;
+    if (session_id) {
+      const owned = getDb().prepare(
+        'SELECT id FROM _zenku_chat_sessions WHERE id = ? AND user_id = ? AND archived = 0'
+      ).get(session_id, req.user!.id);
+      if (owned) existingSessionId = session_id;
+    }
     const aiOptions = {
       provider: provider as 'claude' | 'openai' | 'gemini' | undefined,
       model,
       userId: req.user!.id,
+      existingSessionId,
     };
     for await (const chunk of chat(message, history, role, aiOptions)) {
       res.write(`data: ${chunk}\n`);
@@ -262,6 +272,77 @@ app.post('/api/chat', requireAuth, async (req, res) => {
   }
 
   res.end();
+});
+
+// ──────────────────────────────────────────────
+// User chat sessions (own sessions)
+// ──────────────────────────────────────────────
+app.get('/api/sessions', requireAuth, (req, res) => {
+  const db = getDb();
+  const limit = Math.min(50, Math.max(1, Number(req.query.limit ?? 20)));
+  const sessions = db.prepare(`
+    SELECT id, title, provider, model, message_count, created_at, updated_at
+    FROM _zenku_chat_sessions
+    WHERE user_id = ? AND archived = 0
+    ORDER BY updated_at DESC
+    LIMIT ?
+  `).all(req.user!.id, limit);
+  res.json(sessions);
+});
+
+app.get('/api/sessions/:id/messages', requireAuth, (req, res) => {
+  const db = getDb();
+  const sessionId = p(req.params.id);
+  const session = db.prepare(
+    'SELECT id FROM _zenku_chat_sessions WHERE id = ? AND user_id = ?'
+  ).get(sessionId, req.user!.id);
+  if (!session) { res.status(404).json({ error: '找不到 session' }); return; }
+
+  const messages = db.prepare(
+    'SELECT * FROM _zenku_chat_messages WHERE session_id = ? ORDER BY created_at'
+  ).all(sessionId) as { id: string }[];
+
+  const toolEvents = db.prepare(
+    'SELECT * FROM _zenku_tool_events WHERE session_id = ? ORDER BY started_at'
+  ).all(sessionId) as { message_id: string; tool_input: string; tool_output: string }[];
+
+  const toolsByMsg: Record<string, unknown[]> = {};
+  for (const te of toolEvents) {
+    const mid = te.message_id;
+    if (!toolsByMsg[mid]) toolsByMsg[mid] = [];
+    toolsByMsg[mid].push({
+      ...te,
+      tool_input: JSON.parse(te.tool_input || '{}'),
+      tool_output: JSON.parse(te.tool_output || '{}'),
+    });
+  }
+
+  const timeline = messages.map(m => ({ ...m, tool_events: toolsByMsg[(m as { id: string }).id] ?? [] }));
+  res.json(timeline);
+});
+
+app.patch('/api/sessions/:id/title', requireAuth, (req, res) => {
+  const db = getDb();
+  const sessionId = p(req.params.id);
+  const { title } = req.body as { title?: string };
+  if (!title?.trim()) { res.status(400).json({ error: '標題不可為空' }); return; }
+  const session = db.prepare(
+    'SELECT id FROM _zenku_chat_sessions WHERE id = ? AND user_id = ?'
+  ).get(sessionId, req.user!.id);
+  if (!session) { res.status(404).json({ error: '找不到 session' }); return; }
+  db.prepare('UPDATE _zenku_chat_sessions SET title = ? WHERE id = ?').run(title.trim(), sessionId);
+  res.json({ success: true });
+});
+
+app.patch('/api/sessions/:id/archive', requireAuth, (req, res) => {
+  const db = getDb();
+  const sessionId = p(req.params.id);
+  const session = db.prepare(
+    'SELECT id FROM _zenku_chat_sessions WHERE id = ? AND user_id = ?'
+  ).get(sessionId, req.user!.id);
+  if (!session) { res.status(404).json({ error: '找不到 session' }); return; }
+  db.prepare('UPDATE _zenku_chat_sessions SET archived = 1 WHERE id = ?').run(sessionId);
+  res.json({ success: true });
 });
 
 // ──────────────────────────────────────────────
@@ -664,11 +745,16 @@ app.get('/api/admin/sessions', requireAdmin, (req, res) => {
   const offset = (page - 1) * limit;
   const userId = req.query.user_id ? String(req.query.user_id) : null;
   const provider = req.query.provider ? String(req.query.provider) : null;
+  const archivedParam = req.query.archived !== undefined ? String(req.query.archived) : null;
 
   const conditions: string[] = [];
   const params: (string | number | null)[] = [];
   if (userId) { conditions.push('s.user_id = ?'); params.push(userId); }
   if (provider) { conditions.push('s.provider = ?'); params.push(provider); }
+  if (archivedParam !== null) {
+    conditions.push('s.archived = ?');
+    params.push(archivedParam === '1' ? 1 : 0);
+  }
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
@@ -725,6 +811,38 @@ app.get('/api/admin/sessions/:id', requireAdmin, (req, res) => {
   }));
 
   res.json({ session, messages: timeline });
+});
+
+app.patch('/api/admin/sessions/:id/archive', requireAdmin, (req, res) => {
+  const db = getDb();
+  const sessionId = p(req.params.id);
+  const session = db.prepare('SELECT id FROM _zenku_chat_sessions WHERE id = ?').get(sessionId);
+  if (!session) { res.status(404).json({ error: '找不到 session' }); return; }
+  db.prepare('UPDATE _zenku_chat_sessions SET archived = 1 WHERE id = ?').run(sessionId);
+  res.json({ success: true });
+});
+
+app.patch('/api/admin/sessions/:id/unarchive', requireAdmin, (req, res) => {
+  const db = getDb();
+  const sessionId = p(req.params.id);
+  const session = db.prepare('SELECT id FROM _zenku_chat_sessions WHERE id = ?').get(sessionId);
+  if (!session) { res.status(404).json({ error: '找不到 session' }); return; }
+  db.prepare('UPDATE _zenku_chat_sessions SET archived = 0 WHERE id = ?').run(sessionId);
+  res.json({ success: true });
+});
+
+app.delete('/api/admin/sessions/:id', requireAdmin, (req, res) => {
+  const db = getDb();
+  const sessionId = p(req.params.id);
+  const session = db.prepare('SELECT id FROM _zenku_chat_sessions WHERE id = ?').get(sessionId);
+  if (!session) { res.status(404).json({ error: '找不到 session' }); return; }
+  // Delete in dependency order
+  db.prepare(`
+    DELETE FROM _zenku_tool_events WHERE session_id = ?
+  `).run(sessionId);
+  db.prepare('DELETE FROM _zenku_chat_messages WHERE session_id = ?').run(sessionId);
+  db.prepare('DELETE FROM _zenku_chat_sessions WHERE id = ?').run(sessionId);
+  res.json({ success: true });
 });
 
 app.get('/api/admin/usage', requireAdmin, (req, res) => {

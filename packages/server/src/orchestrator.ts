@@ -669,6 +669,7 @@ function executeTool(
 // ===== Main chat loop =====
 
 export interface ChatOptions {
+  existingSessionId?: string;
   provider?: AIProviderName;
   model?: string;
   userId?: string;
@@ -686,10 +687,9 @@ export async function* chat(
   const provider = createProvider(providerName);
   const tools = getToolsForRole(userRole);
 
-  // Create chat session for logging (only when we have a userId)
-  const sessionId = userId
-    ? createChatSession(userId, providerName, model, userMessage.slice(0, 80))
-    : null;
+  // Create or reuse chat session
+  const sessionId = options?.existingSessionId
+    ?? (userId ? createChatSession(userId, providerName, model, userMessage.slice(0, 80)) : null);
 
   if (sessionId && userId) {
     recordMessage({ session_id: sessionId, user_id: userId, role: 'user', content: userMessage });
