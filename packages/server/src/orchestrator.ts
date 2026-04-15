@@ -338,7 +338,9 @@ Action 類型：
 - webhook：呼叫外部 URL
 - notify：記錄通知
 
-Condition operator：eq, neq, gt, lt, gte, lte, contains, changed
+Condition operator：eq, neq, gt, lt, gte, lte, contains, changed, was_eq, was_neq
+- was_eq：觸發前舊值等於 value（適合「狀態從 X 變更」的 after_update 規則）
+- was_neq：觸發前舊值不等於 value（例如：前一個狀態不是草稿才觸發）
 
 Condition field 支援 FK 路徑（跨表條件）：
 - 若要在 order_items 的規則中檢查客戶等級，condition.field 填 "order_id.customer_id.tier"
@@ -371,7 +373,7 @@ Condition field 支援 FK 路徑（跨表條件）：
                   type: 'string',
                   description: '欄位名。可用 FK 點路徑跨表，如 "order_id.customer_id.tier"',
                 },
-                operator: { type: 'string', enum: ['eq', 'neq', 'gt', 'lt', 'gte', 'lte', 'contains', 'changed'] },
+                operator: { type: 'string', enum: ['eq', 'neq', 'gt', 'lt', 'gte', 'lte', 'contains', 'changed', 'was_eq', 'was_neq'] },
                 value: {},
               },
               required: ['field', 'operator'],

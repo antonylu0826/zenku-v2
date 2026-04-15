@@ -6,7 +6,7 @@ import { evaluateFormula } from '@zenku/shared';
 export interface RuleCondition {
   // Simple field or dot-notation FK path, e.g. "order_id.customer_id.tier"
   field: string;
-  operator: 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains' | 'changed';
+  operator: 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains' | 'changed' | 'was_eq' | 'was_neq';
   value?: unknown;
 }
 
@@ -122,6 +122,12 @@ function evaluateCondition(
     case 'changed':
       if (!oldData) return true; // insert → always "changed"
       return resolveFieldPath(table, condition.field, oldData) !== fieldVal;
+    case 'was_eq':
+      if (!oldData) return false; // insert → no old value
+      return String(resolveFieldPath(table, condition.field, oldData) ?? '') === String(expected ?? '');
+    case 'was_neq':
+      if (!oldData) return true; // insert → no old value
+      return String(resolveFieldPath(table, condition.field, oldData) ?? '') !== String(expected ?? '');
     default:
       return false;
   }
@@ -210,13 +216,14 @@ export async function executeAfter(
   table: string,
   action: TriggerAction,
   data: Record<string, unknown>,
+  oldData?: Record<string, unknown>,
 ): Promise<void> {
   const triggerType = `after_${action}`;
   const rules = getRulesForTable(table, triggerType);
 
   for (const rule of rules) {
     const condition = rule.condition ? JSON.parse(rule.condition) as RuleCondition : null;
-    if (!evaluateCondition(condition, table, data)) continue;
+    if (!evaluateCondition(condition, table, data, oldData)) continue;
 
     const actions = JSON.parse(rule.actions) as RuleAction[];
 

@@ -413,7 +413,7 @@ app.put('/api/data/:table/:id', requireAuth, async (req, res) => {
     res.json(updated);
 
     // After rules (non-blocking)
-    executeAfter(table, 'update', updated).catch(err =>
+    executeAfter(table, 'update', updated, oldData).catch(err =>
       console.error('[RuleEngine] after_update error:', err)
     );
   } catch (err) {
