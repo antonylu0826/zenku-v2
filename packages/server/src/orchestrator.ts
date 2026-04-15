@@ -176,6 +176,10 @@ form.columns controls form column count:
 - General table view default is 1 (optional or 1)
 - master-detail with many main fields suggest 2; use 3 when fields exceed 8
 
+group controls sidebar grouping:
+- Omit for ungrouped views (shown at top)
+- Set to a short label (e.g., "採購", "庫存") to cluster related views under a collapsible section
+
 When users say "statistics/kanban/calendar", directly create a view of that type without needing a table first.`,
     input_schema: {
       type: 'object' as const,
@@ -192,6 +196,7 @@ When users say "statistics/kanban/calendar", directly create a view of that type
             name: { type: 'string', description: 'Display name' },
             table_name: { type: 'string' },
             type: { type: 'string', enum: ['table', 'master-detail', 'dashboard', 'kanban', 'calendar'] },
+            group: { type: 'string', description: 'Sidebar group name; views with the same group are displayed together under a collapsible section' },
             columns: {
               type: 'array',
               description: 'List field definitions',

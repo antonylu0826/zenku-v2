@@ -108,8 +108,17 @@ export function TableView({ view, filters, onCreateData }: Props) {
         const data = row.original;
         return (
           <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-            {canEdit && !isMasterDetail ? (
-              <Button variant="ghost" size="icon" onClick={() => setEditingRow(data)} aria-label="編輯">
+            {canEdit ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="編輯"
+                onClick={() =>
+                  isMasterDetail
+                    ? navigate(`/view/${view.id}/${data.id}`)
+                    : setEditingRow(data)
+                }
+              >
                 <Pencil className="h-4 w-4" />
               </Button>
             ) : null}
@@ -194,11 +203,9 @@ export function TableView({ view, filters, onCreateData }: Props) {
     }
   };
 
-  const handleRowClick = (row: RowData) => {
-    if (isMasterDetail) {
-      navigate(`/view/${view.id}/${row.id}`);
-    }
-  };
+  const formColumns = view.form.columns ?? 1;
+  const dialogWidthClass =
+    formColumns === 3 ? 'max-w-4xl' : formColumns === 2 ? 'max-w-2xl' : 'max-w-lg';
 
   return (
     <div className="flex h-full flex-col">
@@ -258,11 +265,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
               </TableRow>
             ) : table.getRowModel().rows.length ? (
               table.getRowModel().rows.map(row => (
-                <TableRow
-                  key={row.id}
-                  onClick={() => handleRowClick(row.original)}
-                  className={isMasterDetail ? 'cursor-pointer hover:bg-accent/50' : undefined}
-                >
+                <TableRow key={row.id}>
                   {row.getVisibleCells().map(cell => (
                     <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                   ))}
@@ -297,17 +300,17 @@ export function TableView({ view, filters, onCreateData }: Props) {
       </div>
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent>
+        <DialogContent className={dialogWidthClass}>
           <DialogHeader>
             <DialogTitle>新增 {view.name}</DialogTitle>
             <DialogDescription>填入欄位資料後儲存。</DialogDescription>
           </DialogHeader>
-          <FormView fields={view.form.fields} onSubmit={handleCreate} onCancel={() => setShowCreate(false)} />
+          <FormView fields={view.form.fields} columns={formColumns} onSubmit={handleCreate} onCancel={() => setShowCreate(false)} />
         </DialogContent>
       </Dialog>
 
       <Dialog open={Boolean(editingRow)} onOpenChange={open => (!open ? setEditingRow(null) : null)}>
-        <DialogContent>
+        <DialogContent className={dialogWidthClass}>
           <DialogHeader>
             <DialogTitle>編輯 {view.name}</DialogTitle>
             <DialogDescription>更新資料後按下儲存。</DialogDescription>
@@ -315,6 +318,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
           {editingRow ? (
             <FormView
               fields={view.form.fields}
+              columns={formColumns}
               initialValues={editingRow}
               onSubmit={handleUpdate}
               onCancel={() => setEditingRow(null)}

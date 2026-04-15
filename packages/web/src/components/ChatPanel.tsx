@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, Loader2, Wrench, CheckCircle, XCircle, Plus, Archive, ChevronDown, Pencil, Check, X } from 'lucide-react';
+import { MarkdownRenderer } from './MarkdownRenderer';
 import {
   sendChat, getAIProviders, getSessions, getSessionMessages, updateSessionTitle, archiveSession,
   type AIProviderInfo, type SessionSummary, type SessionMessage,
@@ -419,7 +420,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div className={`max-w-[85%] ${isUser ? 'order-1' : 'order-2'}`}>
         {isUser ? (
-          <div className="rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground">
+          <div className="whitespace-pre-wrap rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground">
             {message.content}
           </div>
         ) : (
@@ -432,8 +433,8 @@ function MessageBubble({ message }: { message: ChatMessage }) {
               </div>
             )}
             {message.content && (
-              <div className="whitespace-pre-wrap rounded-2xl rounded-tl-sm bg-muted px-4 py-2.5 text-sm text-foreground">
-                {message.content}
+              <div className="rounded-2xl rounded-tl-sm bg-muted px-4 py-2.5 text-sm text-foreground">
+                <MarkdownRenderer content={message.content} />
               </div>
             )}
             {!message.content && (!message.toolEvents || message.toolEvents.length === 0) && (

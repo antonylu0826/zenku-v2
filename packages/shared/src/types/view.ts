@@ -14,6 +14,8 @@ export interface ViewDefinition {
   type: ViewType;
   /** Sidebar 圖示（lucide icon name） */
   icon?: string;
+  /** Sidebar 群組名稱，相同 group 的 view 會歸到同一個群組 */
+  group?: string;
   columns: ColumnDef[];
   form: { fields: FieldDef[]; columns?: 1 | 2 | 3 };
   actions: ViewAction[];
