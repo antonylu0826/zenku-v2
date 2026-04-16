@@ -6,6 +6,7 @@ import { executeViewAction, getRecord, updateRow } from '../../api';
 import type { CustomViewAction, DetailViewDef, ViewDefinition } from '../../types';
 import { evaluateAppearanceCondition } from '@zenku/shared';
 import { Button } from '../ui/button';
+import { DynamicIcon } from '../ui/dynamic-icon';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Skeleton } from '../ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
@@ -123,6 +124,7 @@ export function MasterDetailView({ view, recordId }: Props) {
                     disabled={!isEnabled}
                     onClick={() => triggerAction(a)}
                   >
+                    {a.icon && <DynamicIcon name={a.icon} className="mr-1 h-4 w-4" />}
                     {a.label}
                   </Button>
                 );

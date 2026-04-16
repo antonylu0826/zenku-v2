@@ -10,6 +10,7 @@ import { resolveAppearance } from '../../types';
 import { evaluateAppearanceCondition } from '@zenku/shared';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
 import { Button } from '../ui/button';
+import { DynamicIcon } from '../ui/dynamic-icon';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
@@ -168,6 +169,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
                     }
                   }}
                 >
+                  {a.icon && <DynamicIcon name={a.icon} className="mr-1 h-4 w-4" />}
                   {a.label}
                 </Button>
               );
