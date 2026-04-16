@@ -24,6 +24,10 @@
     --input: 240 5.9% 90%;
     --ring: 240 5.9% 10%;
     --radius: 0.5rem;
+    --radius-sm: calc(var(--radius) - 0.125rem);
+    --radius-md: var(--radius);
+    --radius-lg: calc(var(--radius) + 0.125rem);
+    --radius-xl: calc(var(--radius) + 0.25rem);
   }
 
   .dark {
