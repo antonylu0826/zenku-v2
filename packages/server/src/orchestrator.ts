@@ -1,4 +1,4 @@
-import { getAllSchemas, getAllViews, getAllRules } from './db';
+import { getUserTables, getAllViews, getAllRules } from './db';
 import { buildJournalContext } from './tools/journal-tools';
 import { createProvider, getDefaultProviderName, getDefaultModel } from './ai';
 import {
@@ -17,13 +17,11 @@ import type { ViewDefinition, LLMMessage, ToolResult, AIProvider as AIProviderNa
 
 
 function buildSystemPrompt(): string {
-  const schemas = getAllSchemas();
+  const tables = getUserTables();
   const views = getAllViews();
 
-  const schemaStr = Object.keys(schemas).length > 0
-    ? Object.entries(schemas).map(([table, cols]) =>
-        `Table ${table}: ${cols.map(c => `${c.name}(${c.type})`).join(', ')}`
-      ).join('\n')
+  const tableListStr = tables.length > 0
+    ? tables.map(t => `- ${t}`).join('\n')
     : '(No tables yet)';
 
   const viewStr = views.length > 0
@@ -39,6 +37,7 @@ Available Tools:
 - write_data: Insert, update, or delete records in user data tables (cannot operate on system tables).
 - manage_rules: Create or modify business rules (automation, validation, triggers).
 - assess_impact: Assess impact of destructive schema changes (must call before modification).
+- get_table_schema: Retrieve names of all tables or detailed column definitions for a specific table.
 
 Critical Rules:
 1. New Data Type: manage_schema (create_table) first, then manage_ui (create_view).
@@ -48,6 +47,7 @@ Critical Rules:
 5. Language: ALL responses to the user must be in Traditional Chinese.
 6. Identity: View ID should usually match its table_name.
 7. Modifying an existing view: ALWAYS call manage_ui (get_view) first to retrieve the current definition, then apply your changes and call update_view with the COMPLETE modified definition. Never write a partial definition — it will overwrite and lose existing fields, columns, and actions.
+8. Unknown Schema: If you need to query or modify a table but don't know its column definitions, you MUST call get_table_schema(action: 'get_schema', table_name: '...') first. Never guess column names.
 
 Relation Guidance (e.g., "Orders link to Customers"):
 1. manage_schema: Field uses INTEGER + references: { table: 'customers' }.
@@ -199,8 +199,8 @@ Field Type Guide:
 - Status/Category (Fixed) -> schema: TEXT, ui type: select + options.
 - Status/Category (Dynamic) -> schema: TEXT, ui type: select + source.
 
-Current Database:
-${schemaStr}
+Current Database (Tables):
+${tableListStr}
 
 Current Interfaces:
 ${viewStr}

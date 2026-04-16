@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { toast } from 'sonner';
 
 interface Props {
@@ -70,6 +70,9 @@ export function ProfileDialog({ open, onClose }: Props) {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>個人設定</DialogTitle>
+          <DialogDescription className="sr-only">
+            修改您的個人基本資料、顯示名稱以及系統登入密碼。
+          </DialogDescription>
         </DialogHeader>
 
         {/* Tab bar */}

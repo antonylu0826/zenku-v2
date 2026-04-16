@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import {
   Loader2, RefreshCw, Trash2, X, ChevronDown, ChevronRight,
   ShieldCheck, ShieldOff, Info,
@@ -280,7 +280,7 @@ export function RulesManagement({ onClose }: Props) {
                 </TableHeader>
                 <TableBody>
                   {rules.map(rule => (
-                    <>
+                    <Fragment key={rule.id}>
                       <TableRow
                         key={rule.id}
                         className={`cursor-pointer ${!rule.enabled ? 'opacity-50' : ''}`}
@@ -375,7 +375,7 @@ export function RulesManagement({ onClose }: Props) {
                           </TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </Fragment>
                   ))}
                 </TableBody>
               </Table>
