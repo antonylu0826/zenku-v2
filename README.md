@@ -1,5 +1,9 @@
 # Zenku 
 
+<div align="center">
+  <img src=".assets/light_theme.png" alt="Zenku Light Theme Screenshot" width="100%" style="max-width: 800px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" />
+</div>
+
 > **Zenku** 是一個由 AI 驅動的**無代碼 (No-Code) 動態應用程式建構平台**與企業管理引擎。
 
 透過自然語言對話，系統背後的多智能體 (Multi-Agent) 架構會自動產生對應的資料庫綱要 (Schema)、動態使用者介面 (UI View) 以及商業邏輯規則 (Business Rules)，並實時渲染出功能完全、響應式的現代化 Web 應用程式。
