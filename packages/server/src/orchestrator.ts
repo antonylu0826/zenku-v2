@@ -255,7 +255,12 @@ When users say "statistics/kanban/calendar", directly create a view of that type
       properties: {
         action: {
           type: 'string',
-          enum: ['create_view', 'update_view'],
+          enum: ['create_view', 'update_view', 'get_view'],
+          description: 'get_view: fetch the full current definition of a view (use before update_view to preserve existing fields/actions)',
+        },
+        view_id: {
+          type: 'string',
+          description: 'Required for get_view: the view ID to fetch',
         },
         view: {
           type: 'object',
@@ -677,6 +682,7 @@ Critical Rules:
 4. Naming: Use English lowercase underscores for tables and fields.
 5. Language: ALL responses to the user must be in Traditional Chinese.
 6. Identity: View ID should usually match its table_name.
+7. Modifying an existing view: ALWAYS call manage_ui (get_view) first to retrieve the current definition, then apply your changes and call update_view with the COMPLETE modified definition. Never write a partial definition — it will overwrite and lose existing fields, columns, and actions.
 
 Relation Guidance (e.g., "Orders link to Customers"):
 1. manage_schema: Field uses INTEGER + references: { table: 'customers' }.
@@ -764,6 +770,11 @@ Important constraints:
 - To remove a conditional appearance rule, call manage_ui (update_view) and omit the appearance property from that field.
 
 Custom ViewActions (自訂動作按鈕):
+To add a custom action to an existing view, always follow this sequence:
+1. manage_ui({ action: 'get_view', view_id: '...' }) — get current full definition
+2. Add the new action object into definition.actions[]
+3. manage_ui({ action: 'update_view', view: { ...full modified definition } })
+
 Add custom buttons to record forms or table rows via the actions array. Mix built-in strings with custom objects.
 
 behavior types:
@@ -864,7 +875,7 @@ function executeTool(
     return runSchemaAgent(toolInput as unknown as Parameters<typeof runSchemaAgent>[0], userMessage);
   } else if (toolName === 'manage_ui') {
     return runUiAgent(
-      toolInput as { action: 'create_view' | 'update_view'; view: ViewDefinition },
+      toolInput as { action: 'create_view' | 'update_view' | 'get_view'; view?: ViewDefinition; view_id?: string },
       userMessage
     );
   } else if (toolName === 'query_data') {
