@@ -20,7 +20,7 @@ export function AppShell() {
   const chatPanelRef = usePanelRef();
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [chatCollapsed, setChatCollapsed] = useState(false);
+  const [chatCollapsed, setChatCollapsed] = useState(hasViews);
 
   const handleSidebarResize = (size: PanelSize) => {
     setSidebarCollapsed(size.asPercentage <= 6);
@@ -72,7 +72,7 @@ export function AppShell() {
       />
       <Group orientation="horizontal" className="h-full w-full overflow-hidden">
         <Panel
-          defaultSize="16%"
+          defaultSize="10%"
           minSize="10%"
           maxSize="28%"
           collapsible
@@ -94,7 +94,7 @@ export function AppShell() {
         <Separator className="w-1 bg-border/60 transition hover:bg-border data-[resize-handle-active]:bg-border" />
 
         <Panel
-          defaultSize="28%"
+          defaultSize={hasViews ? "0%" : "28%"}
           minSize="22%"
           maxSize="45%"
           collapsible

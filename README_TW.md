@@ -39,10 +39,53 @@
 
 ### 3. `@zenku/shared` (共用生態)
 * 嚴謹維護的主從架構 TypeScript Schema、UI 條件解析器 (Appearance Validator) 與計算邏輯引擎 (Formula)。
+## 🚀 快速入門 (Quick Start)
 
-## 🚀 關於資料庫與部署
+### 1. 開發者啟動步驟
 
-Zenku 採用 **Dynamic Runtime (動態運行時生成)** 的概念，完全拋棄了傳統的 Migration 腳本概念。
-包含客戶資料、介面長相、乃至於自動化邏輯，100% 都綁定儲存於一份 `zenku.db` (SQLite) 檔案內。你可以隨時透過複製該檔案完成近乎無縫的環境遷移與佈署。
+在開始之前，請確保您的環境已安裝 **Node.js v18+**。
 
-詳細的系統各項字典規格、工具設定與底層運作邏輯，請參考 `docs/study.md` 深度研究報告。
+1. **取得專案並安裝依賴**：
+   ```bash
+   git clone https://github.com/antonylu0826/zenku-v2.git
+   cd zenku
+   npm install
+   ```
+
+2. **配置 AI 模型**：
+   將 `.env.example` 複製為 `.env`，並填入您的 API Key（推薦使用 Anthropic Claude 3.5 Sonnet 或 OpenAI GPT-4o）：
+   ```bash
+   cp .env.example .env
+   ```
+
+3. **啟動系統**：
+   ```bash
+   npm run dev
+   ```
+   啟動後，開啟瀏覽器造訪 `http://localhost:5173`。
+
+---
+
+### 2. 五分鐘建立您的第一個 App
+
+進到 Zenku 介面後，您可以直接在下方的對話框輸入自然語言指令：
+
+*   **第一步：建立資料表**  
+    輸入：`「幫我建立一個員工管理系統，需要包含姓名、職位、入職日期跟薪資欄位。」`
+    *   *AI 會自動產生資料庫 Schema 並渲染出對應的表格介面。*
+
+*   **第二步：自定義 UI 邏輯**  
+    輸入：`「在員工表單中，如果薪資大於 10 萬，請將背景標示為金色，並將職位設為必填。」`
+    *   *系統會即時更新 View Definition，觸發條件渲染 (Conditional Appearance)。*
+
+*   **第三步：建立關聯與統計**  
+    輸入：`「幫我增加一個部門表，並讓員工可以關聯到部門。最後幫我畫一個各部門人數的圓餅圖。」`
+    *   *AI 會處理外鍵關聯並自動生成儀表板元件。*
+
+---
+
+希望 Zenku 能幫助您釋放創意，將複雜的開發過程轉化為簡單有趣的對話。**祝您開發愉快，玩得開心！** 🚀
+
+## 📄 授權 (License)
+
+本專案採用 [GPL v3 License](LICENSE) 授權。
