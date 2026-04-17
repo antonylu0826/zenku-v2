@@ -10,12 +10,13 @@ const router = Router();
 // Chat endpoint (SSE)
 // ──────────────────────────────────────────────
 router.post('/chat', requireAuth, async (req, res) => {
-  const { message, history = [], provider, model, session_id } = req.body as {
+  const { message, history = [], provider, model, session_id, attachments = [] } = req.body as {
     message: string;
     history: { role: 'user' | 'assistant'; content: string }[];
     provider?: string;
     model?: string;
     session_id?: string;
+    attachments?: { filename: string; mime_type: string; data: string }[];
   };
 
   if (!message) {
@@ -42,7 +43,7 @@ router.post('/chat', requireAuth, async (req, res) => {
       userId: req.user!.id,
       existingSessionId,
     };
-    for await (const chunk of chat(message, history, role, aiOptions)) {
+    for await (const chunk of chat(message, history, role, aiOptions, attachments)) {
       res.write(`data: ${chunk}\n`);
     }
   } catch (err) {

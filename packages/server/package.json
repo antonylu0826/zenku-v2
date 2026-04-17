@@ -16,13 +16,17 @@
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^4.21.2",
-    "openai": "^6.34.0"
+    "multer": "^2.1.1",
+    "openai": "^6.34.0",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.1",
+    "@types/multer": "^2.1.0",
     "@types/node": "^22.14.0",
+    "@types/uuid": "^10.0.0",
     "tsx": "^4.19.3",
     "typescript": "^5.8.3"
   }

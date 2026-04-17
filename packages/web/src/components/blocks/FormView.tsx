@@ -24,7 +24,7 @@ interface Props {
 
 /** 哪些欄位需要佔滿全行 */
 function isFullWidth(field: FieldDef): boolean {
-  return field.type === 'textarea' || field.type === 'richtext' || !!field.computed;
+  return field.type === 'textarea' || field.type === 'richtext' || field.type === 'file' || field.type === 'image' || !!field.computed;
 }
 
 type ErrorMap = Record<string, string | null>;

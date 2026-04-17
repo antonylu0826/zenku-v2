@@ -245,7 +245,8 @@ export async function* chat(
   userMessage: string,
   history: { role: 'user' | 'assistant'; content: string }[],
   userRole: UserRole = 'admin',
-  options?: ChatOptions
+  options?: ChatOptions,
+  attachments?: { filename: string; mime_type: string; data: string }[]
 ): AsyncGenerator<string> {
   const providerName = options?.provider ?? getDefaultProviderName();
   const model = options?.model ?? getDefaultModel(providerName);
@@ -262,9 +263,23 @@ export async function* chat(
   }
 
   // Build initial messages from history
+  const userMsg: LLMMessage = { role: 'user' as const, content: userMessage };
+  if (attachments && attachments.length > 0) {
+    userMsg.content_blocks = attachments.map(a => {
+      const isImage = a.mime_type.startsWith('image/');
+      const isPdf = a.mime_type === 'application/pdf';
+      if (isImage) {
+        return { type: 'image' as const, source: { type: 'base64' as const, media_type: a.mime_type, data: a.data } };
+      }
+      if (isPdf) {
+        return { type: 'document' as const, source: { type: 'base64' as const, media_type: a.mime_type, data: a.data } };
+      }
+      return { type: 'text' as const, text: `[附件: ${a.filename}，格式 ${a.mime_type} 不支援 AI 分析]` };
+    });
+  }
   const currentMessages: LLMMessage[] = [
     ...history.map(h => ({ role: h.role as 'user' | 'assistant', content: h.content })),
-    { role: 'user' as const, content: userMessage },
+    userMsg,
   ];
 
   const userLanguage = userId ? getUserLanguage(userId) : 'zh-TW';

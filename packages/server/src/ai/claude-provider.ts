@@ -91,9 +91,36 @@ export class ClaudeProvider implements AIProvider {
           }
         }
         result.push({ role: 'assistant', content });
+      } else if (msg.content_blocks && msg.content_blocks.length > 0) {
+        // user message with multimodal content blocks
+        const blocks: Anthropic.ContentBlockParam[] = msg.content_blocks.map(b => {
+          if (b.type === 'image' && b.source) {
+            return {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: b.source.media_type as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
+                data: b.source.data,
+              },
+            } as Anthropic.ImageBlockParam;
+          }
+          if (b.type === 'document' && b.source) {
+            return {
+              type: 'document',
+              source: {
+                type: 'base64',
+                media_type: b.source.media_type as 'application/pdf',
+                data: b.source.data,
+              },
+            } as unknown as Anthropic.ContentBlockParam;
+          }
+          return { type: 'text', text: b.text ?? '' } as Anthropic.TextBlockParam;
+        });
+        if (msg.content) blocks.push({ type: 'text', text: msg.content });
+        result.push({ role: 'user', content: blocks });
       } else {
         // user or system → plain text
-        result.push({ role: msg.role === 'system' ? 'user' : 'user', content: msg.content });
+        result.push({ role: 'user', content: msg.content });
       }
     }
 

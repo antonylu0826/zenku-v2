@@ -13,6 +13,7 @@ import viewsRouter from './routes/views';
 import dataRouter from './routes/data';
 import chatRouter from './routes/chat';
 import extRouter from './routes/ext';
+import filesRouter from './routes/files';
 import { requireAuth } from './middleware/auth';
 import crypto from 'crypto';
 
@@ -31,6 +32,7 @@ app.use('/api', viewsRouter);
 app.use('/api/data', dataRouter);
 app.use('/api', chatRouter);
 app.use('/api/ext', extRouter);
+app.use('/api/files', filesRouter);
 
 // ──────────────────────────────────────────────
 // Webhook callback

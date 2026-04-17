@@ -486,6 +486,18 @@ function CellValue({
     case 'enum':
       return <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">{String(value)}</span>;
 
+    case 'file':
+    case 'image': {
+      let ids: string[] = [];
+      try { ids = JSON.parse(String(value)); } catch { ids = [String(value)].filter(Boolean); }
+      if (ids.length === 0) return <span className="text-muted-foreground">-</span>;
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+          📎 {ids.length}
+        </span>
+      );
+    }
+
     default:
       return wrap(<span>{String(value)}</span>);
   }

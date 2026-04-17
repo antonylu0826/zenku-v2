@@ -151,6 +151,21 @@ function initSystemTables(db: DatabaseSync): void {
       last_used_at TEXT,
       revoked     INTEGER NOT NULL DEFAULT 0
     );
+
+    CREATE TABLE IF NOT EXISTS _zenku_files (
+      id          TEXT PRIMARY KEY,
+      filename    TEXT NOT NULL,
+      mime_type   TEXT NOT NULL,
+      size        INTEGER NOT NULL,
+      path        TEXT NOT NULL,
+      table_name  TEXT,
+      record_id   TEXT,
+      field_name  TEXT,
+      uploaded_by TEXT,
+      created_at  TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_files_record ON _zenku_files(table_name, record_id, field_name);
   `);
 
   // Migrations for existing databases
@@ -178,6 +193,45 @@ let _sessionId: string | null = null;
 export function getSessionId(): string {
   if (!_sessionId) _sessionId = crypto.randomUUID();
   return _sessionId;
+}
+
+// ===== Files =====
+
+export interface FileRecord {
+  id: string;
+  filename: string;
+  mime_type: string;
+  size: number;
+  path: string;
+  table_name: string | null;
+  record_id: string | null;
+  field_name: string | null;
+  uploaded_by: string | null;
+  created_at: string;
+}
+
+export function insertFile(meta: Omit<FileRecord, 'created_at'>): FileRecord {
+  const db = getDb();
+  db.prepare(`
+    INSERT INTO _zenku_files (id, filename, mime_type, size, path, table_name, record_id, field_name, uploaded_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(meta.id, meta.filename, meta.mime_type, meta.size, meta.path,
+         meta.table_name ?? null, meta.record_id ?? null, meta.field_name ?? null, meta.uploaded_by ?? null);
+  return getFile(meta.id)!;
+}
+
+export function getFile(id: string): FileRecord | null {
+  return getDb().prepare('SELECT * FROM _zenku_files WHERE id = ?').get(id) as unknown as FileRecord | null;
+}
+
+export function listFilesByIds(ids: string[]): FileRecord[] {
+  if (ids.length === 0) return [];
+  const placeholders = ids.map(() => '?').join(',');
+  return getDb().prepare(`SELECT * FROM _zenku_files WHERE id IN (${placeholders})`).all(...ids) as unknown as FileRecord[];
+}
+
+export function deleteFileRecord(id: string): void {
+  getDb().prepare('DELETE FROM _zenku_files WHERE id = ?').run(id);
 }
 
 // ===== User tables =====

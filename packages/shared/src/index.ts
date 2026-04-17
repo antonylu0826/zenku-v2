@@ -19,7 +19,7 @@ export { AGENT_PERMISSIONS } from './types/agent';
 
 export type {
   AIProvider, AIProviderConfig, TokenUsage, ToolCall, ToolResult,
-  LLMMessage, LLMResponse,
+  LLMMessage, LLMResponse, ContentBlock, ChatAttachment,
 } from './types/ai-provider';
 export { AI_MODELS, TOKEN_COSTS, estimateCost } from './types/ai-provider';
 

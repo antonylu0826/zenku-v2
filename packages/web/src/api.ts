@@ -183,12 +183,17 @@ export async function archiveSession(sessionId: string): Promise<void> {
 export async function* sendChat(
   message: string,
   history: { role: 'user' | 'assistant'; content: string }[],
-  options?: { provider?: string; model?: string; session_id?: string }
+  options?: { provider?: string; model?: string; session_id?: string },
+  attachments?: { filename: string; mime_type: string; data: string }[]
 ): AsyncGenerator<SSEChunk> {
   const res = await fetch(`${BASE}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    body: JSON.stringify({ message, history, provider: options?.provider, model: options?.model, session_id: options?.session_id }),
+    body: JSON.stringify({
+      message, history,
+      provider: options?.provider, model: options?.model, session_id: options?.session_id,
+      attachments: attachments?.length ? attachments : undefined,
+    }),
   });
 
   if (!res.body) throw new Error('No response body');
@@ -218,4 +223,45 @@ export async function* sendChat(
       }
     }
   }
+}
+
+// ── File API ──────────────────────────────────────────────────────────────────
+
+export interface FileUploadResult {
+  id: string;
+  filename: string;
+  mime_type: string;
+  size: number;
+  url: string;
+}
+
+export function getFileUrl(id: string): string {
+  return `${BASE}/files/${id}`;
+}
+
+export async function uploadFiles(
+  files: File[],
+  meta?: { table_name?: string; record_id?: string; field_name?: string },
+): Promise<FileUploadResult[]> {
+  const form = new FormData();
+  for (const f of files) form.append('files', f);
+  const params = new URLSearchParams();
+  if (meta?.table_name) params.set('table_name', meta.table_name);
+  if (meta?.record_id) params.set('record_id', meta.record_id);
+  if (meta?.field_name) params.set('field_name', meta.field_name);
+  const qs = params.toString();
+  const res = await fetch(`${BASE}/files/upload${qs ? `?${qs}` : ''}`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: form,
+  });
+  return parseJsonOrThrow<FileUploadResult[]>(res);
+}
+
+export async function deleteFile(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/files/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  await parseJsonOrThrow<{ success: boolean }>(res);
 }

@@ -100,4 +100,11 @@ export interface FieldDef {
 
   /** 條件外觀規則（Client-side 即時求值） */
   appearance?: AppearanceRule[];
+
+  /** file / image 欄位：允許的 MIME，如 "image/*,application/pdf" */
+  accept?: string;
+  /** file / image 欄位：是否允許多檔 */
+  multiple?: boolean;
+  /** file / image 欄位：單檔最大 MB */
+  max_size_mb?: number;
 }

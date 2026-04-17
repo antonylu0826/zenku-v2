@@ -52,11 +52,29 @@ export interface ToolResult {
   content: string;
 }
 
+export interface ContentBlock {
+  type: 'text' | 'image' | 'document';
+  text?: string;
+  source?: {
+    type: 'base64';
+    media_type: string;
+    data: string;
+  };
+}
+
 export interface LLMMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
+  /** Multimodal content blocks (images, documents). Set alongside content for user messages. */
+  content_blocks?: ContentBlock[];
   tool_calls?: ToolCall[];
   tool_results?: ToolResult[];
+}
+
+export interface ChatAttachment {
+  filename: string;
+  mime_type: string;
+  data: string; // base64
 }
 
 export interface LLMResponse {

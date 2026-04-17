@@ -11,6 +11,7 @@ export const FORM_FIELD_SCHEMA = {
       enum: [
         'text', 'number', 'select', 'boolean', 'date', 'textarea',
         'relation', 'currency', 'phone', 'email', 'url',
+        'file', 'image',
       ],
     },
     required: { type: 'boolean' },
@@ -57,6 +58,18 @@ export const FORM_FIELD_SCHEMA = {
         },
       },
       required: ['formula', 'dependencies'],
+    },
+    accept: {
+      type: 'string',
+      description: 'For file/image fields: allowed MIME types, e.g. "image/*" or "image/*,application/pdf"',
+    },
+    multiple: {
+      type: 'boolean',
+      description: 'For file/image fields: whether multiple files can be uploaded (default true)',
+    },
+    max_size_mb: {
+      type: 'number',
+      description: 'For file/image fields: maximum file size in MB (default 20)',
     },
     hidden_in_form: {
       type: 'boolean',

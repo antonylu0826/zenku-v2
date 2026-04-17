@@ -8,6 +8,7 @@ import { RelationField } from './RelationField';
 import { DynamicSelectField } from './DynamicSelectField';
 import { ComputedField } from './ComputedField';
 import { DatePickerField } from './DatePickerField';
+import { FileInput } from './FileInput';
 import type { FieldDef } from '../../types';
 import type { AppearanceEffect } from '../../types';
 import { cn } from '../../lib/cn';
@@ -36,6 +37,12 @@ export function FieldInput({ field, value, formValues, onChange, appearance }: F
   // 計算欄位優先（不論 type）
   if (field.computed) {
     const el = <ComputedField field={field} formValues={formValues} onChange={onChange} />;
+    return hasWrapper ? <AppearanceWrapper style={wrapperStyle} bgColor={appearance?.bg_color} disabled={isDisabled}>{el}</AppearanceWrapper> : el;
+  }
+
+  // 附件欄位
+  if (field.type === 'file' || field.type === 'image') {
+    const el = <FileInput field={field} value={value} onChange={onChange} disabled={isDisabled} />;
     return hasWrapper ? <AppearanceWrapper style={wrapperStyle} bgColor={appearance?.bg_color} disabled={isDisabled}>{el}</AppearanceWrapper> : el;
   }
 

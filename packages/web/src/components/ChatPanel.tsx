@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Send, Loader2, Wrench, CheckCircle, XCircle, Plus, Archive, ChevronDown, Pencil, Check, X } from 'lucide-react';
+import { Send, Loader2, Wrench, CheckCircle, XCircle, Plus, Archive, ChevronDown, Pencil, Check, X, Paperclip } from 'lucide-react';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import {
   sendChat, getAIProviders, getSessions, getSessionMessages, updateSessionTitle, archiveSession,
@@ -45,6 +45,8 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
   const { t, i18n } = useTranslation();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
+  const [attachments, setAttachments] = useState<{ file: File; preview?: string }[]>([]);
+  const attachInputRef = useRef<HTMLInputElement>(null);
 
   // Use a ref to store the current welcome message to avoid initialization issues
   useEffect(() => {
@@ -168,14 +170,30 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
   };
 
   // ── Send ────────────────────────────────────────────────────────────────────
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve((reader.result as string).split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
   const handleSend = async () => {
     const text = input.trim();
-    if (!text || loading) return;
+    if ((!text && attachments.length === 0) || loading) return;
+
+    const attachData = await Promise.all(
+      attachments.map(async a => ({
+        filename: a.file.name,
+        mime_type: a.file.type,
+        data: await fileToBase64(a.file),
+      }))
+    );
 
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: text,
+      content: text || attachments.map(a => `[${a.file.name}]`).join(' '),
     };
     const assistantMsg: ChatMessage = {
       id: (Date.now() + 1).toString(),
@@ -186,6 +204,7 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
 
     setMessages(prev => [...prev, userMsg, assistantMsg]);
     setInput('');
+    setAttachments([]);
     setLoading(true);
 
     const history = messages
@@ -201,7 +220,7 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
         model: selectedModel,
         session_id: currentSessionId ?? undefined,
       };
-      for await (const chunk of sendChat(text, history, aiOptions)) {
+      for await (const chunk of sendChat(text || userMsg.content, history, aiOptions, attachData)) {
         const c = chunk as SSEChunk;
 
         if (c.type === 'text') {
@@ -398,7 +417,55 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
             onModelChange={setSelectedModel}
           />
         )}
+
+        {/* Attachment previews */}
+        {attachments.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {attachments.map((a, i) => (
+              <div key={i} className="flex items-center gap-1 rounded-full border bg-muted px-2.5 py-0.5 text-xs">
+                {a.file.type.startsWith('image/') && a.preview
+                  ? <img src={a.preview} alt="" className="h-4 w-4 rounded object-cover" />
+                  : <Paperclip size={11} />}
+                <span className="max-w-[120px] truncate">{a.file.name}</span>
+                <button onClick={() => setAttachments(prev => prev.filter((_, j) => j !== i))} className="ml-0.5 text-muted-foreground hover:text-foreground">
+                  <X size={11} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="flex gap-2">
+          <input
+            ref={attachInputRef}
+            type="file"
+            multiple
+            accept="image/*,application/pdf,text/*"
+            className="hidden"
+            onChange={e => {
+              const files = Array.from(e.target.files ?? []);
+              e.target.value = '';
+              const newItems = files.map(f => {
+                const item: { file: File; preview?: string } = { file: f };
+                if (f.type.startsWith('image/')) {
+                  item.preview = URL.createObjectURL(f);
+                }
+                return item;
+              });
+              setAttachments(prev => [...prev, ...newItems]);
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="shrink-0 self-end"
+            title={t('chat.attach_file')}
+            onClick={() => attachInputRef.current?.click()}
+            disabled={loading}
+          >
+            <Paperclip size={15} />
+          </Button>
           <Textarea
             className="min-h-[74px] flex-1 resize-none"
             rows={2}
@@ -415,7 +482,7 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
           />
           <Button
             onClick={() => void handleSend()}
-            disabled={loading || !input.trim()}
+            disabled={loading || (!input.trim() && attachments.length === 0)}
             size="icon"
             className="self-end"
           >

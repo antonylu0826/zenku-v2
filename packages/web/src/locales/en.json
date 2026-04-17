@@ -25,6 +25,7 @@
     "edit_title": "Edit Title",
     "placeholder_title": "Enter title...",
     "archive_session": "Archive this chat",
+    "attach_file": "Attach file",
     "archive_success": "Chat archived",
     "archive_error": "Failed to archive",
     "load_error": "Failed to load chat",

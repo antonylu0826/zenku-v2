@@ -25,6 +25,7 @@
     "edit_title": "編輯標題",
     "placeholder_title": "輸入標題...",
     "archive_session": "封存此對話",
+    "attach_file": "附加檔案",
     "archive_success": "對話已封存",
     "archive_error": "封存失敗",
     "load_error": "載入對話失敗",
