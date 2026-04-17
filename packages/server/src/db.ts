@@ -1,5 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import path from 'path';
 
 const DB_PATH = path.join(process.cwd(), 'zenku.db');
@@ -178,7 +178,101 @@ function initSystemTables(db: DatabaseSync): void {
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS qa_test_photos (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT,
+      image_url TEXT,
+      status TEXT DEFAULT 'pending',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
   `);
+
+  // Initialize sample gallery view
+  const viewExists = db.prepare('SELECT id FROM _zenku_views WHERE id = ?').get('qa_test_photos');
+  if (!viewExists) {
+    const viewDef = {
+      id: 'qa_test_photos',
+      name: 'QA簡測照片',
+      table_name: 'qa_test_photos',
+      type: 'gallery',
+      gallery: {
+        image_field: 'image_url',
+        title_field: 'title',
+        subtitle_field: 'description',
+      },
+      columns: [
+        { key: 'title', label: '標題', type: 'text', sortable: true },
+        { key: 'status', label: '狀態', type: 'text' },
+        { key: 'created_at', label: '建立時間', type: 'date' },
+      ],
+      form: {
+        columns: 1,
+        fields: [
+          { key: 'title', label: '標題', type: 'text', required: true, placeholder: '輸入標題' },
+          { key: 'description', label: '描述', type: 'textarea', placeholder: '輸入描述' },
+          { key: 'image_url', label: '圖片URL', type: 'text', placeholder: '輸入圖片URL' },
+          { key: 'status', label: '狀態', type: 'select', options: ['pending', 'approved', 'in_progress'] },
+        ],
+      },
+      actions: ['create', 'edit', 'delete'],
+    };
+    db.prepare(`
+      INSERT INTO _zenku_views (id, name, table_name, definition)
+      VALUES (?, ?, ?, ?)
+    `).run('qa_test_photos', 'QA簡測照片', 'qa_test_photos', JSON.stringify(viewDef));
+  }
+
+  // Insert sample data for gallery view
+  const photoCount = db.prepare('SELECT COUNT(*) as cnt FROM qa_test_photos').get() as { cnt: number };
+  if (photoCount.cnt === 0) {
+    const samplePhotos = [
+      {
+        id: randomUUID(),
+        title: '首頁設計稿',
+        description: '主頁面設計方案 v1',
+        image_url: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=400&h=300&fit=crop',
+        status: 'approved',
+      },
+      {
+        id: randomUUID(),
+        title: '登入頁面',
+        description: '用戶認證流程設計',
+        image_url: 'https://images.unsplash.com/photo-1555066541-18490a67fa47?w=400&h=300&fit=crop',
+        status: 'pending',
+      },
+      {
+        id: randomUUID(),
+        title: '儀表板錯誤',
+        description: '錯誤狀態頁面設計',
+        image_url: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=300&fit=crop',
+        status: 'in_progress',
+      },
+      {
+        id: randomUUID(),
+        title: '行動版適配',
+        description: '手機設備適配設計',
+        image_url: 'https://images.unsplash.com/photo-1512941691920-25bde7360202?w=400&h=300&fit=crop',
+        status: 'approved',
+      },
+      {
+        id: randomUUID(),
+        title: '深色模式預覽',
+        description: '深色主題設計樣本',
+        image_url: 'https://images.unsplash.com/photo-1585534270915-c3400ca199e7?w=400&h=300&fit=crop',
+        status: 'pending',
+      },
+    ];
+
+    for (const photo of samplePhotos) {
+      db.prepare(`
+        INSERT INTO qa_test_photos (id, title, description, image_url, status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      `).run(photo.id, photo.title, photo.description, photo.image_url, photo.status);
+    }
+  }
 
   // Migrations for existing databases
   try {
