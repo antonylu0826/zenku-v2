@@ -25,7 +25,7 @@ export { AI_MODELS, TOKEN_COSTS, estimateCost } from './types/ai-provider';
 
 export type {
   ChatSession, ChatMessageRecord, ToolEventRecord, UsageStats,
-  SSEChunk, ChatMessage, ToolEvent,
+  SSEChunk, ChatMessage, ChatMessageAttachment, ToolEvent,
 } from './types/chat';
 
 export type { TriggerType, Rule, RuleCondition, RuleAction } from './types/rule';

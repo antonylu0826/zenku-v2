@@ -98,11 +98,19 @@ export type SSEChunk =
 
 // ===== 前端用的對話訊息（含 UI 狀態） =====
 
+export interface ChatMessageAttachment {
+  filename: string;
+  mime_type: string;
+  /** Object URL for local preview (only present in current session) */
+  previewUrl?: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   toolEvents?: ToolEvent[];
+  attachments?: ChatMessageAttachment[];
 }
 
 export interface ToolEvent {

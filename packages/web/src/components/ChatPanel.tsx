@@ -193,7 +193,12 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: text || attachments.map(a => `[${a.file.name}]`).join(' '),
+      content: text,
+      attachments: attachments.map(a => ({
+        filename: a.file.name,
+        mime_type: a.file.type,
+        previewUrl: a.preview,
+      })),
     };
     const assistantMsg: ChatMessage = {
       id: (Date.now() + 1).toString(),
@@ -220,7 +225,7 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
         model: selectedModel,
         session_id: currentSessionId ?? undefined,
       };
-      for await (const chunk of sendChat(text || userMsg.content, history, aiOptions, attachData)) {
+      for await (const chunk of sendChat(text || attachments.map(a => a.file.name).join(', '), history, aiOptions, attachData)) {
         const c = chunk as SSEChunk;
 
         if (c.type === 'text') {
@@ -516,8 +521,19 @@ function MessageBubble({ message }: { message: ChatMessage }) {
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div className={`max-w-[85%] ${isUser ? 'order-1' : 'order-2'}`}>
         {isUser ? (
-          <div className="whitespace-pre-wrap rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground">
-            {message.content}
+          <div className="rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground">
+            {message.attachments && message.attachments.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {message.attachments.map((a, i) => (
+                  a.mime_type.startsWith('image/') && a.previewUrl
+                    ? <img key={i} src={a.previewUrl} alt={a.filename} className="h-20 max-w-[160px] rounded-lg object-cover" />
+                    : <div key={i} className="flex items-center gap-1 rounded bg-primary-foreground/20 px-2 py-1 text-xs">
+                        <Paperclip size={11} />{a.filename}
+                      </div>
+                ))}
+              </div>
+            )}
+            {message.content && <p className="whitespace-pre-wrap">{message.content}</p>}
           </div>
         ) : (
           <div>
