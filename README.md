@@ -1,5 +1,7 @@
 # Zenku 
 
+[繁體中文](README_TW.md)
+
 <div align="center">
   <img src=".assets/light_theme.png" alt="Zenku Light Theme Screenshot" width="100%" style="max-width: 800px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" />
 </div>
