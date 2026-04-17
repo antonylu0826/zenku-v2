@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, X, ChevronDown, ChevronRight, Wrench } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -47,6 +48,7 @@ interface Props {
 }
 
 function ToolEventCard({ event }: { event: ToolEventRow }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -58,7 +60,7 @@ function ToolEventCard({ event }: { event: ToolEventRow }) {
         <Wrench size={11} className="text-muted-foreground" />
         <span className="font-mono font-medium">{event.tool_name}</span>
         <span className={`ml-1 rounded-full px-1.5 py-0.5 ${event.tool_output.success ? 'bg-green-500/15 text-green-600' : 'bg-red-500/15 text-red-600'}`}>
-          {event.tool_output.success ? 'OK' : 'FAIL'}
+          {event.tool_output.success ? t('admin.chat.tool_ok') : t('admin.chat.tool_fail')}
         </span>
         <span className="ml-auto text-muted-foreground">{event.latency_ms}ms</span>
         {expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
@@ -87,6 +89,7 @@ function ToolEventCard({ event }: { event: ToolEventRow }) {
 }
 
 function MessageBubble({ msg }: { msg: MessageRow }) {
+  const { t, i18n } = useTranslation();
   const [showThinking, setShowThinking] = useState(false);
   const isUser = msg.role === 'user';
 
@@ -101,7 +104,7 @@ function MessageBubble({ msg }: { msg: MessageRow }) {
       <div className={`flex-1 ${isUser ? 'flex flex-col items-end' : ''}`}>
         {/* Timestamp */}
         <div className="mb-1 text-[10px] text-muted-foreground">
-          {new Date(msg.created_at).toLocaleTimeString('zh-TW')}
+          {new Date(msg.created_at).toLocaleTimeString(i18n.language)}
           {!isUser && msg.model && (
             <span className="ml-2 rounded-full bg-primary/10 px-1.5 py-0.5 font-medium text-primary">
               {msg.model}
@@ -117,7 +120,7 @@ function MessageBubble({ msg }: { msg: MessageRow }) {
               onClick={() => setShowThinking(v => !v)}
             >
               {showThinking ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
-              思考鏈（{msg.thinking_tokens} tokens）
+              {t('admin.chat.thinking_chain', { tokens: msg.thinking_tokens })}
             </button>
             {showThinking && (
               <pre className="mt-1 overflow-auto rounded border border-dashed bg-muted/20 p-2 text-[10px] leading-relaxed text-muted-foreground">
@@ -155,6 +158,7 @@ function MessageBubble({ msg }: { msg: MessageRow }) {
 }
 
 export function SessionDetail({ sessionId, onBack, onClose }: Props) {
+  const { t } = useTranslation();
   const { token } = useAuth();
   const [session, setSession] = useState<SessionData | null>(null);
   const [messages, setMessages] = useState<MessageRow[]>([]);
@@ -183,11 +187,11 @@ export function SessionDetail({ sessionId, onBack, onClose }: Props) {
             <ArrowLeft size={16} />
           </button>
           <div className="flex-1">
-            <h2 className="text-base font-semibold">{session?.title ?? '對話詳情'}</h2>
+            <h2 className="text-base font-semibold">{session?.title ?? t('admin.chat.session_detail')}</h2>
             {session && (
               <p className="text-xs text-muted-foreground">
-                {session.user_name} · {session.provider}/{session.model} · {session.message_count} 則訊息
-                · {(session.total_input_tokens + session.total_output_tokens).toLocaleString()} tokens
+                {session.user_name} · {session.provider}/{session.model} · {t('admin.chat.msg_count', { count: session.message_count })}
+                · {t('admin.chat.token_total', { count: (session.total_input_tokens + session.total_output_tokens).toLocaleString() })}
                 · ${session.total_cost_usd.toFixed(4)}
               </p>
             )}
@@ -204,7 +208,7 @@ export function SessionDetail({ sessionId, onBack, onClose }: Props) {
               <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
           ) : messages.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">尚無訊息</div>
+            <div className="py-12 text-center text-sm text-muted-foreground">{t('admin.chat.no_messages')}</div>
           ) : (
             <div className="space-y-6">
               {messages.map(msg => <MessageBubble key={msg.id} msg={msg} />)}

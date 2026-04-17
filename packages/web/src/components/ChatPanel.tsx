@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Send, Loader2, Wrench, CheckCircle, XCircle, Plus, Archive, ChevronDown, Pencil, Check, X } from 'lucide-react';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import {
@@ -19,11 +20,11 @@ interface Props {
   className?: string;
 }
 
-const WELCOME_MSG: ChatMessage = {
+const getWelcomeMsg = (t: any): ChatMessage => ({
   id: 'welcome',
   role: 'assistant',
-  content: '你好！我是 Zenku。告訴我你想要管理什麼資料，我來幫你建立應用。\n\n例如：「我要管理客戶資料，有姓名、電話、email」',
-};
+  content: t('chat.welcome'),
+});
 
 function sessionMessagesToChatMessages(msgs: SessionMessage[]): ChatMessage[] {
   return msgs
@@ -41,8 +42,16 @@ function sessionMessagesToChatMessages(msgs: SessionMessage[]): ChatMessage[] {
 }
 
 export function ChatPanel({ onViewsChanged, className }: Props) {
-  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MSG]);
+  const { t, i18n } = useTranslation();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
+
+  // Use a ref to store the current welcome message to avoid initialization issues
+  useEffect(() => {
+    if (messages.length === 0) {
+      setMessages([getWelcomeMsg(t)]);
+    }
+  }, [t]);
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -109,11 +118,11 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
     try {
       const msgs = await getSessionMessages(sessionId);
       const chatMsgs = sessionMessagesToChatMessages(msgs);
-      setMessages(chatMsgs.length > 0 ? chatMsgs : [WELCOME_MSG]);
+      setMessages(chatMsgs.length > 0 ? chatMsgs : [getWelcomeMsg(t)]);
       setCurrentSessionId(sessionId);
       if (sessionList) setSessions(sessionList);
     } catch {
-      toast.error('載入對話失敗');
+      toast.error(t('chat.load_error'));
     } finally {
       setSwitchingSession(false);
     }
@@ -121,7 +130,7 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
 
   const startNewSession = () => {
     setCurrentSessionId(null);
-    setMessages([WELCOME_MSG]);
+    setMessages([getWelcomeMsg(t)]);
     setSessionsOpen(false);
     setEditingTitle(false);
   };
@@ -139,7 +148,7 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
     try {
       await updateSessionTitle(currentSessionId, titleDraft.trim());
       setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, title: titleDraft.trim() } : s));
-    } catch { toast.error('更新標題失敗'); }
+    } catch { toast.error(t('chat.update_title_error')); }
     setEditingTitle(false);
   };
 
@@ -148,14 +157,14 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
     if (!currentSessionId) return;
     try {
       await archiveSession(currentSessionId);
-      toast.success('對話已封存');
+      toast.success(t('chat.archive_success'));
       const list = await refreshSessions();
       if (list.length > 0) {
         await loadSession(list[0].id, list);
       } else {
         startNewSession();
       }
-    } catch { toast.error('封存失敗'); }
+    } catch { toast.error(t('chat.archive_error')); }
   };
 
   // ── Send ────────────────────────────────────────────────────────────────────
@@ -227,17 +236,24 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
           if (hasViewChange) onViewsChanged();
           if (c.session_id) newSessionId = c.session_id;
         } else if (c.type === 'error') {
+          const errorCode = (c as any).error || 'ERROR_INTERNAL_SERVER';
+          const errorParams = (c as any).params || { detail: (c as any).message };
           setMessages(prev =>
             prev.map(m =>
-              m.id === assistantMsg.id ? { ...m, content: `錯誤：${c.message}` } : m
+              m.id === assistantMsg.id ? { ...m, content: `${t('common.error')}：${t(`errors.${errorCode}`, { ...errorParams, defaultValue: errorParams.detail || errorCode })}` } : m
             )
           );
         }
       }
     } catch (err) {
+      let errorMessage = String(err);
+      if (err instanceof Error && err.name === 'ApiError') {
+        const apiErr = err as any;
+        errorMessage = String(t(`errors.${apiErr.code}`, { ...apiErr.params, defaultValue: apiErr.code }));
+      }
       setMessages(prev =>
         prev.map(m =>
-          m.id === assistantMsg.id ? { ...m, content: `發生錯誤：${String(err)}` } : m
+          m.id === assistantMsg.id ? { ...m, content: `${t('common.error')}：${errorMessage}` } : m
         )
       );
     } finally {
@@ -261,7 +277,7 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
         <Button
           variant="ghost"
           size="icon"
-          title="新對話"
+          title={t('chat.new_session')}
           onClick={startNewSession}
           className="h-7 w-7 shrink-0"
         >
@@ -272,15 +288,15 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
         <Popover open={sessionsOpen} onOpenChange={setSessionsOpen}>
           <PopoverTrigger asChild>
             <button
-              className="flex min-w-0 flex-1 items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-accent"
-              title="切換對話"
-            >
-              {sessionsLoading || switchingSession ? (
+            className="flex min-w-0 flex-1 items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-accent"
+            title={t('chat.switch_session')}
+          >
+            {sessionsLoading || switchingSession ? (
                 <Loader2 size={12} className="animate-spin text-muted-foreground" />
               ) : (
                 <>
                   <span className="truncate text-muted-foreground">
-                    {currentSession?.title ?? (currentSessionId ? '（無標題）' : '新對話')}
+                    {currentSession?.title ?? (currentSessionId ? t('chat.untitled') : t('chat.new_session'))}
                   </span>
                   <ChevronDown size={12} className="shrink-0 text-muted-foreground" />
                 </>
@@ -290,7 +306,7 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
           <PopoverContent className="w-72 p-0" align="start">
             <div className="max-h-64 overflow-y-auto">
               {sessions.length === 0 ? (
-                <div className="px-3 py-4 text-center text-xs text-muted-foreground">尚無歷史對話</div>
+                <div className="px-3 py-4 text-center text-xs text-muted-foreground">{t('chat.no_history')}</div>
               ) : (
                 sessions.map(s => (
                   <button
@@ -301,10 +317,10 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
                       s.id === currentSessionId && 'bg-accent'
                     )}
                   >
-                    <span className="truncate text-xs font-medium">{s.title ?? '（無標題）'}</span>
+                    <span className="truncate text-xs font-medium">{s.title ?? t('chat.untitled')}</span>
                     <span className="text-xs text-muted-foreground">
-                      {new Date(s.updated_at).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      {' · '}{s.message_count} 則
+                      {new Date(s.updated_at).toLocaleString(i18n.language, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      {' · '}{t('chat.message_count', { count: s.message_count })}
                     </span>
                   </button>
                 ))
@@ -315,7 +331,7 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
 
         {/* Title edit (only when session exists) */}
         {currentSessionId && !editingTitle && (
-          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" title="編輯標題" onClick={beginEditTitle}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" title={t('chat.edit_title')} onClick={beginEditTitle}>
             <Pencil size={12} />
           </Button>
         )}
@@ -330,7 +346,7 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
                 if (e.key === 'Escape') setEditingTitle(false);
               }}
               className="min-w-0 flex-1 rounded border bg-background px-2 py-0.5 text-xs outline-none focus:ring-1 focus:ring-ring"
-              placeholder="輸入標題..."
+              placeholder={t('chat.placeholder_title')}
             />
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => void commitTitle()}>
               <Check size={11} />
@@ -347,7 +363,7 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
             variant="ghost"
             size="icon"
             className="h-7 w-7 shrink-0"
-            title="封存此對話"
+            title={t('chat.archive_session')}
             onClick={() => void handleArchive()}
           >
             <Archive size={12} />
@@ -394,7 +410,7 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
                 void handleSend();
               }
             }}
-            placeholder="描述你想要的功能... (Enter 送出)"
+            placeholder={t('chat.placeholder_input')}
             disabled={loading}
           />
           <Button
@@ -504,21 +520,14 @@ function ProviderSelector({
 
 // ── Tool event badges ──────────────────────────────────────────────────────────
 
-const TOOL_LABELS: Record<string, string> = {
-  manage_schema: '資料結構',
-  manage_ui: '介面',
-  query_data: '資料查詢',
-  write_data: '資料寫入',
-};
-
 function ToolEventBadge({ event }: { event: ToolEvent }) {
-  const label = TOOL_LABELS[event.tool] ?? event.tool;
-
   if (event.type === 'tool_start') {
+    const { t } = useTranslation();
+    const label = t(`chat.tool_labels.${event.tool}`, { defaultValue: event.tool });
     return (
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Wrench size={11} className="animate-pulse" />
-        <span>更新{label}中...</span>
+        <span>{t('chat.tool_process', { label })}</span>
       </div>
     );
   }

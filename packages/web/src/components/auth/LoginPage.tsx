@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { AuthUser } from '../../contexts/AuthContext';
 
 interface Props {
@@ -10,9 +11,11 @@ interface AuthResponse {
   token: string;
   user: AuthUser;
   error?: string;
+  params?: any;
 }
 
 export function LoginPage({ hasUsers, onAuth }: Props) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<'login' | 'register'>(hasUsers ? 'login' : 'register');
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
@@ -38,13 +41,13 @@ export function LoginPage({ hasUsers, onAuth }: Props) {
       const data = await res.json() as AuthResponse;
 
       if (!res.ok) {
-        setError(data.error ?? '操作失敗');
+        setError(String(t(`errors.${data.error}`, { ...data.params, defaultValue: data.error || t('common.error') })));
         return;
       }
 
       onAuth(data.user, data.token);
     } catch {
-      setError('網路錯誤，請重試');
+      setError(t('errors.network_error'));
     } finally {
       setLoading(false);
     }
@@ -60,7 +63,9 @@ export function LoginPage({ hasUsers, onAuth }: Props) {
           </div>
           <h1 className="text-2xl font-bold">Zenku</h1>
           <p className="text-sm text-muted-foreground">
-            {mode === 'login' ? '登入你的帳號' : !hasUsers ? '建立第一個管理員帳號' : '建立新帳號'}
+            {mode === 'login' 
+              ? t('auth.login_title') 
+              : !hasUsers ? t('auth.register_admin_title') : t('auth.register_title')}
           </p>
         </div>
 
@@ -68,12 +73,12 @@ export function LoginPage({ hasUsers, onAuth }: Props) {
         <form onSubmit={(e) => { void submit(e); }} className="space-y-4">
           {mode === 'register' && (
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">姓名</label>
+              <label className="text-sm font-medium">{t('auth.name')}</label>
               <input
                 type="text"
                 value={name}
                 onChange={e => setName(e.target.value)}
-                placeholder="你的名字"
+                placeholder={t('auth.name')}
                 required
                 className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
               />
@@ -81,7 +86,7 @@ export function LoginPage({ hasUsers, onAuth }: Props) {
           )}
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Email</label>
+            <label className="text-sm font-medium">{t('auth.email')}</label>
             <input
               type="email"
               value={email}
@@ -94,12 +99,12 @@ export function LoginPage({ hasUsers, onAuth }: Props) {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">密碼</label>
+            <label className="text-sm font-medium">{t('auth.password')}</label>
             <input
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder="至少 6 個字元"
+              placeholder={t('auth.password_hint')}
               required
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
@@ -115,20 +120,20 @@ export function LoginPage({ hasUsers, onAuth }: Props) {
             disabled={loading}
             className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
           >
-            {loading ? '處理中…' : mode === 'login' ? '登入' : '建立帳號'}
+            {loading ? t('auth.processing') : mode === 'login' ? t('auth.login_button') : t('auth.register_button')}
           </button>
         </form>
 
         {/* Toggle */}
         {hasUsers && (
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            {mode === 'login' ? '還沒有帳號？' : '已有帳號？'}
+            {mode === 'login' ? t('auth.no_account') : t('auth.has_account')}
             <button
               type="button"
               onClick={() => { setMode(m => m === 'login' ? 'register' : 'login'); setError(''); }}
               className="ml-1 font-medium text-primary hover:underline"
             >
-              {mode === 'login' ? '註冊' : '登入'}
+              {mode === 'login' ? t('auth.switch_register') : t('auth.switch_login')}
             </button>
           </p>
         )}

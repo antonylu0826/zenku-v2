@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Outlet, useParams } from 'react-router-dom';
 import { Group, type PanelSize, Panel, Separator, usePanelRef } from 'react-resizable-panels';
 import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, ChevronRight } from 'lucide-react';
@@ -127,6 +128,8 @@ function AppBar({
   onToggleChat,
   showPanelToggles = true,
 }: AppBarProps) {
+  const { t } = useTranslation();
+
   return (
     <header className="flex h-11 shrink-0 items-center border-b bg-card px-2 gap-1">
       {/* 左側：sidebar toggle + logo */}
@@ -136,7 +139,7 @@ function AppBar({
             variant="ghost"
             size="icon"
             onClick={onToggleSidebar}
-            aria-label={sidebarCollapsed ? '展開側欄' : '收合側欄'}
+            aria-label={sidebarCollapsed ? t('common.expand_sidebar') : t('common.collapse_sidebar')}
           >
             {sidebarCollapsed
               ? <PanelLeftOpen className="h-4 w-4 text-muted-foreground" />
@@ -167,7 +170,7 @@ function AppBar({
             variant="ghost"
             size="icon"
             onClick={onToggleChat}
-            aria-label={chatCollapsed ? '展開對話' : '收合對話'}
+            aria-label={chatCollapsed ? t('common.expand_chat') : t('common.collapse_chat')}
           >
             {chatCollapsed
               ? <PanelRightOpen className="h-4 w-4 text-muted-foreground" />

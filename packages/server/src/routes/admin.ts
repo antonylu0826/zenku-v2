@@ -27,7 +27,7 @@ router.get('/admin/users', requireAdmin, (_req, res) => {
 router.put('/admin/users/:id/role', requireAdmin, (req, res) => {
   const { role } = req.body as { role?: string };
   if (!['admin', 'builder', 'user'].includes(role ?? '')) {
-    res.status(400).json({ error: '無效的角色' });
+    res.status(400).json({ error: 'ERROR_INVALID_ROLE' });
     return;
   }
   getDb().prepare('UPDATE _zenku_users SET role = ? WHERE id = ?').run(role!, String(req.params.id));
@@ -39,20 +39,20 @@ router.post('/admin/users', requireAdmin, async (req, res) => {
     email?: string; name?: string; password?: string; role?: string;
   };
   if (!email || !name || !password) {
-    res.status(400).json({ error: '缺少必填欄位' });
+    res.status(400).json({ error: 'ERROR_MISSING_FIELDS' });
     return;
   }
   if (password.length < 6) {
-    res.status(400).json({ error: '密碼至少 6 個字元' });
+    res.status(400).json({ error: 'ERROR_PASSWORD_TOO_SHORT', params: { min: 6 } });
     return;
   }
   if (!['admin', 'builder', 'user'].includes(role)) {
-    res.status(400).json({ error: '無效的角色' });
+    res.status(400).json({ error: 'ERROR_INVALID_ROLE' });
     return;
   }
   const db = getDb();
   if (db.prepare('SELECT id FROM _zenku_users WHERE email = ?').get(email)) {
-    res.status(409).json({ error: '此 Email 已被使用' });
+    res.status(409).json({ error: 'ERROR_EMAIL_TAKEN' });
     return;
   }
   const id = crypto.randomUUID();
@@ -65,7 +65,7 @@ router.post('/admin/users', requireAdmin, async (req, res) => {
 router.patch('/admin/users/:id/disable', requireAdmin, (req, res) => {
   const id = String(req.params.id);
   if (id === req.user!.id) {
-    res.status(400).json({ error: '不可停用自己的帳號' });
+    res.status(400).json({ error: 'ERROR_CANNOT_DISABLE_SELF' });
     return;
   }
   getDb().prepare('UPDATE _zenku_users SET disabled = 1 WHERE id = ?').run(id);
@@ -81,7 +81,7 @@ router.patch('/admin/users/:id/enable', requireAdmin, (req, res) => {
 router.delete('/admin/users/:id', requireAdmin, (req, res) => {
   const id = String(req.params.id);
   if (id === req.user!.id) {
-    res.status(400).json({ error: '不可刪除自己的帳號' });
+    res.status(400).json({ error: 'ERROR_CANNOT_DELETE_SELF' });
     return;
   }
   const db = getDb();
@@ -93,7 +93,7 @@ router.delete('/admin/users/:id', requireAdmin, (req, res) => {
 router.post('/admin/users/:id/reset-password', requireAdmin, async (req, res) => {
   const { new_password } = req.body as { new_password?: string };
   if (!new_password || new_password.length < 6) {
-    res.status(400).json({ error: '新密碼至少 6 個字元' });
+    res.status(400).json({ error: 'ERROR_PASSWORD_TOO_SHORT', params: { min: 6 } });
     return;
   }
   const hash = await bcrypt.hash(new_password, 12);
@@ -150,7 +150,7 @@ router.get('/admin/sessions/:id', requireAdmin, (req, res) => {
     LEFT JOIN _zenku_users u ON s.user_id = u.id
     WHERE s.id = ?
   `).get(sessionId);
-  if (!session) { res.status(404).json({ error: '找不到 session' }); return; }
+  if (!session) { res.status(404).json({ error: 'ERROR_SESSION_NOT_FOUND' }); return; }
 
   const messages = db.prepare('SELECT * FROM _zenku_chat_messages WHERE session_id = ? ORDER BY created_at').all(sessionId) as { id: string }[];
   const toolEvents = db.prepare('SELECT * FROM _zenku_tool_events WHERE session_id = ? ORDER BY started_at').all(sessionId) as { message_id: string; tool_input: string; tool_output: string }[];
@@ -174,7 +174,7 @@ router.patch('/admin/sessions/:id/archive', requireAdmin, (req, res) => {
   const db = getDb();
   const sessionId = p(req.params.id);
   const session = db.prepare('SELECT id FROM _zenku_chat_sessions WHERE id = ?').get(sessionId);
-  if (!session) { res.status(404).json({ error: '找不到 session' }); return; }
+  if (!session) { res.status(404).json({ error: 'ERROR_SESSION_NOT_FOUND' }); return; }
   db.prepare('UPDATE _zenku_chat_sessions SET archived = 1 WHERE id = ?').run(sessionId);
   res.json({ success: true });
 });
@@ -183,7 +183,7 @@ router.patch('/admin/sessions/:id/unarchive', requireAdmin, (req, res) => {
   const db = getDb();
   const sessionId = p(req.params.id);
   const session = db.prepare('SELECT id FROM _zenku_chat_sessions WHERE id = ?').get(sessionId);
-  if (!session) { res.status(404).json({ error: '找不到 session' }); return; }
+  if (!session) { res.status(404).json({ error: 'ERROR_SESSION_NOT_FOUND' }); return; }
   db.prepare('UPDATE _zenku_chat_sessions SET archived = 0 WHERE id = ?').run(sessionId);
   res.json({ success: true });
 });
@@ -192,7 +192,7 @@ router.delete('/admin/sessions/:id', requireAdmin, (req, res) => {
   const db = getDb();
   const sessionId = p(req.params.id);
   const session = db.prepare('SELECT id FROM _zenku_chat_sessions WHERE id = ?').get(sessionId);
-  if (!session) { res.status(404).json({ error: '找不到 session' }); return; }
+  if (!session) { res.status(404).json({ error: 'ERROR_SESSION_NOT_FOUND' }); return; }
   // Delete in dependency order
   db.prepare(`
     DELETE FROM _zenku_tool_events WHERE session_id = ?
@@ -305,15 +305,15 @@ router.patch('/admin/appearance/toggle', requireAdmin, (req, res) => {
   const db = getDb();
   const { view_id, field_key, rule_index } = req.body as { view_id: string; field_key: string; rule_index: number };
   if (!view_id || !field_key || rule_index === undefined) {
-    res.status(400).json({ error: '缺少必要參數' }); return;
+    res.status(400).json({ error: 'ERROR_MISSING_FIELDS' }); return;
   }
 
   const row = db.prepare('SELECT definition FROM _zenku_views WHERE id = ?').get(view_id) as { definition: string } | undefined;
-  if (!row) { res.status(404).json({ error: '找不到 View' }); return; }
+  if (!row) { res.status(404).json({ error: 'ERROR_VIEW_NOT_FOUND' }); return; }
 
   const def = JSON.parse(row.definition);
   const rule = def.appearance?.[field_key]?.[rule_index];
-  if (!rule) { res.status(404).json({ error: '找不到規則' }); return; }
+  if (!rule) { res.status(404).json({ error: 'ERROR_RULE_NOT_FOUND' }); return; }
 
   rule.enabled = !rule.enabled;
   db.prepare(`UPDATE _zenku_views SET definition = ?, updated_at = datetime('now') WHERE id = ?`)
@@ -326,11 +326,11 @@ router.delete('/admin/appearance/rule', requireAdmin, (req, res) => {
   const db = getDb();
   const { view_id, field_key, rule_index, type } = req.body as { view_id: string; field_key: string; rule_index: number; type: 'column' | 'form' };
   if (!view_id || !field_key || rule_index === undefined) {
-    res.status(400).json({ error: '缺少必要參數' }); return;
+    res.status(400).json({ error: 'ERROR_MISSING_FIELDS' }); return;
   }
 
   const row = db.prepare('SELECT definition FROM _zenku_views WHERE id = ?').get(view_id) as { definition: string } | undefined;
-  if (!row) { res.status(404).json({ error: '找不到 View' }); return; }
+  if (!row) { res.status(404).json({ error: 'ERROR_VIEW_NOT_FOUND' }); return; }
 
   const def = JSON.parse(row.definition);
   // 在 master-detail 模型中，appearance 可能附加在 columns 或 form 欄位定義內
@@ -341,7 +341,7 @@ router.delete('/admin/appearance/rule', requireAdmin, (req, res) => {
 
   const field = fields.find((f: any) => f.key === field_key);
   if (!field || !Array.isArray(field.appearance) || !field.appearance[rule_index]) {
-    res.status(404).json({ error: '找不到欄位或規則' }); return;
+    res.status(404).json({ error: 'ERROR_RULE_NOT_FOUND' }); return;
   }
 
   field.appearance.splice(rule_index, 1);
@@ -376,7 +376,7 @@ router.patch('/admin/rules/:id/toggle', requireAdmin, (req, res) => {
   const db = getDb();
   const id = String(req.params.id);
   const rule = db.prepare('SELECT enabled FROM _zenku_rules WHERE id = ?').get(id) as { enabled: number } | undefined;
-  if (!rule) { res.status(404).json({ error: '找不到規則' }); return; }
+  if (!rule) { res.status(404).json({ error: 'ERROR_RULE_NOT_FOUND' }); return; }
   const next = rule.enabled ? 0 : 1;
   db.prepare(`UPDATE _zenku_rules SET enabled = ?, updated_at = datetime('now') WHERE id = ?`).run(next, id);
   res.json({ success: true, enabled: Boolean(next) });
@@ -386,7 +386,7 @@ router.delete('/admin/rules/:id', requireAdmin, (req, res) => {
   const db = getDb();
   const id = String(req.params.id);
   const rule = db.prepare('SELECT id FROM _zenku_rules WHERE id = ?').get(id);
-  if (!rule) { res.status(404).json({ error: '找不到規則' }); return; }
+  if (!rule) { res.status(404).json({ error: 'ERROR_RULE_NOT_FOUND' }); return; }
   db.prepare('DELETE FROM _zenku_rules WHERE id = ?').run(id);
   res.json({ success: true });
 });
@@ -407,7 +407,7 @@ router.post('/reset', requireAdmin, (_req, res) => {
       db.exec(`DROP TABLE IF EXISTS "${name}"`);
     }
     db.exec('PRAGMA foreign_keys = ON');
-
+ 
     db.exec(`
       CREATE TABLE IF NOT EXISTS _zenku_views (
         id TEXT PRIMARY KEY, name TEXT NOT NULL, table_name TEXT NOT NULL,
@@ -419,10 +419,10 @@ router.post('/reset', requireAdmin, (_req, res) => {
         agent TEXT NOT NULL, action TEXT NOT NULL, detail TEXT, user_request TEXT
       );
     `);
-
-    res.json({ success: true, message: '已重置所有資料' });
+ 
+    res.json({ success: true, message: 'SUCCESS_SYSTEM_RESET' });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    res.status(500).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: String(err) } });
   }
 });
 

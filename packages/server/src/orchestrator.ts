@@ -1,4 +1,4 @@
-import { getUserTables, getAllViews, getAllRules } from './db';
+import { getUserTables, getAllViews, getAllRules, getUserLanguage } from './db';
 import { buildJournalContext } from './tools/journal-tools';
 import { createProvider, getDefaultProviderName, getDefaultModel } from './ai';
 import {
@@ -16,7 +16,7 @@ import type { ViewDefinition, LLMMessage, ToolResult, AIProvider as AIProviderNa
 
 
 
-function buildSystemPrompt(): string {
+function buildSystemPrompt(userLanguage: string = 'zh-TW'): string {
   const tables = getUserTables();
   const views = getAllViews();
 
@@ -44,7 +44,7 @@ Critical Rules:
 2. Modify Structure: manage_schema (alter_table) first, then manage_ui (update_view).
 3. Statistics queries: Use query_data.
 4. Naming: Use English lowercase underscores for tables and fields.
-5. Language: ALL responses to the user must be in Traditional Chinese.
+5. Language: ALL responses to the user must be in the [${userLanguage}] language.
 6. Identity: View ID should usually match its table_name.
 7. Modifying an existing view: ALWAYS call manage_ui (get_view) first to retrieve the current definition, then apply your changes and call update_view with the COMPLETE modified definition. Never write a partial definition — it will overwrite and lose existing fields, columns, and actions.
 8. Unknown Schema: If you need to query or modify a table but don't know its column definitions, you MUST call get_table_schema(action: 'get_schema', table_name: '...') first. Never guess column names.
@@ -267,12 +267,14 @@ export async function* chat(
     { role: 'user' as const, content: userMessage },
   ];
 
+  const userLanguage = userId ? getUserLanguage(userId) : 'zh-TW';
+
   let continueLoop = true;
 
   while (continueLoop) {
     const response = await provider.chat({
       model,
-      system: buildSystemPrompt(),
+      system: buildSystemPrompt(userLanguage),
       messages: currentMessages,
       tools,
       maxTokens: 4096,

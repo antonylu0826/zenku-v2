@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, ChevronRight, RefreshCw, Archive, ArchiveX, Trash2, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { SessionDetail } from './SessionDetail';
@@ -29,6 +30,7 @@ interface Props {
 }
 
 export function ChatHistory({ onClose }: Props) {
+  const { t, i18n } = useTranslation();
   const { token } = useAuth();
   const headers = { Authorization: `Bearer ${token}` };
 
@@ -66,10 +68,10 @@ export function ChatHistory({ onClose }: Props) {
     const action = s.archived ? 'unarchive' : 'archive';
     const res = await fetch(`/api/admin/sessions/${s.id}/${action}`, { method: 'PATCH', headers });
     if (res.ok) {
-      toast.success(s.archived ? '已取消封存' : '已封存');
+      toast.success(s.archived ? t('admin.chat.toast_unarchived') : t('admin.chat.toast_archived'));
       void fetchSessions();
     } else {
-      toast.error('操作失敗');
+      toast.error(t('common.error'));
     }
     setSavingId(null);
   };
@@ -77,16 +79,19 @@ export function ChatHistory({ onClose }: Props) {
   const handleDelete = async () => {
     if (!deleteId) return;
     setDeleteLoading(true);
-    const res = await fetch(`/api/admin/sessions/${deleteId}`, { method: 'DELETE', headers });
-    const json = await res.json() as { success?: boolean; error?: string };
-    if (!res.ok) {
-      toast.error(json.error ?? '刪除失敗');
-    } else {
-      toast.success('對話已刪除');
-      setDeleteId(null);
-      void fetchSessions();
+    try {
+      const res = await fetch(`/api/admin/sessions/${deleteId}`, { method: 'DELETE', headers });
+      const json = await res.json() as { success?: boolean; error?: string };
+      if (!res.ok) {
+        toast.error(t(`errors.${json.error}`, { defaultValue: json.error || t('common.error') }));
+      } else {
+        toast.success(t('admin.chat.toast_deleted'));
+        setDeleteId(null);
+        void fetchSessions();
+      }
+    } finally {
+      setDeleteLoading(false);
     }
-    setDeleteLoading(false);
   };
 
   if (selectedSession) {
@@ -103,8 +108,8 @@ export function ChatHistory({ onClose }: Props) {
           {/* Header */}
           <div className="flex items-center justify-between border-b px-6 py-4">
             <div>
-              <h2 className="text-base font-semibold">對話歷程</h2>
-              <p className="text-xs text-muted-foreground">共 {total} 筆 session</p>
+              <h2 className="text-base font-semibold">{t('admin.chat.title')}</h2>
+              <p className="text-xs text-muted-foreground">{t('admin.chat.summary_sessions', { count: total })}</p>
             </div>
             <div className="flex items-center gap-2">
               {/* Show archived toggle */}
@@ -117,19 +122,19 @@ export function ChatHistory({ onClose }: Props) {
                 }`}
               >
                 <Archive size={12} />
-                {showArchived ? '顯示已封存' : '顯示一般'}
+                {showArchived ? t('admin.chat.filter_archived') : t('admin.chat.filter_normal')}
               </button>
               <select
                 value={filterProvider}
                 onChange={e => { setPage(1); setFilterProvider(e.target.value); }}
                 className="rounded border bg-background px-2 py-1 text-xs"
               >
-                <option value="">所有 Provider</option>
+                <option value="">{t('admin.chat.all_providers')}</option>
                 <option value="claude">Claude</option>
                 <option value="openai">OpenAI</option>
                 <option value="gemini">Gemini</option>
               </select>
-              <Button variant="ghost" size="icon" onClick={() => void fetchSessions()} title="重新整理">
+              <Button variant="ghost" size="icon" onClick={() => void fetchSessions()} title={t('common.refresh')}>
                 <RefreshCw size={14} />
               </Button>
               <Button variant="ghost" size="icon" onClick={onClose}>
@@ -146,19 +151,19 @@ export function ChatHistory({ onClose }: Props) {
               </div>
             ) : sessions.length === 0 ? (
               <div className="py-16 text-center text-sm text-muted-foreground">
-                {showArchived ? '尚無已封存的對話' : '尚無對話紀錄'}
+                {showArchived ? t('admin.chat.no_archived_sessions') : t('admin.chat.no_sessions')}
               </div>
             ) : (
               <table className="w-full text-sm">
                 <thead className="sticky top-0 border-b bg-muted/80 backdrop-blur">
                   <tr>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">標題 / 時間</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">使用者</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Provider</th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">訊息數</th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">Tokens</th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">費用</th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">操作</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('admin.chat.col_title_time')}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('admin.chat.col_user')}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('admin.chat.col_provider')}</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('admin.chat.col_count')}</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('admin.chat.col_tokens')}</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('admin.chat.col_cost')}</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('common.actions')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -171,14 +176,14 @@ export function ChatHistory({ onClose }: Props) {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <span className="max-w-[200px] truncate font-medium">
-                            {s.title ?? '（無標題）'}
+                            {s.title ?? t('admin.chat.no_title')}
                           </span>
                           {!!s.archived && (
-                            <Badge variant="secondary" className="shrink-0 text-xs">已封存</Badge>
+                            <Badge variant="secondary" className="shrink-0 text-xs">{t('admin.chat.badge_archived')}</Badge>
                           )}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {new Date(s.updated_at).toLocaleString('zh-TW')}
+                          {new Date(s.updated_at).toLocaleString(i18n.language)}
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -209,7 +214,7 @@ export function ChatHistory({ onClose }: Props) {
                           <Button
                             variant="ghost"
                             size="icon"
-                            title={s.archived ? '取消封存' : '封存'}
+                            title={s.archived ? t('admin.chat.btn_unarchive') : t('admin.chat.btn_archive')}
                             onClick={e => void toggleArchive(s, e)}
                             disabled={savingId === s.id}
                           >
@@ -223,7 +228,7 @@ export function ChatHistory({ onClose }: Props) {
                           <Button
                             variant="ghost"
                             size="icon"
-                            title="永久刪除"
+                            title={t('admin.chat.btn_delete_forever')}
                             onClick={() => setDeleteId(s.id)}
                             disabled={savingId === s.id}
                           >
@@ -247,7 +252,7 @@ export function ChatHistory({ onClose }: Props) {
                 onClick={() => setPage(p => p - 1)}
                 className="rounded px-3 py-1 text-sm hover:bg-accent disabled:opacity-40"
               >
-                上一頁
+                {t('common.prev_page')}
               </button>
               <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
               <button
@@ -255,7 +260,7 @@ export function ChatHistory({ onClose }: Props) {
                 onClick={() => setPage(p => p + 1)}
                 className="rounded px-3 py-1 text-sm hover:bg-accent disabled:opacity-40"
               >
-                下一頁
+                {t('common.next_page')}
               </button>
             </div>
           )}
@@ -266,21 +271,20 @@ export function ChatHistory({ onClose }: Props) {
       <AlertDialog open={!!deleteId} onOpenChange={open => { if (!open) setDeleteId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>永久刪除對話</AlertDialogTitle>
+            <AlertDialogTitle>{t('admin.chat.dialog_delete_title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              確定要永久刪除「<span className="font-medium">{deleteTarget?.title ?? '（無標題）'}</span>」？
-              此操作將一併刪除所有訊息與工具紀錄，無法復原。
+              {t('admin.chat.dialog_delete_desc', { title: deleteTarget?.title ?? t('admin.chat.no_title') })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => void handleDelete()}
               disabled={deleteLoading}
             >
               {deleteLoading && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-              永久刪除
+              {t('admin.chat.btn_delete_forever')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

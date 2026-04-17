@@ -1,4 +1,5 @@
 import { useEffect, useState, Fragment } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Loader2, RefreshCw, Trash2, X, ChevronDown, ChevronRight,
   ShieldCheck, ShieldOff, Info,
@@ -48,17 +49,7 @@ interface Props {
   onClose: () => void;
 }
 
-// ─── Labels ──────────────────────────────────────────────────────────────────
-
-const TRIGGER_LABEL: Record<TriggerType, string> = {
-  before_insert: '新增前',
-  after_insert:  '新增後',
-  before_update: '更新前',
-  after_update:  '更新後',
-  before_delete: '刪除前',
-  on_schedule:   '排程',
-  manual:        '手動',
-};
+// ─── Constants ───────────────────────────────────────────────────────────────
 
 const TRIGGER_COLOR: Record<TriggerType, string> = {
   before_insert: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
@@ -70,68 +61,81 @@ const TRIGGER_COLOR: Record<TriggerType, string> = {
   manual:        'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
 };
 
-const ACTION_TYPE_LABEL: Record<string, string> = {
-  set_field:              '設定欄位',
-  validate:               '驗證',
-  create_record:          '建立記錄',
-  update_record:          '更新記錄',
-  update_related_records: '更新關聯記錄',
-  webhook:                'Webhook',
-  notify:                 '通知',
-};
-
-const OPERATOR_LABEL: Record<string, string> = {
-  eq:       '等於',
-  neq:      '不等於',
-  gt:       '大於',
-  lt:       '小於',
-  gte:      '大於等於',
-  lte:      '小於等於',
-  contains: '包含',
-  changed:  '已變更',
-  was_eq:   '原值等於',
-  was_neq:  '原值不等於',
-};
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function conditionSummary(cond: RuleCondition | null): string {
-  if (!cond) return '（無條件）';
-  const op = OPERATOR_LABEL[cond.operator] ?? cond.operator;
+function conditionSummary(cond: RuleCondition | null, t: any): string {
+  if (!cond) return t('admin.rules.no_condition');
+  const opMap: Record<string, string> = {
+    eq: t('admin.rules.op_eq'),
+    neq: t('admin.rules.op_neq'),
+    gt: t('admin.rules.op_gt'),
+    lt: t('admin.rules.op_lt'),
+    gte: t('admin.rules.op_gte'),
+    lte: t('admin.rules.op_lte'),
+    contains: t('admin.rules.op_contains'),
+    changed: t('admin.rules.op_changed'),
+    was_eq: t('admin.rules.op_was_eq'),
+    was_neq: t('admin.rules.op_was_neq'),
+  };
+  const op = opMap[cond.operator] ?? cond.operator;
+  if (cond.operator === 'changed') {
+    return t('admin.rules.condition_changed', { field: cond.field });
+  }
   const val = cond.value !== undefined ? String(cond.value) : '';
-  return cond.operator === 'changed'
-    ? `${cond.field} 已變更`
-    : `${cond.field} ${op} ${val}`;
+  return `${cond.field} ${op} ${val}`;
 }
 
 // ─── Detail Panel ────────────────────────────────────────────────────────────
 
 function RuleDetail({ rule }: { rule: RuleRow }) {
+  const { t, i18n } = useTranslation();
+  const opMap: Record<string, string> = {
+    eq: t('admin.rules.op_eq'),
+    neq: t('admin.rules.op_neq'),
+    gt: t('admin.rules.op_gt'),
+    lt: t('admin.rules.op_lt'),
+    gte: t('admin.rules.op_gte'),
+    lte: t('admin.rules.op_lte'),
+    contains: t('admin.rules.op_contains'),
+    changed: t('admin.rules.op_changed'),
+    was_eq: t('admin.rules.op_was_eq'),
+    was_neq: t('admin.rules.op_was_neq'),
+  };
+  const ACTION_TYPE_LABEL: Record<string, string> = {
+    set_field:              t('admin.rules.action_set_field'),
+    validate:               t('admin.rules.action_validate'),
+    create_record:          t('admin.rules.action_create_record'),
+    update_record:          t('admin.rules.action_update_record'),
+    update_related_records: t('admin.rules.action_update_related'),
+    webhook:                t('admin.rules.action_webhook'),
+    notify:                 t('admin.rules.action_notify'),
+  };
+
   return (
     <div className="space-y-4 p-4 text-sm">
       {/* Condition */}
       <div>
-        <div className="mb-1.5 font-medium text-muted-foreground uppercase tracking-wide text-xs">觸發條件</div>
+        <div className="mb-1.5 font-medium text-muted-foreground uppercase tracking-wide text-xs">{t('admin.rules.label_condition')}</div>
         {rule.condition ? (
           <div className="rounded-md border bg-muted/30 p-3 font-mono text-xs leading-relaxed">
             <span className="text-blue-600 dark:text-blue-400">{rule.condition.field}</span>
             {' '}
             <span className="text-purple-600 dark:text-purple-400">
-              {OPERATOR_LABEL[rule.condition.operator] ?? rule.condition.operator}
+              {opMap[rule.condition.operator] ?? rule.condition.operator}
             </span>
             {rule.condition.value !== undefined && (
               <> <span className="text-green-600 dark:text-green-400">"{String(rule.condition.value)}"</span></>
             )}
           </div>
         ) : (
-          <p className="text-muted-foreground text-xs italic">無條件（每次觸發皆執行）</p>
+          <p className="text-muted-foreground text-xs italic">{t('admin.rules.no_condition')}</p>
         )}
       </div>
 
       {/* Actions */}
       <div>
         <div className="mb-1.5 font-medium text-muted-foreground uppercase tracking-wide text-xs">
-          動作清單（{rule.actions.length} 個）
+          {t('admin.rules.label_actions', { count: rule.actions.length })}
         </div>
         <div className="space-y-2">
           {rule.actions.map((action, i) => (
@@ -152,7 +156,7 @@ function RuleDetail({ rule }: { rule: RuleRow }) {
             </div>
           ))}
           {rule.actions.length === 0 && (
-            <p className="text-muted-foreground text-xs italic">無動作</p>
+            <p className="text-muted-foreground text-xs italic">{t('admin.rules.no_action')}</p>
           )}
         </div>
       </div>
@@ -160,8 +164,8 @@ function RuleDetail({ rule }: { rule: RuleRow }) {
       {/* Metadata */}
       <div className="flex gap-6 text-xs text-muted-foreground border-t pt-3">
         <span>ID: <span className="font-mono">{rule.id}</span></span>
-        <span>建立: {new Date(rule.created_at).toLocaleString('zh-TW')}</span>
-        <span>更新: {new Date(rule.updated_at).toLocaleString('zh-TW')}</span>
+        <span>{t('admin.rules.created_info', { date: new Date(rule.created_at).toLocaleString(i18n.language) })}</span>
+        <span>{t('admin.rules.updated_info', { date: new Date(rule.updated_at).toLocaleString(i18n.language) })}</span>
       </div>
     </div>
   );
@@ -170,6 +174,7 @@ function RuleDetail({ rule }: { rule: RuleRow }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function RulesManagement({ onClose }: Props) {
+  const { t } = useTranslation();
   const { token } = useAuth();
   const [rules, setRules] = useState<RuleRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -180,12 +185,32 @@ export function RulesManagement({ onClose }: Props) {
 
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
+  const TRIGGER_LABEL: Record<TriggerType, string> = {
+    before_insert: t('admin.rules.trigger_before_insert'),
+    after_insert:  t('admin.rules.trigger_after_insert'),
+    before_update: t('admin.rules.trigger_before_update'),
+    after_update:  t('admin.rules.trigger_after_update'),
+    before_delete: t('admin.rules.trigger_before_delete'),
+    on_schedule:   t('admin.rules.trigger_on_schedule'),
+    manual:        t('admin.rules.trigger_manual'),
+  };
+
+  const ACTION_TYPE_LABEL: Record<string, string> = {
+    set_field:              t('admin.rules.action_set_field'),
+    validate:               t('admin.rules.action_validate'),
+    create_record:          t('admin.rules.action_create_record'),
+    update_record:          t('admin.rules.action_update_record'),
+    update_related_records: t('admin.rules.action_update_related'),
+    webhook:                t('admin.rules.action_webhook'),
+    notify:                 t('admin.rules.action_notify'),
+  };
+
   const fetchRules = async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/admin/rules', { headers });
       if (res.ok) setRules(await res.json() as RuleRow[]);
-      else toast.error('載入規則失敗');
+      else toast.error(t('admin.rules.toast_load_error'));
     } finally {
       setLoading(false);
     }
@@ -197,9 +222,11 @@ export function RulesManagement({ onClose }: Props) {
     setToggling(rule.id);
     try {
       const res = await fetch(`/api/admin/rules/${rule.id}/toggle`, { method: 'PATCH', headers });
-      if (!res.ok) { toast.error('切換失敗'); return; }
+      if (!res.ok) { toast.error(t('common.error')); return; }
       const data = await res.json() as { enabled: boolean };
-      toast.success(data.enabled ? `已啟用「${rule.name}」` : `已停用「${rule.name}」`);
+      toast.success(data.enabled 
+        ? t('admin.rules.toast_rule_enabled', { name: rule.name }) 
+        : t('admin.rules.toast_rule_disabled', { name: rule.name }));
       setRules(prev => prev.map(r => r.id === rule.id ? { ...r, enabled: data.enabled } : r));
     } finally {
       setToggling(null);
@@ -212,8 +239,8 @@ export function RulesManagement({ onClose }: Props) {
     try {
       const res = await fetch(`/api/admin/rules/${deleteRuleId}`, { method: 'DELETE', headers });
       const json = await res.json() as { success?: boolean; error?: string };
-      if (!res.ok) { toast.error(json.error ?? '刪除失敗'); return; }
-      toast.success('規則已刪除');
+      if (!res.ok) { toast.error(t(`errors.${json.error}`, { defaultValue: json.error || t('common.error') })); return; }
+      toast.success(t('admin.rules.toast_deleted'));
       setDeleteRuleId(null);
       setRules(prev => prev.filter(r => r.id !== deleteRuleId));
     } finally {
@@ -237,13 +264,13 @@ export function RulesManagement({ onClose }: Props) {
           {/* Header */}
           <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
             <div>
-              <h2 className="text-base font-semibold">業務規則管理</h2>
+              <h2 className="text-base font-semibold">{t('admin.rules.title')}</h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                共 {rules.length} 條規則，{enabledCount} 條啟用中
+                {t('admin.rules.summary_rules', { total: rules.length, enabled: enabledCount })}
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" onClick={() => void fetchRules()} title="重新整理" disabled={loading}>
+              <Button variant="ghost" size="icon" onClick={() => void fetchRules()} title={t('admin.rules.refresh')} disabled={loading}>
                 <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               </Button>
               <Button variant="ghost" size="icon" onClick={onClose}>
@@ -261,20 +288,20 @@ export function RulesManagement({ onClose }: Props) {
             ) : rules.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-3 py-20 text-muted-foreground">
                 <Info className="h-8 w-8 opacity-40" />
-                <p className="text-sm">尚未設定任何業務規則</p>
+                <p className="text-sm">{t('admin.rules.no_rule')}</p>
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-8" />
-                    <TableHead>規則名稱</TableHead>
-                    <TableHead>目標表格</TableHead>
-                    <TableHead>觸發時機</TableHead>
-                    <TableHead>條件</TableHead>
-                    <TableHead>動作</TableHead>
-                    <TableHead className="w-16 text-center">優先度</TableHead>
-                    <TableHead className="w-20 text-center">啟用</TableHead>
+                    <TableHead>{t('admin.rules.col_name')}</TableHead>
+                    <TableHead>{t('admin.rules.col_table')}</TableHead>
+                    <TableHead>{t('admin.rules.col_trigger')}</TableHead>
+                    <TableHead>{t('admin.rules.col_condition')}</TableHead>
+                    <TableHead>{t('admin.rules.col_actions')}</TableHead>
+                    <TableHead className="w-16 text-center">{t('admin.rules.col_priority')}</TableHead>
+                    <TableHead className="w-20 text-center">{t('admin.rules.col_enabled')}</TableHead>
                     <TableHead className="w-12" />
                   </TableRow>
                 </TableHeader>
@@ -315,7 +342,7 @@ export function RulesManagement({ onClose }: Props) {
 
                         {/* Condition summary */}
                         <TableCell className="py-2 text-xs text-muted-foreground max-w-[180px] truncate">
-                          {conditionSummary(rule.condition)}
+                          {conditionSummary(rule.condition, t)}
                         </TableCell>
 
                         {/* Actions summary */}
@@ -330,7 +357,7 @@ export function RulesManagement({ onClose }: Props) {
                               </span>
                             ))}
                             {rule.actions.length === 0 && (
-                              <span className="text-xs text-muted-foreground italic">無</span>
+                              <span className="text-xs text-muted-foreground italic">{t('common.none')}</span>
                             )}
                           </div>
                         </TableCell>
@@ -359,7 +386,7 @@ export function RulesManagement({ onClose }: Props) {
                           <Button
                             variant="ghost"
                             size="icon"
-                            title="刪除規則"
+                            title={t('admin.rules.btn_delete')}
                             onClick={() => setDeleteRuleId(rule.id)}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
@@ -385,7 +412,7 @@ export function RulesManagement({ onClose }: Props) {
           {/* Footer: table summary */}
           {!loading && rules.length > 0 && (
             <div className="shrink-0 border-t px-6 py-3 text-xs text-muted-foreground flex gap-4 flex-wrap">
-              <span>涵蓋表格：</span>
+              <span>{t('admin.rules.label_covered_tables')}</span>
               {tables.map(t => {
                 const count = rules.filter(r => r.table_name === t).length;
                 const active = rules.filter(r => r.table_name === t && r.enabled).length;
@@ -404,21 +431,20 @@ export function RulesManagement({ onClose }: Props) {
       <AlertDialog open={!!deleteRuleId} onOpenChange={open => { if (!open) setDeleteRuleId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>確認刪除規則</AlertDialogTitle>
+            <AlertDialogTitle>{t('admin.rules.dialog_delete_title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              確定要刪除規則「<span className="font-medium">{deleteRule?.name}</span>」？
-              刪除後此規則將立即停止執行，且無法復原。
+              {t('admin.rules.dialog_delete_desc', { name: deleteRule?.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => void handleDelete()}
               disabled={deleteLoading}
             >
               {deleteLoading && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-              刪除
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

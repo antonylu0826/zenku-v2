@@ -24,10 +24,25 @@ export interface TableQueryResult {
   limit: number;
 }
 
+export class ApiError extends Error {
+  constructor(public code: string, public params: Record<string, any> = {}, public status: number) {
+    super(code);
+    this.name = 'ApiError';
+  }
+}
+
 async function parseJsonOrThrow<T>(res: Response): Promise<T> {
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `Request failed: ${res.status}`);
+    let code = `ERROR_HTTP_${res.status}`;
+    let params = {};
+    try {
+      const json = await res.json() as { error?: string; params?: Record<string, any> };
+      if (json.error) code = json.error;
+      if (json.params) params = json.params;
+    } catch {
+      // Not JSON or missing error field
+    }
+    throw new ApiError(code, params, res.status);
   }
   return res.json() as Promise<T>;
 }

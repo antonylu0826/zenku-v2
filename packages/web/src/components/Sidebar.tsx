@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
 import { Database, BarChart3, Columns3, Calendar, FileText, ChevronDown, ChevronRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -74,6 +75,7 @@ function GroupSection({ label, views, collapsed }: { label: string; views: ViewD
 }
 
 export function Sidebar({ collapsed = false }: Props) {
+  const { t } = useTranslation();
   const { views } = useViews();
 
   // Separate grouped vs ungrouped views (preserve insertion order)
@@ -94,7 +96,7 @@ export function Sidebar({ collapsed = false }: Props) {
       <nav className="flex-1 space-y-1 overflow-y-auto p-2">
         {views.length === 0 ? (
           <div className={cn('px-2 py-3 text-xs text-muted-foreground', collapsed && 'text-center')}>
-            {collapsed ? '無' : '尚無頁面'}
+            {collapsed ? t('common.none') : t('common.no_pages')}
           </div>
         ) : (
           <>

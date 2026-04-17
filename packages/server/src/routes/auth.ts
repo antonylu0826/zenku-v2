@@ -21,35 +21,39 @@ router.post('/auth/logout', requireAuth, logoutHandler);
 // User self-service (any authenticated user)
 // ──────────────────────────────────────────────
 router.put('/users/me', requireAuth, (req, res) => {
-  const { name } = req.body as { name?: string };
+  const { name, language } = req.body as { name?: string; language?: string };
   if (!name || !name.trim()) {
-    res.status(400).json({ error: '姓名不可為空' });
+    res.status(400).json({ error: 'ERROR_INVALID_NAME' });
     return;
   }
   const db = getDb();
-  db.prepare('UPDATE _zenku_users SET name = ? WHERE id = ?').run(name.trim(), req.user!.id);
-  res.json({ success: true, name: name.trim() });
+  if (language) {
+    db.prepare('UPDATE _zenku_users SET name = ?, language = ? WHERE id = ?').run(name.trim(), language, req.user!.id);
+  } else {
+    db.prepare('UPDATE _zenku_users SET name = ? WHERE id = ?').run(name.trim(), req.user!.id);
+  }
+  res.json({ success: true, name: name.trim(), language });
 });
 
 router.put('/users/me/password', requireAuth, async (req, res) => {
   const { old_password, new_password } = req.body as { old_password?: string; new_password?: string };
   if (!old_password || !new_password) {
-    res.status(400).json({ error: '缺少必填欄位' });
+    res.status(400).json({ error: 'ERROR_MISSING_FIELDS' });
     return;
   }
   if (new_password.length < 6) {
-    res.status(400).json({ error: '新密碼至少 6 個字元' });
+    res.status(400).json({ error: 'ERROR_PASSWORD_TOO_SHORT', params: { min: 6 } });
     return;
   }
   const db = getDb();
   const user = db.prepare('SELECT password_hash FROM _zenku_users WHERE id = ?').get(req.user!.id) as { password_hash: string } | undefined;
   if (!user) {
-    res.status(404).json({ error: '使用者不存在' });
+    res.status(404).json({ error: 'ERROR_USER_NOT_FOUND' });
     return;
   }
   const valid = await bcrypt.compare(old_password, user.password_hash);
   if (!valid) {
-    res.status(400).json({ error: '舊密碼不正確' });
+    res.status(400).json({ error: 'ERROR_INVALID_PASSWORD' });
     return;
   }
   const hash = await bcrypt.hash(new_password, 12);

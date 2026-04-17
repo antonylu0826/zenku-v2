@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Loader2, RefreshCw, X, ChevronDown, ChevronRight,
   Eye, EyeOff, Lock, Unlock, AlertCircle, Palette, Type,
@@ -35,10 +36,6 @@ interface Props { onClose: () => void; }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const VIEW_TYPE_LABEL: Record<string, string> = {
-  'table': '表格', 'master-detail': '主明細',
-  'dashboard': '儀表板', 'kanban': '看板', 'calendar': '日曆',
-};
 const VIEW_TYPE_COLOR: Record<string, string> = {
   'table': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
   'master-detail': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
@@ -52,12 +49,6 @@ const FIELD_TYPE_COLOR: Record<string, string> = {
   boolean: 'bg-purple-50 text-purple-600', select: 'bg-yellow-50 text-yellow-600',
   relation: 'bg-indigo-50 text-indigo-600', email: 'bg-pink-50 text-pink-600',
   url: 'bg-cyan-50 text-cyan-600', textarea: 'bg-gray-50 text-gray-500',
-};
-const OP_LABEL: Record<string, string> = {
-  eq: '=', neq: '≠', gt: '>', lt: '<', gte: '≥', lte: '≤', contains: '包含',
-};
-const ACTION_LABEL: Record<string, string> = {
-  create: '新增', edit: '編輯', delete: '刪除', export: '匯出',
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -73,25 +64,28 @@ function countAppearanceRules(view: ViewDefinition): number {
   return formRules + colRules + detailRules;
 }
 
-function conditionText(when: Record<string, unknown>): string {
+function conditionText(when: Record<string, unknown>, t: any): string {
   if ('logic' in when) {
-    const sub = (when.conditions as Array<Record<string, unknown>> ?? []).map(c => conditionText(c));
+    const sub = (when.conditions as Array<Record<string, unknown>> ?? []).map(c => conditionText(c, t));
     return `(${sub.join(` ${String(when.logic).toUpperCase()} `)})`;
   }
-  const op  = OP_LABEL[String(when.operator)] ?? String(when.operator);
+  const opMap: Record<string, string> = {
+    eq: '=', neq: '≠', gt: '>', lt: '<', gte: '≥', lte: '≤', contains: t('admin.views.op_contains'),
+  };
+  const op  = opMap[String(when.operator)] ?? String(when.operator);
   const val = when.value !== undefined ? ` "${String(when.value)}"` : '';
   return `${when.field} ${op}${val}`;
 }
 
-function effectItems(apply: AppearanceEffect): Array<{ icon: React.ReactNode; label: string }> {
+function effectItems(apply: AppearanceEffect, t: any): Array<{ icon: React.ReactNode; label: string }> {
   const items: Array<{ icon: React.ReactNode; label: string }> = [];
-  if (apply.visibility === 'hidden')  items.push({ icon: <EyeOff className="h-3 w-3" />, label: '隱藏' });
-  if (apply.visibility === 'visible') items.push({ icon: <Eye className="h-3 w-3" />, label: '顯示' });
-  if (apply.enabled === false)        items.push({ icon: <Lock className="h-3 w-3" />, label: '唯讀' });
-  if (apply.enabled === true)         items.push({ icon: <Unlock className="h-3 w-3" />, label: '啟用' });
-  if (apply.required)                 items.push({ icon: <AlertCircle className="h-3 w-3" />, label: '必填' });
-  if (apply.text_color || apply.font_weight) items.push({ icon: <Type className="h-3 w-3" />, label: '文字' });
-  if (apply.bg_color)                 items.push({ icon: <Palette className="h-3 w-3" />, label: '背景' });
+  if (apply.visibility === 'hidden')  items.push({ icon: <EyeOff className="h-3 w-3" />, label: t('admin.views.effect_hidden') });
+  if (apply.visibility === 'visible') items.push({ icon: <Eye className="h-3 w-3" />, label: t('admin.views.effect_visible') });
+  if (apply.enabled === false)        items.push({ icon: <Lock className="h-3 w-3" />, label: t('admin.views.effect_readonly') });
+  if (apply.enabled === true)         items.push({ icon: <Unlock className="h-3 w-3" />, label: t('admin.views.effect_enabled') });
+  if (apply.required)                 items.push({ icon: <AlertCircle className="h-3 w-3" />, label: t('admin.views.effect_required') });
+  if (apply.text_color || apply.font_weight) items.push({ icon: <Type className="h-3 w-3" />, label: t('admin.views.effect_text') });
+  if (apply.bg_color)                 items.push({ icon: <Palette className="h-3 w-3" />, label: t('admin.views.effect_background') });
   return items;
 }
 
@@ -100,6 +94,7 @@ function effectItems(apply: AppearanceEffect): Array<{ icon: React.ReactNode; la
 function LabelEditor({
   initialValue, onSave,
 }: { initialValue: string; onSave: (val: string) => Promise<void> }) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(initialValue);
   const [saving, setSaving] = useState(false);
@@ -133,7 +128,7 @@ function LabelEditor({
   return (
     <button
       className="text-sm font-medium hover:text-primary hover:underline text-left truncate max-w-[9rem]"
-      title="點擊編輯標籤名稱"
+      title={t('admin.views.click_to_edit')}
       onClick={() => { setEditing(true); setValue(initialValue); }}
     >
       {initialValue}
@@ -150,16 +145,17 @@ function AppearanceRuleList({
   onToggle: (ruleIndex: number, nextEnabled: boolean) => void;
   onDelete: (ruleIndex: number) => void;
 }) {
+  const { t } = useTranslation();
   const [deletingIndex, setDeletingIndex] = useState<number | null>(null);
 
   if (rules.length === 0) {
-    return <p className="px-4 py-2 text-xs text-muted-foreground italic">此欄位無外觀規則</p>;
+    return <p className="px-4 py-2 text-xs text-muted-foreground italic">{t('admin.views.no_rule')}</p>;
   }
   return (
     <div className="divide-y divide-border/40">
       {rules.map((rule, i) => {
         const isEnabled = rule.enabled !== false;
-        const items = effectItems(rule.apply);
+        const items = effectItems(rule.apply, t);
         return (
           <div key={i} className={`flex items-start gap-3 px-4 py-2.5 ${!isEnabled ? 'opacity-50' : ''}`}>
             {/* Index */}
@@ -167,15 +163,15 @@ function AppearanceRuleList({
 
             {/* Condition */}
             <div className="flex-1 min-w-0">
-              <div className="text-xs text-muted-foreground mb-1">當</div>
+              <div className="text-xs text-muted-foreground mb-1">{t('admin.views.label_when')}</div>
               <code className="text-xs bg-muted/70 px-1.5 py-0.5 rounded break-all">
-                {conditionText(rule.when as Record<string, unknown>)}
+                {conditionText(rule.when as Record<string, unknown>, t)}
               </code>
             </div>
 
             {/* Effects */}
             <div className="w-36 shrink-0">
-              <div className="text-xs text-muted-foreground mb-1">效果</div>
+              <div className="text-xs text-muted-foreground mb-1">{t('admin.views.label_effect')}</div>
               <div className="flex flex-wrap gap-1">
                 {items.map((item, j) => (
                   <span key={j} className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs">
@@ -186,13 +182,13 @@ function AppearanceRuleList({
                   <span className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs"
                     style={{ color: rule.apply.text_color }}>
                     <span className="h-2 w-2 rounded-full border" style={{ backgroundColor: rule.apply.text_color }} />
-                    文字
+                    {t('admin.views.effect_text')}
                   </span>
                 )}
                 {rule.apply.bg_color && (
                   <span className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs">
                     <span className="h-2 w-2 rounded-full border" style={{ backgroundColor: rule.apply.bg_color }} />
-                    背景
+                    {t('admin.views.effect_background')}
                   </span>
                 )}
               </div>
@@ -216,15 +212,15 @@ function AppearanceRuleList({
       <AlertDialog open={deletingIndex !== null} onOpenChange={open => { if (!open) setDeletingIndex(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>確認刪除外觀規則</AlertDialogTitle>
-            <AlertDialogDescription>刪除後無法復原，且立即生效。</AlertDialogDescription>
+            <AlertDialogTitle>{t('admin.views.dialog_delete_title')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('admin.views.dialog_delete_desc_rule')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => { if (deletingIndex !== null) { onDelete(deletingIndex); setDeletingIndex(null); } }}
-            >刪除</AlertDialogAction>
+            >{t('common.delete')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -243,6 +239,7 @@ function FieldRow({
   onAppearanceToggle: (fieldKey: string, ruleIndex: number, nextEnabled: boolean) => void;
   onAppearanceDelete: (fieldKey: string, ruleIndex: number) => void;
 }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const ruleCount = field.appearance?.length ?? 0;
 
@@ -283,7 +280,7 @@ function FieldRow({
 
         {/* Required */}
         <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-xs text-muted-foreground w-6">必填</span>
+          <span className="text-xs text-muted-foreground min-w-[3.5rem] text-right">{t('admin.views.label_required')}</span>
           <Switch
             checked={!!field.required}
             disabled={!!field.computed}
@@ -293,7 +290,7 @@ function FieldRow({
 
         {/* Hidden in form */}
         <div className="flex items-center gap-1.5 shrink-0 ml-3">
-          <span className="text-xs text-muted-foreground w-8">隱藏</span>
+          <span className="text-xs text-muted-foreground min-w-[2.5rem] text-right">{t('admin.views.label_hidden')}</span>
           <Switch
             checked={!!field.hidden_in_form}
             onCheckedChange={v => void onToggle(field.key, 'hidden_in_form', v)}
@@ -304,13 +301,13 @@ function FieldRow({
         <button
           className="ml-3 shrink-0"
           onClick={() => setExpanded(e => !e)}
-          title="外觀規則"
+          title={t('admin.views.label_rule')}
         >
           <Badge
             variant={ruleCount > 0 ? 'default' : 'outline'}
             className="text-xs"
           >
-            {ruleCount} 條外觀
+            {t('admin.views.rule_count', { count: ruleCount })}
           </Badge>
         </button>
       </div>
@@ -340,6 +337,7 @@ function ColumnRow({
   onAppearanceToggle: (fieldKey: string, ruleIndex: number, nextEnabled: boolean) => void;
   onAppearanceDelete: (fieldKey: string, ruleIndex: number) => void;
 }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const ruleCount = col.appearance?.length ?? 0;
 
@@ -363,11 +361,11 @@ function ColumnRow({
         <div className="flex-1" />
 
         {col.sortable !== false && (
-          <span className="text-xs text-muted-foreground shrink-0">可排序</span>
+          <span className="text-xs text-muted-foreground shrink-0">{t('admin.views.sortable')}</span>
         )}
 
         <div className="flex items-center gap-1.5 shrink-0 ml-3">
-          <span className="text-xs text-muted-foreground w-8">隱藏</span>
+          <span className="text-xs text-muted-foreground min-w-[2.5rem] text-right">{t('admin.views.label_hidden')}</span>
           <Switch
             checked={!!col.hidden_in_table}
             onCheckedChange={v => void onToggle(col.key, 'hidden_in_table', v)}
@@ -376,7 +374,7 @@ function ColumnRow({
 
         <button className="ml-3 shrink-0" onClick={() => setExpanded(e => !e)}>
           <Badge variant={ruleCount > 0 ? 'default' : 'outline'} className="text-xs">
-            {ruleCount} 條外觀
+            {t('admin.views.rule_count', { count: ruleCount })}
           </Badge>
         </button>
       </div>
@@ -397,34 +395,6 @@ function ColumnRow({
 // ─── Action constants ─────────────────────────────────────────────────────────
 
 const BUILTIN_ACTIONS: BuiltinAction[] = ['create', 'edit', 'delete', 'export'];
-const BEHAVIOR_TYPES = [
-  { value: 'set_field',     label: '設定欄位值' },
-  { value: 'trigger_rule',  label: '觸發業務規則' },
-  { value: 'webhook',       label: '呼叫 Webhook' },
-  { value: 'navigate',      label: '跳轉介面' },
-  { value: 'create_related',label: '建立關聯記錄' },
-] as const;
-const VARIANT_OPTIONS = [
-  { value: 'default',     label: '主要（藍）' },
-  { value: 'outline',     label: '輪廓（灰）' },
-  { value: 'secondary',   label: '次要' },
-  { value: 'destructive', label: '危險（紅）' },
-  { value: 'warning',     label: '警告（橘）' },
-];
-const CONTEXT_OPTIONS = [
-  { value: 'record', label: '詳情頁（record）' },
-  { value: 'list',   label: '列表列（list）' },
-  { value: 'both',   label: '兩者皆有（both）' },
-];
-const OPERATOR_OPTIONS = [
-  { value: 'eq',       label: '等於' },
-  { value: 'neq',      label: '不等於' },
-  { value: 'gt',       label: '大於' },
-  { value: 'lt',       label: '小於' },
-  { value: 'gte',      label: '大於等於' },
-  { value: 'lte',      label: '小於等於' },
-  { value: 'contains', label: '包含' },
-];
 
 // ─── Blank custom action template ─────────────────────────────────────────────
 
@@ -447,8 +417,19 @@ function LeafConditionEditor({
   value: AppearanceCondition | undefined;
   onChange: (v: AppearanceCondition | undefined) => void;
 }) {
+  const { t } = useTranslation();
   const leaf = (value && !('logic' in value)) ? value : { field: '', operator: 'eq' as const, value: '' };
   const enabled = Boolean(value);
+
+  const OPERATOR_OPTIONS = [
+    { value: 'eq',       label: t('admin.views.op_eq') },
+    { value: 'neq',      label: t('admin.views.op_neq') },
+    { value: 'gt',       label: t('admin.views.op_gt') },
+    { value: 'lt',       label: t('admin.views.op_lt') },
+    { value: 'gte',      label: t('admin.views.op_gte') },
+    { value: 'lte',      label: t('admin.views.op_lte') },
+    { value: 'contains', label: t('admin.views.op_contains') },
+  ];
 
   return (
     <div className="space-y-1.5">
@@ -460,7 +441,7 @@ function LeafConditionEditor({
         <div className="ml-6 flex flex-wrap gap-2">
           <Input
             className="h-7 text-xs w-32"
-            placeholder="欄位名"
+            placeholder={t('admin.views.placeholder_field')}
             value={('field' in leaf) ? String(leaf.field) : ''}
             onChange={e => onChange({ ...leaf, field: e.target.value })}
           />
@@ -473,7 +454,7 @@ function LeafConditionEditor({
           </select>
           <Input
             className="h-7 text-xs w-28"
-            placeholder="值"
+            placeholder={t('admin.views.placeholder_value')}
             value={('value' in leaf) ? String(leaf.value ?? '') : ''}
             onChange={e => onChange({ ...leaf, value: e.target.value })}
           />
@@ -493,6 +474,7 @@ function ActionFormDialog({
   onClose: () => void;
   onSave: (action: CustomViewAction) => Promise<void>;
 }) {
+  const { t } = useTranslation();
   const [form, setForm] = useState<CustomViewAction>(initial ?? blankAction());
   const [saving, setSaving] = useState(false);
 
@@ -505,25 +487,45 @@ function ActionFormDialog({
   const behaviorType = form.behavior.type;
 
   const handleSave = async () => {
-    if (!form.id.trim()) { toast.error('請填入動作 ID'); return; }
-    if (!form.label.trim()) { toast.error('請填入按鈕名稱'); return; }
+    if (!form.id.trim()) { toast.error(t('admin.views.toast_error_id')); return; }
+    if (!form.label.trim()) { toast.error(t('admin.views.toast_error_label')); return; }
     setSaving(true);
     try { await onSave({ ...form, id: form.id.trim(), label: form.label.trim() }); }
     finally { setSaving(false); }
   };
 
+  const BEHAVIOR_TYPES = [
+    { value: 'set_field',     label: t('admin.views.behavior_set_field') },
+    { value: 'trigger_rule',  label: t('admin.views.behavior_trigger_rule') },
+    { value: 'webhook',       label: t('admin.views.behavior_webhook') },
+    { value: 'navigate',      label: t('admin.views.behavior_navigate') },
+    { value: 'create_related',label: t('admin.views.behavior_create_related') },
+  ] as const;
+  const VARIANT_OPTIONS = [
+    { value: 'default',     label: t('admin.views.variant_default') },
+    { value: 'outline',     label: t('admin.views.variant_outline') },
+    { value: 'secondary',   label: t('admin.views.variant_secondary') },
+    { value: 'destructive', label: t('admin.views.variant_destructive') },
+    { value: 'warning',     label: t('admin.views.variant_warning') },
+  ];
+  const CONTEXT_OPTIONS = [
+    { value: 'record', label: t('admin.views.context_record') },
+    { value: 'list',   label: t('admin.views.context_list') },
+    { value: 'both',   label: t('admin.views.context_both') },
+  ];
+
   return (
     <Dialog open={open} onOpenChange={o => { if (!o) onClose(); }}>
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{initial ? '編輯自訂動作' : '新增自訂動作'}</DialogTitle>
+          <DialogTitle>{initial ? t('admin.views.title_edit_action') : t('admin.views.title_add_action')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-1">
           {/* Basic info */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-xs font-medium">動作 ID <span className="text-destructive">*</span></label>
+              <label className="text-xs font-medium">{t('admin.views.label_action_id')} <span className="text-destructive">*</span></label>
               <Input
                 className="h-8 text-sm font-mono"
                 placeholder="approve_order"
@@ -531,31 +533,31 @@ function ActionFormDialog({
                 onChange={e => set({ id: e.target.value.replace(/\s/g, '_') })}
                 disabled={Boolean(initial)}
               />
-              <p className="text-xs text-muted-foreground">英文小寫底線，建立後不可修改</p>
+              <p className="text-xs text-muted-foreground">{t('admin.views.desc_action_id')}</p>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium">按鈕名稱 <span className="text-destructive">*</span></label>
-              <Input className="h-8 text-sm" placeholder="核准" value={form.label} onChange={e => set({ label: e.target.value })} />
+              <label className="text-xs font-medium">{t('admin.views.label_action_label')} <span className="text-destructive">*</span></label>
+              <Input className="h-8 text-sm" placeholder={t('admin.views.placeholder_btn_name')} value={form.label} onChange={e => set({ label: e.target.value })} />
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1">
-              <label className="text-xs font-medium">樣式</label>
+              <label className="text-xs font-medium">{t('admin.views.label_variant')}</label>
               <select className="w-full h-8 rounded-md border bg-background px-2 text-sm"
                 value={form.variant ?? 'outline'} onChange={e => set({ variant: e.target.value as CustomViewAction['variant'] })}>
                 {VARIANT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium">顯示位置</label>
+              <label className="text-xs font-medium">{t('admin.views.label_context')}</label>
               <select className="w-full h-8 rounded-md border bg-background px-2 text-sm"
                 value={form.context ?? 'record'} onChange={e => set({ context: e.target.value as CustomViewAction['context'] })}>
                 {CONTEXT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium">圖示（Lucide）</label>
+              <label className="text-xs font-medium">{t('admin.views.label_icon')}</label>
               <Input className="h-8 text-sm" placeholder="check-circle" value={form.icon ?? ''} onChange={e => set({ icon: e.target.value || undefined })} />
             </div>
           </div>
@@ -563,7 +565,7 @@ function ActionFormDialog({
           {/* Behavior */}
           <div className="rounded-md border p-3 space-y-3">
             <div className="flex items-center gap-3">
-              <label className="text-xs font-medium w-16 shrink-0">行為類型</label>
+              <label className="text-xs font-medium w-16 shrink-0">{t('admin.views.label_behavior')}</label>
               <select className="flex-1 h-8 rounded-md border bg-background px-2 text-sm"
                 value={behaviorType}
                 onChange={e => set({ behavior: { type: e.target.value as ActionBehavior['type'] } as ActionBehavior })}>
@@ -574,13 +576,13 @@ function ActionFormDialog({
             {behaviorType === 'set_field' && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">欄位名</label>
+                  <label className="text-xs text-muted-foreground">{t('admin.views.placeholder_field')}</label>
                   <Input className="h-7 text-xs" placeholder="status"
                     value={(form.behavior as { field?: string }).field ?? ''}
                     onChange={e => setBehavior({ field: e.target.value } as Partial<ActionBehavior>)} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">設定值</label>
+                  <label className="text-xs text-muted-foreground">{t('admin.views.placeholder_value')}</label>
                   <Input className="h-7 text-xs" placeholder="approved"
                     value={(form.behavior as { value?: string }).value ?? ''}
                     onChange={e => setBehavior({ value: e.target.value } as Partial<ActionBehavior>)} />
@@ -590,7 +592,7 @@ function ActionFormDialog({
 
             {behaviorType === 'trigger_rule' && (
               <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">規則 ID（trigger_type = manual）</label>
+                <label className="text-xs text-muted-foreground">{t('admin.views.label_trigger_rule_id')}</label>
                 <Input className="h-7 text-xs font-mono" placeholder="rule_id"
                   value={(form.behavior as { rule_id?: string }).rule_id ?? ''}
                   onChange={e => setBehavior({ rule_id: e.target.value } as Partial<ActionBehavior>)} />
@@ -617,7 +619,7 @@ function ActionFormDialog({
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Payload 樣板（用 {'{{field}}'} 插值）</label>
+                  <label className="text-xs text-muted-foreground">{t('admin.views.label_payload_template')}</label>
                   <Textarea className="text-xs font-mono min-h-[60px] resize-none"
                     placeholder={'{"id":"{{id}}","status":"{{status}}"}'}
                     value={(form.behavior as { payload?: string }).payload ?? ''}
@@ -629,19 +631,19 @@ function ActionFormDialog({
             {behaviorType === 'navigate' && (
               <div className="grid grid-cols-3 gap-2">
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">目標 View ID</label>
+                  <label className="text-xs text-muted-foreground">{t('admin.views.label_target_view')}</label>
                   <Input className="h-7 text-xs" placeholder="orders"
                     value={(form.behavior as { view_id?: string }).view_id ?? ''}
                     onChange={e => setBehavior({ view_id: e.target.value } as Partial<ActionBehavior>)} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">篩選欄位（目標）</label>
+                  <label className="text-xs text-muted-foreground">{t('admin.views.label_filter_field')}</label>
                   <Input className="h-7 text-xs" placeholder="customer_id"
                     value={(form.behavior as { filter_field?: string }).filter_field ?? ''}
                     onChange={e => setBehavior({ filter_field: e.target.value || undefined } as Partial<ActionBehavior>)} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">來源欄位（當前）</label>
+                  <label className="text-xs text-muted-foreground">{t('admin.views.label_source_field')}</label>
                   <Input className="h-7 text-xs" placeholder="id"
                     value={(form.behavior as { filter_value_from?: string }).filter_value_from ?? ''}
                     onChange={e => setBehavior({ filter_value_from: e.target.value || undefined } as Partial<ActionBehavior>)} />
@@ -652,13 +654,13 @@ function ActionFormDialog({
             {behaviorType === 'create_related' && (
               <div className="space-y-2">
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">目標資料表</label>
+                  <label className="text-xs text-muted-foreground">{t('admin.views.label_target_table')}</label>
                   <Input className="h-7 text-xs" placeholder="shipments"
                     value={(form.behavior as { table?: string }).table ?? ''}
                     onChange={e => setBehavior({ table: e.target.value } as Partial<ActionBehavior>)} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">欄位對應（JSON：目標欄位 → 來源欄位或字面值）</label>
+                  <label className="text-xs text-muted-foreground">{t('admin.views.label_mapping')}</label>
                   <Textarea className="text-xs font-mono min-h-[60px] resize-none"
                     placeholder={'{"order_id":"id","status":"pending"}'}
                     value={JSON.stringify((form.behavior as { field_mapping?: Record<string, string> }).field_mapping ?? {}, null, 2)}
@@ -675,14 +677,14 @@ function ActionFormDialog({
 
           {/* Conditions */}
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">顯示與啟用條件</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('admin.views.label_visibility_and_enabled')}</p>
             <LeafConditionEditor
-              label="顯示條件（visible_when）"
+              label={t('admin.views.label_visible_when')}
               value={form.visible_when}
               onChange={v => set({ visible_when: v })}
             />
             <LeafConditionEditor
-              label="啟用條件（enabled_when）"
+              label={t('admin.views.label_enabled_when')}
               value={form.enabled_when}
               onChange={v => set({ enabled_when: v })}
             />
@@ -695,19 +697,19 @@ function ActionFormDialog({
                 checked={Boolean(form.confirm)}
                 onCheckedChange={on => set({ confirm: on ? { title: '', description: '' } : undefined })}
               />
-              <span className="text-xs font-medium">執行前彈出確認框</span>
+              <span className="text-xs font-medium">{t('admin.views.label_show_confirm')}</span>
             </div>
             {form.confirm && (
               <div className="ml-6 grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">標題</label>
-                  <Input className="h-7 text-xs" placeholder="確認核准？"
+                  <label className="text-xs text-muted-foreground">{t('admin.views.col_view_name')}</label>
+                  <Input className="h-7 text-xs" placeholder={t('admin.views.placeholder_confirm_title')}
                     value={form.confirm.title}
                     onChange={e => set({ confirm: { ...form.confirm!, title: e.target.value } })} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">說明</label>
-                  <Input className="h-7 text-xs" placeholder="此操作無法復原"
+                  <label className="text-xs text-muted-foreground">{t('common.description')}</label>
+                  <Input className="h-7 text-xs" placeholder={t('admin.views.placeholder_confirm_desc')}
                     value={form.confirm.description}
                     onChange={e => set({ confirm: { ...form.confirm!, description: e.target.value } })} />
                 </div>
@@ -717,10 +719,10 @@ function ActionFormDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>取消</Button>
+          <Button variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
           <Button onClick={() => void handleSave()} disabled={saving}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-            儲存
+            {t('common.save')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -737,6 +739,7 @@ function ActionsPanel({
   headers: Record<string, string>;
   onUpdate: (updated: AdminView) => void;
 }) {
+  const { t } = useTranslation();
   const [editingAction, setEditingAction] = useState<CustomViewAction | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deletingActionId, setDeletingActionId] = useState<string | null>(null);
@@ -753,7 +756,7 @@ function ActionsPanel({
       method: 'PATCH', headers,
       body: JSON.stringify({ action, enabled }),
     });
-    if (!res.ok) { toast.error('切換失敗'); return; }
+    if (!res.ok) { toast.error(t('common.error')); return; }
     const next = enabled
       ? [...(view.definition.actions ?? []), action] as (BuiltinAction | CustomViewAction)[]
       : (view.definition.actions ?? []).filter(a => a !== action) as (BuiltinAction | CustomViewAction)[];
@@ -765,35 +768,45 @@ function ActionsPanel({
       method: 'PUT', headers,
       body: JSON.stringify(action),
     });
-    if (!res.ok) { toast.error('儲存失敗'); return; }
+    if (!res.ok) { toast.error(t('common.error')); return; }
     const existing = customs.findIndex(c => c.id === action.id);
     const nextCustom = existing !== -1
       ? customs.map(c => c.id === action.id ? action : c)
       : [...customs, action];
     patchLocal([...builtins, ...nextCustom]);
     setDialogOpen(false);
-    toast.success('自訂動作已儲存');
+    toast.success(t('admin.views.toast_updated'));
   };
 
   const deleteCustomAction = async (actionId: string) => {
     const res = await fetch(`/api/admin/views/${view.id}/custom-action/${actionId}`, {
       method: 'DELETE', headers,
     });
-    if (!res.ok) { toast.error('刪除失敗'); return; }
+    if (!res.ok) { toast.error(t('common.error')); return; }
     patchLocal([...builtins, ...customs.filter(c => c.id !== actionId)]);
-    toast.success('自訂動作已刪除');
+    toast.success(t('admin.views.toast_deleted'));
   };
 
   const BEHAVIOR_LABEL: Record<string, string> = {
-    set_field: '設定欄位', trigger_rule: '觸發規則', webhook: 'Webhook',
-    navigate: '跳轉', create_related: '建立關聯',
+    set_field: t('admin.views.behavior_set_field'), 
+    trigger_rule: t('admin.views.behavior_trigger_rule'), 
+    webhook: t('admin.views.behavior_webhook'),
+    navigate: t('admin.views.behavior_navigate'), 
+    create_related: t('admin.views.behavior_create_related'),
+  };
+
+  const ACTION_LABEL: Record<string, string> = {
+    create: t('admin.views.action_create'), 
+    edit: t('admin.views.action_edit'), 
+    delete: t('admin.views.action_delete'), 
+    export: t('admin.views.action_export'),
   };
 
   return (
     <div className="space-y-5">
       {/* Built-in actions */}
       <div>
-        <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">內建動作</p>
+        <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('admin.views.label_builtin_actions')}</p>
         <div className="rounded-md border divide-y">
           {BUILTIN_ACTIONS.map(a => (
             <div key={a} className="flex items-center justify-between px-4 py-2.5">
@@ -813,15 +826,15 @@ function ActionsPanel({
       {/* Custom actions */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">自訂動作</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('admin.views.label_custom_actions')}</p>
           <Button size="sm" variant="outline" className="h-7 gap-1 text-xs"
             onClick={() => { setEditingAction(null); setDialogOpen(true); }}>
-            <Plus className="h-3.5 w-3.5" />新增
+            <Plus className="h-3.5 w-3.5" />{t('admin.views.add_action_btn')}
           </Button>
         </div>
         <div className="rounded-md border overflow-hidden">
           {customs.length === 0 ? (
-            <p className="px-4 py-8 text-sm text-center text-muted-foreground">尚無自訂動作</p>
+            <p className="px-4 py-8 text-sm text-center text-muted-foreground">{t('admin.views.no_custom_action')}</p>
           ) : (
             <div className="divide-y">
               {customs.map(action => (
@@ -840,10 +853,10 @@ function ActionsPanel({
                         <Badge variant="outline" className="text-xs px-1.5 py-0">{action.context}</Badge>
                       )}
                       {action.visible_when && (
-                        <Badge variant="outline" className="text-xs px-1.5 py-0">有顯示條件</Badge>
+                        <Badge variant="outline" className="text-xs px-1.5 py-0">{t('admin.views.has_visible_when')}</Badge>
                       )}
                       {action.confirm && (
-                        <Badge variant="outline" className="text-xs px-1.5 py-0">需確認</Badge>
+                        <Badge variant="outline" className="text-xs px-1.5 py-0">{t('admin.views.label_needs_confirm')}</Badge>
                       )}
                     </div>
                   </div>
@@ -883,15 +896,15 @@ function ActionsPanel({
       <AlertDialog open={Boolean(deletingActionId)} onOpenChange={o => { if (!o) setDeletingActionId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>確認刪除自訂動作？</AlertDialogTitle>
-            <AlertDialogDescription>刪除後將從介面中移除，此操作無法復原。</AlertDialogDescription>
+            <AlertDialogTitle>{t('admin.views.dialog_delete_title_action')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('admin.views.dialog_delete_desc_action')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => { if (deletingActionId) { void deleteCustomAction(deletingActionId); setDeletingActionId(null); } }}>
-              刪除
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -901,31 +914,6 @@ function ActionsPanel({
 }
 
 // ─── Section wrappers (master + per-detail) ──────────────────────────────────
-
-const FIELD_TABLE_HEADER = (
-  <div className="sticky top-0 z-10 flex items-center gap-3 border-b bg-background px-4 py-2 text-xs font-medium text-muted-foreground">
-    <span className="w-3.5 shrink-0" />
-    <span className="w-32 shrink-0">欄位名（DB）</span>
-    <span className="w-36 shrink-0">標籤</span>
-    <span className="w-16 shrink-0">類型</span>
-    <div className="flex-1" />
-    <span className="w-16 shrink-0 text-right">必填</span>
-    <span className="w-16 shrink-0 text-right">隱藏</span>
-    <span className="w-16 shrink-0 text-right">外觀規則</span>
-  </div>
-);
-
-const COLUMN_TABLE_HEADER = (
-  <div className="sticky top-0 z-10 flex items-center gap-3 border-b bg-background px-4 py-2 text-xs font-medium text-muted-foreground">
-    <span className="w-3.5 shrink-0" />
-    <span className="w-32 shrink-0">欄位名（DB）</span>
-    <span className="w-36 shrink-0">標籤</span>
-    <span className="w-16 shrink-0">類型</span>
-    <div className="flex-1" />
-    <span className="w-16 shrink-0 text-right">隱藏</span>
-    <span className="w-16 shrink-0 text-right">外觀規則</span>
-  </div>
-);
 
 function FieldSection({
   title, fields,
@@ -938,15 +926,26 @@ function FieldSection({
   onAppearanceToggle: (fieldKey: string, ruleIndex: number, nextEnabled: boolean) => void;
   onAppearanceDelete: (fieldKey: string, ruleIndex: number) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div>
       {title && (
         <p className="mb-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{title}</p>
       )}
       <div className="rounded-md border overflow-hidden">
-        {FIELD_TABLE_HEADER}
+        {/* Header */}
+        <div className="sticky top-0 z-10 flex items-center gap-3 border-b bg-background px-4 py-2 text-xs font-medium text-muted-foreground">
+          <span className="w-3.5 shrink-0" />
+          <span className="w-32 shrink-0">{t('admin.views.col_field_key')}</span>
+          <span className="w-36 shrink-0">{t('admin.views.label_tag')}</span>
+          <span className="w-16 shrink-0">{t('admin.views.label_type')}</span>
+          <div className="flex-1" />
+          <span className="w-16 shrink-0 text-right">{t('admin.views.label_required')}</span>
+          <span className="w-16 shrink-0 text-right">{t('admin.views.label_hidden')}</span>
+          <span className="w-16 shrink-0 text-right">{t('admin.views.label_rule')}</span>
+        </div>
         {fields.length === 0 ? (
-          <p className="px-4 py-8 text-sm text-center text-muted-foreground">無表單欄位</p>
+          <p className="px-4 py-8 text-sm text-center text-muted-foreground">{t('admin.views.no_field')}</p>
         ) : (
           fields.map(field => (
             <FieldRow
@@ -975,15 +974,25 @@ function ColumnSection({
   onAppearanceToggle: (fieldKey: string, ruleIndex: number, nextEnabled: boolean) => void;
   onAppearanceDelete: (fieldKey: string, ruleIndex: number) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div>
       {title && (
         <p className="mb-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{title}</p>
       )}
       <div className="rounded-md border overflow-hidden">
-        {COLUMN_TABLE_HEADER}
+        {/* Header */}
+        <div className="sticky top-0 z-10 flex items-center gap-3 border-b bg-background px-4 py-2 text-xs font-medium text-muted-foreground">
+          <span className="w-3.5 shrink-0" />
+          <span className="w-32 shrink-0">{t('admin.views.col_field_key')}</span>
+          <span className="w-36 shrink-0">{t('admin.views.label_tag')}</span>
+          <span className="w-16 shrink-0">{t('admin.views.label_type')}</span>
+          <div className="flex-1" />
+          <span className="w-16 shrink-0 text-right">{t('admin.views.label_hidden')}</span>
+          <span className="w-16 shrink-0 text-right">{t('admin.views.label_rule')}</span>
+        </div>
         {columns.length === 0 ? (
-          <p className="px-4 py-8 text-sm text-center text-muted-foreground">無列表欄位</p>
+          <p className="px-4 py-8 text-sm text-center text-muted-foreground">{t('admin.views.no_column')}</p>
         ) : (
           columns.map(col => (
             <ColumnRow
@@ -1004,12 +1013,21 @@ function ColumnSection({
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function ViewManagement({ onClose }: Props) {
+  const { t, i18n } = useTranslation();
   const { token } = useAuth();
   const [views, setViews] = useState<AdminView[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+  const VIEW_TYPE_LABEL: Record<string, string> = {
+    'table': t('admin.views.type_table'), 
+    'master-detail': t('admin.views.type_master_detail'),
+    'dashboard': t('admin.views.type_dashboard'), 
+    'kanban': t('admin.views.type_kanban'), 
+    'calendar': t('admin.views.type_calendar'),
+  };
 
   const fetchViews = async () => {
     setLoading(true);
@@ -1020,7 +1038,7 @@ export function ViewManagement({ onClose }: Props) {
         setViews(data);
         if (data.length > 0 && !selectedId) setSelectedId(data[0].id);
       } else {
-        toast.error('載入介面清單失敗');
+        toast.error(t('admin.views.toast_load_error'));
       }
     } finally {
       setLoading(false);
@@ -1043,7 +1061,7 @@ export function ViewManagement({ onClose }: Props) {
       method: 'PATCH', headers,
       body: JSON.stringify({ scope, field_key: fieldKey, updates, detail_index: detailIndex }),
     });
-    if (!res.ok) { toast.error('儲存失敗'); return; }
+    if (!res.ok) { toast.error(t('common.error')); return; }
     setViews(prev => prev.map(v => {
       if (v.id !== selectedId) return v;
       const def = { ...v.definition };
@@ -1095,7 +1113,7 @@ export function ViewManagement({ onClose }: Props) {
       method: 'PATCH', headers,
       body: JSON.stringify({ view_id: selectedId, scope, field_key: fieldKey, rule_index: ruleIndex, detail_index: detailIndex }),
     });
-    if (!res.ok) { toast.error('切換失敗'); return; }
+    if (!res.ok) { toast.error(t('common.error')); return; }
 
     const patchAppearance = (fields: FieldDef[] | ColumnDef[]) =>
       fields.map(f => {
@@ -1121,7 +1139,7 @@ export function ViewManagement({ onClose }: Props) {
       }
       return { ...v, definition: def };
     }));
-    toast.success(nextEnabled ? '已啟用外觀規則' : '已停用外觀規則');
+    toast.success(nextEnabled ? t('admin.views.toast_rule_enabled') : t('admin.views.toast_rule_disabled'));
   };
 
   // ── Appearance delete ──
@@ -1134,7 +1152,7 @@ export function ViewManagement({ onClose }: Props) {
       method: 'DELETE', headers,
       body: JSON.stringify({ view_id: selectedId, scope, field_key: fieldKey, rule_index: ruleIndex, detail_index: detailIndex }),
     });
-    if (!res.ok) { toast.error('刪除失敗'); return; }
+    if (!res.ok) { toast.error(t('common.error')); return; }
 
     const removeRule = (fields: FieldDef[] | ColumnDef[]) =>
       fields.map(f => {
@@ -1161,7 +1179,7 @@ export function ViewManagement({ onClose }: Props) {
       }
       return { ...v, definition: def };
     }));
-    toast.success('外觀規則已刪除');
+    toast.success(t('admin.views.toast_deleted_rule'));
   };
 
   return (
@@ -1172,7 +1190,7 @@ export function ViewManagement({ onClose }: Props) {
         {/* ── Left: view list ── */}
         <div className="flex w-64 shrink-0 flex-col border-r">
           <div className="flex items-center justify-between border-b px-4 py-3">
-            <h2 className="text-sm font-semibold">介面管理</h2>
+            <h2 className="text-sm font-semibold">{t('admin.views.title')}</h2>
             <div className="flex gap-1">
               <Button variant="ghost" size="icon" className="h-7 w-7"
                 onClick={() => void fetchViews()} disabled={loading}>
@@ -1190,7 +1208,7 @@ export function ViewManagement({ onClose }: Props) {
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : views.length === 0 ? (
-              <p className="px-4 py-6 text-xs text-muted-foreground text-center">尚無介面定義</p>
+              <p className="px-4 py-6 text-xs text-muted-foreground text-center">{t('admin.views.no_view')}</p>
             ) : (
               views.map(v => {
                 const ruleCount = countAppearanceRules(v.definition);
@@ -1212,12 +1230,12 @@ export function ViewManagement({ onClose }: Props) {
                       {v.definition.group && <span className="shrink-0">· {v.definition.group}</span>}
                     </div>
                     <div className="mt-1 flex gap-3 text-xs text-muted-foreground">
-                      <span>{(v.definition.form?.fields ?? []).length} 欄位</span>
-                      <span>{(v.definition.columns ?? []).length} 列欄</span>
+                      <span>{t('admin.views.badge_field_count', { count: (v.definition.form?.fields ?? []).length })}</span>
+                      <span>{t('admin.views.badge_column_count', { count: (v.definition.columns ?? []).length })}</span>
                       {(v.definition.detail_views ?? []).length > 0 && (
-                        <span>{v.definition.detail_views!.length} 明細</span>
+                        <span>{t('admin.views.badge_detail_count', { count: v.definition.detail_views!.length })}</span>
                       )}
-                      {ruleCount > 0 && <span className="text-primary font-medium">{ruleCount} 外觀規則</span>}
+                      {ruleCount > 0 && <span className="text-primary font-medium">{t('admin.views.rule_count', { count: ruleCount })}</span>}
                     </div>
                   </button>
                 );
@@ -1226,7 +1244,7 @@ export function ViewManagement({ onClose }: Props) {
           </div>
 
           <div className="border-t px-4 py-2.5 text-xs text-muted-foreground">
-            共 {views.length} 個介面
+            {t('admin.views.total_count', { count: views.length })}
           </div>
         </div>
 
@@ -1236,7 +1254,7 @@ export function ViewManagement({ onClose }: Props) {
             <div className="flex flex-1 items-center justify-center text-muted-foreground">
               <div className="text-center">
                 <Info className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">選取左側介面以查看詳情</p>
+                <p className="text-sm">{t('admin.views.select_view_info')}</p>
               </div>
             </div>
           ) : (
@@ -1253,9 +1271,9 @@ export function ViewManagement({ onClose }: Props) {
                   )}
                 </div>
                 <div className="mt-0.5 text-xs text-muted-foreground">
-                  表格：<span className="font-mono">{selected.table_name}</span>
+                  {t('admin.views.table_info', { table: selected.table_name })}
                   <span className="mx-2">·</span>
-                  更新：{new Date(selected.updated_at).toLocaleString('zh-TW')}
+                  {t('admin.views.updated_info', { date: new Date(selected.updated_at).toLocaleString(i18n.language) })}
                 </div>
               </div>
 
@@ -1264,7 +1282,7 @@ export function ViewManagement({ onClose }: Props) {
                 <TabsList className="shrink-0 mx-6 mt-3 w-fit">
                   <TabsTrigger value="form" className="gap-1.5 text-xs">
                     <FileText className="h-3.5 w-3.5" />
-                    表單欄位
+                    {t('admin.views.tab_fields')}
                     <Badge variant="secondary" className="ml-1 text-xs">
                       {(selected.definition.form?.fields?.length ?? 0) +
                         (selected.definition.detail_views ?? []).reduce((n, dv) => n + (dv.view.form?.fields?.length ?? 0), 0)}
@@ -1272,7 +1290,7 @@ export function ViewManagement({ onClose }: Props) {
                   </TabsTrigger>
                   <TabsTrigger value="column" className="gap-1.5 text-xs">
                     <Table2 className="h-3.5 w-3.5" />
-                    列表欄位
+                    {t('admin.views.tab_columns')}
                     <Badge variant="secondary" className="ml-1 text-xs">
                       {(selected.definition.columns?.length ?? 0) +
                         (selected.definition.detail_views ?? []).reduce((n, dv) => n + (dv.view.columns?.length ?? 0), 0)}
@@ -1280,7 +1298,7 @@ export function ViewManagement({ onClose }: Props) {
                   </TabsTrigger>
                   <TabsTrigger value="action" className="gap-1.5 text-xs">
                     <Zap className="h-3.5 w-3.5" />
-                    動作
+                    {t('admin.views.tab_actions')}
                     <Badge variant="secondary" className="ml-1 text-xs">{selected.definition.actions?.length ?? 0}</Badge>
                   </TabsTrigger>
                 </TabsList>
@@ -1288,7 +1306,7 @@ export function ViewManagement({ onClose }: Props) {
                 {/* Form fields tab */}
                 <TabsContent value="form" className="flex-1 overflow-y-auto mt-0 mx-6 mb-3 space-y-4">
                   <FieldSection
-                    title={selected.definition.type === 'master-detail' ? `主表：${selected.definition.name}` : undefined}
+                    title={selected.definition.type === 'master-detail' ? t('admin.views.title_master_table', { name: selected.definition.name }) : undefined}
                     fields={selected.definition.form?.fields ?? []}
                     onSaveLabel={(key, label) => saveFieldProp('form', key, { label })}
                     onToggle={(key, prop, val) => saveFieldProp('form', key, { [prop]: val })}
@@ -1298,7 +1316,7 @@ export function ViewManagement({ onClose }: Props) {
                   {(selected.definition.detail_views ?? []).map((dv, dvIdx) => (
                     <FieldSection
                       key={dv.table_name}
-                      title={`明細：${dv.tab_label}（${dv.table_name}）`}
+                      title={t('admin.views.title_detail_table', { label: dv.tab_label, table: dv.table_name })}
                       fields={dv.view.form?.fields ?? []}
                       onSaveLabel={(key, label) => saveFieldProp('form', key, { label }, dvIdx)}
                       onToggle={(key, prop, val) => saveFieldProp('form', key, { [prop]: val }, dvIdx)}

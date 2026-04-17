@@ -197,7 +197,7 @@ export function executeBefore(
         case 'validate':
           // validate action: check the condition — if we got here, condition matched,
           // so the validation fails (i.e., the rule says "reject if condition is met")
-          errors.push(act.message ?? `規則「${rule.name}」驗證失敗`);
+          errors.push(act.message ?? `ERROR_RULE_VALIDATION_FAILED:${rule.name}`);
           break;
 
         case 'set_field':
@@ -232,11 +232,11 @@ export async function executeManual(
     condition: string | null; actions: string; enabled: number;
   } | undefined;
 
-  if (!rule) return { success: false, errors: ['規則不存在或未啟用（須為 manual 類型）'] };
+  if (!rule) return { success: false, errors: ['ERROR_RULE_NOT_FOUND_OR_DISABLED'] };
 
   const condition = rule.condition ? JSON.parse(rule.condition) as RuleCondition : null;
   if (!evaluateCondition(condition, table, data)) {
-    return { success: false, errors: ['條件不符，規則未執行'] };
+    return { success: false, errors: ['ERROR_RULE_CONDITION_MISMATCH'] };
   }
 
   const actions = JSON.parse(rule.actions) as RuleAction[];
@@ -247,7 +247,7 @@ export async function executeManual(
       switch (act.type) {
         case 'validate':
           // In manual context, validate means reject if condition matched
-          errors.push(act.message ?? `規則「${rule.name}」驗證失敗`);
+          errors.push(act.message ?? `ERROR_RULE_VALIDATION_FAILED:${rule.name}`);
           break;
 
         case 'set_field':
@@ -311,7 +311,7 @@ export async function executeManual(
           break;
       }
     } catch (err) {
-      errors.push(`動作執行失敗：${String(err)}`);
+      errors.push(`ERROR_ACTION_EXECUTION_FAILED:${String(err)}`);
     }
   }
 

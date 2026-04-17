@@ -22,13 +22,13 @@ router.post('/views/:viewId/actions/:actionId/execute', requireAuth, async (req,
   const { record_id } = req.body as { record_id?: string | number };
 
   if (record_id === undefined || record_id === null) {
-    res.status(400).json({ error: '缺少 record_id' }); return;
+    res.status(400).json({ error: 'ERROR_MISSING_ID' }); return;
   }
 
   // Load view definition
   const viewRow = db.prepare('SELECT definition, table_name FROM _zenku_views WHERE id = ?').get(viewId) as
     { definition: string; table_name: string } | undefined;
-  if (!viewRow) { res.status(404).json({ error: 'View 不存在' }); return; }
+  if (!viewRow) { res.status(404).json({ error: 'ERROR_VIEW_NOT_FOUND' }); return; }
 
   const def = JSON.parse(viewRow.definition) as { actions?: unknown[] };
   const actions: unknown[] = def.actions ?? [];
@@ -36,7 +36,7 @@ router.post('/views/:viewId/actions/:actionId/execute', requireAuth, async (req,
     (a): a is { id: string; behavior: { type: string; [k: string]: unknown } } =>
       typeof a === 'object' && a !== null && (a as Record<string, unknown>)['id'] === actionId
   );
-  if (!action) { res.status(404).json({ error: '找不到指定的動作' }); return; }
+  if (!action) { res.status(404).json({ error: 'ERROR_ACTION_NOT_FOUND' }); return; }
 
   const { behavior } = action;
   const tableName = viewRow.table_name;
@@ -44,18 +44,18 @@ router.post('/views/:viewId/actions/:actionId/execute', requireAuth, async (req,
   // Load current record
   const record = db.prepare(`SELECT * FROM "${tableName}" WHERE id = ?`).get(record_id) as
     Record<string, unknown> | undefined;
-  if (!record) { res.status(404).json({ error: '找不到資料內容' }); return; }
+  if (!record) { res.status(404).json({ error: 'ERROR_RECORD_NOT_FOUND' }); return; }
 
   try {
     switch (behavior.type) {
       case 'set_field': {
         const { field, value } = behavior as { type: string; field: string; value: string };
-        if (!field) { res.status(400).json({ error: '缺少 field' }); return; }
+        if (!field) { res.status(400).json({ error: 'ERROR_MISSING_FIELD' }); return; }
         // Run through rule engine (before_update / after_update will fire)
         const data = { [field]: value };
         const beforeResult = await executeBefore(tableName, 'update', data, record);
         if (!beforeResult.allowed) {
-          res.status(422).json({ error: beforeResult.errors.join('; ') }); return;
+          res.status(422).json({ error: 'ERROR_RULE_VALIDATION', params: { details: beforeResult.errors.join('; ') } }); return;
         }
         const merged = { ...beforeResult.data };
         db.prepare(`UPDATE "${tableName}" SET "${field}" = ?, updated_at = datetime('now') WHERE id = ?`)
@@ -70,7 +70,7 @@ router.post('/views/:viewId/actions/:actionId/execute', requireAuth, async (req,
         const { url, method = 'POST', payload } = behavior as {
           type: string; url: string; method?: string; payload?: string;
         };
-        if (!url) { res.status(400).json({ error: '缺少 url' }); return; }
+        if (!url) { res.status(400).json({ error: 'ERROR_MISSING_URL' }); return; }
         // Interpolate {{field}} tokens
         const body = payload
           ? payload.replace(/\{\{(\w+)\}\}/g, (_, f) => String(record[f] ?? ''))
@@ -81,7 +81,7 @@ router.post('/views/:viewId/actions/:actionId/execute', requireAuth, async (req,
           body: method === 'GET' ? undefined : body,
         });
         if (!hookRes.ok) {
-          res.status(502).json({ error: `Webhook 調用失敗：${hookRes.status}` }); return;
+          res.status(502).json({ error: 'ERROR_WEBHOOK_FAILED', params: { status: hookRes.status } }); return;
         }
         res.json({ success: true });
         break;
@@ -91,7 +91,7 @@ router.post('/views/:viewId/actions/:actionId/execute', requireAuth, async (req,
         const { table, field_mapping } = behavior as {
           type: string; table: string; field_mapping: Record<string, string>;
         };
-        if (!table || !field_mapping) { res.status(400).json({ error: '缺少 table 或 field_mapping' }); return; }
+        if (!table || !field_mapping) { res.status(400).json({ error: 'ERROR_MISSING_FIELDS' }); return; }
         const insertData: Record<string, unknown> = {};
         for (const [targetField, sourceExpr] of Object.entries(field_mapping)) {
           // If sourceExpr matches a field name in the record, use its value; otherwise treat as literal
@@ -99,7 +99,7 @@ router.post('/views/:viewId/actions/:actionId/execute', requireAuth, async (req,
         }
         const beforeResult = await executeBefore(table, 'insert', insertData, {});
         if (!beforeResult.allowed) {
-          res.status(422).json({ error: beforeResult.errors.join('; ') }); return;
+          res.status(422).json({ error: 'ERROR_RULE_VALIDATION', params: { details: beforeResult.errors.join('; ') } }); return;
         }
         const cols = Object.keys(beforeResult.data);
         const vals = Object.values(beforeResult.data) as (string | number | bigint | null)[];
@@ -121,10 +121,10 @@ router.post('/views/:viewId/actions/:actionId/execute', requireAuth, async (req,
 
       case 'trigger_rule': {
         const { rule_id } = behavior as { type: string; rule_id: string };
-        if (!rule_id) { res.status(400).json({ error: '缺少 rule_id' }); return; }
+        if (!rule_id) { res.status(400).json({ error: 'ERROR_RULE_NOT_FOUND' }); return; }
         const result = await executeManual(rule_id, { ...record }, tableName);
         if (!result.success) {
-          res.status(422).json({ error: result.errors.join('; ') }); return;
+          res.status(422).json({ error: 'ERROR_RULE_VALIDATION', params: { details: result.errors.join('; ') } }); return;
         }
         // Reload updated record
         const refreshed = db.prepare(`SELECT * FROM "${tableName}" WHERE id = ?`).get(record_id) as Record<string, unknown>;
@@ -133,10 +133,10 @@ router.post('/views/:viewId/actions/:actionId/execute', requireAuth, async (req,
       }
 
       default:
-        res.status(400).json({ error: `未知的動作類型：${String(behavior.type)}` });
+        res.status(400).json({ error: 'ERROR_UNKNOWN_ACTION', params: { type: String(behavior.type) } });
     }
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    res.status(500).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: String(err) } });
   }
 });
 
@@ -152,10 +152,10 @@ router.patch('/admin/views/:id/field-prop', requireAdmin, (req, res) => {
   const db = getDb();
   const viewId = p(req.params.id);
   const { field, prop, value } = req.body as { field?: string; prop?: string; value?: unknown };
-  if (!field || !prop) { res.status(400).json({ error: '缺少 field 或 prop' }); return; }
+  if (!field || !prop) { res.status(400).json({ error: 'ERROR_MISSING_FIELDS' }); return; }
 
   const row = db.prepare('SELECT definition FROM _zenku_views WHERE id = ?').get(viewId) as { definition: string } | undefined;
-  if (!row) { res.status(404).json({ error: 'View 不存在' }); return; }
+  if (!row) { res.status(404).json({ error: 'ERROR_VIEW_NOT_FOUND' }); return; }
 
   const def = JSON.parse(row.definition);
   if (prop === 'visible' || prop === 'disabled') {
@@ -179,10 +179,10 @@ router.patch('/admin/views/:id/builtin-action', requireAdmin, (req, res) => {
   const db = getDb();
   const viewId = p(req.params.id);
   const { action, enabled } = req.body as { action?: string; enabled?: boolean };
-  if (!action || enabled === undefined) { res.status(400).json({ error: '缺少 action 或 enabled' }); return; }
+  if (!action || enabled === undefined) { res.status(400).json({ error: 'ERROR_MISSING_FIELDS' }); return; }
 
   const row = db.prepare('SELECT definition FROM _zenku_views WHERE id = ?').get(viewId) as { definition: string } | undefined;
-  if (!row) { res.status(404).json({ error: 'View 不存在' }); return; }
+  if (!row) { res.status(404).json({ error: 'ERROR_VIEW_NOT_FOUND' }); return; }
 
   const def = JSON.parse(row.definition);
   const actions: unknown[] = def.actions ?? [];
@@ -204,10 +204,10 @@ router.put('/admin/views/:id/custom-action', requireAdmin, (req, res) => {
   const db = getDb();
   const viewId = p(req.params.id);
   const actionDef = req.body as { id?: string };
-  if (!actionDef.id) { res.status(400).json({ error: '缺少 action.id' }); return; }
+  if (!actionDef.id) { res.status(400).json({ error: 'ERROR_MISSING_FIELDS' }); return; }
 
   const row = db.prepare('SELECT definition FROM _zenku_views WHERE id = ?').get(viewId) as { definition: string } | undefined;
-  if (!row) { res.status(404).json({ error: 'View 不存在' }); return; }
+  if (!row) { res.status(404).json({ error: 'ERROR_VIEW_NOT_FOUND' }); return; }
 
   const def = JSON.parse(row.definition);
   const actions: unknown[] = def.actions ?? [];
@@ -233,14 +233,14 @@ router.delete('/admin/views/:id/custom-action/:actionId', requireAdmin, (req, re
   const actionId = p(req.params.actionId);
 
   const row = db.prepare('SELECT definition FROM _zenku_views WHERE id = ?').get(viewId) as { definition: string } | undefined;
-  if (!row) { res.status(404).json({ error: 'View 不存在' }); return; }
+  if (!row) { res.status(404).json({ error: 'ERROR_VIEW_NOT_FOUND' }); return; }
 
   const def = JSON.parse(row.definition);
   const before = (def.actions ?? []).length;
   def.actions = (def.actions ?? []).filter(
     (a: any) => !(typeof a === 'object' && a !== null && a.id === actionId)
   );
-  if (def.actions.length === before) { res.status(404).json({ error: '自訂動作不存在' }); return; }
+  if (def.actions.length === before) { res.status(404).json({ error: 'ERROR_ACTION_NOT_FOUND' }); return; }
 
   db.prepare(`UPDATE _zenku_views SET definition = ?, updated_at = datetime('now') WHERE id = ?`)
     .run(JSON.stringify(def), viewId);

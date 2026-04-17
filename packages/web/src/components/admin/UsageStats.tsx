@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, RefreshCw, TrendingUp, MessageSquare, Database, DollarSign } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -75,6 +76,7 @@ function StatCard({ icon: Icon, label, value, sub }: {
 }
 
 export function UsageStats({ onClose }: Props) {
+  const { t } = useTranslation();
   const { token } = useAuth();
   const [data, setData] = useState<UsageData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,12 +101,12 @@ export function UsageStats({ onClose }: Props) {
       <div className="flex w-full max-w-4xl flex-col overflow-hidden rounded-xl border bg-background shadow-xl" style={{ maxHeight: '85vh' }}>
         {/* Header */}
         <div className="flex items-center justify-between border-b px-6 py-4">
-          <h2 className="text-base font-semibold">用量統計</h2>
+          <h2 className="text-base font-semibold">{t('admin.usage.title')}</h2>
           <div className="flex items-center gap-2">
             <button
               onClick={() => void fetchData()}
               className="rounded-md p-1.5 hover:bg-accent"
-              title="重新整理"
+              title={t('common.refresh')}
             >
               <RefreshCw size={14} />
             </button>
@@ -120,30 +122,30 @@ export function UsageStats({ onClose }: Props) {
               <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
           ) : !totals ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">載入失敗</div>
+            <div className="py-12 text-center text-sm text-muted-foreground">{t('admin.usage.load_error')}</div>
           ) : (
             <>
               {/* Stat cards */}
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <StatCard
                   icon={TrendingUp}
-                  label="總花費 (USD)"
+                  label={t('admin.usage.label_total_cost')}
                   value={`$${(totals.total_cost_usd ?? 0).toFixed(4)}`}
                 />
                 <StatCard
                   icon={Database}
-                  label="總 Token 數"
+                  label={t('admin.usage.label_total_tokens')}
                   value={((totals.total_input_tokens ?? 0) + (totals.total_output_tokens ?? 0)).toLocaleString()}
-                  sub={`${(totals.total_input_tokens ?? 0).toLocaleString()} in / ${(totals.total_output_tokens ?? 0).toLocaleString()} out`}
+                  sub={t('admin.usage.sub_token_in_out', { in: (totals.total_input_tokens ?? 0).toLocaleString(), out: (totals.total_output_tokens ?? 0).toLocaleString() })}
                 />
                 <StatCard
                   icon={MessageSquare}
-                  label="總 Sessions"
+                  label={t('admin.usage.label_total_sessions')}
                   value={(totals.total_sessions ?? 0).toLocaleString()}
                 />
                 <StatCard
                   icon={DollarSign}
-                  label="總訊息數"
+                  label={t('admin.usage.label_total_messages')}
                   value={(totals.total_messages ?? 0).toLocaleString()}
                 />
               </div>
@@ -151,17 +153,17 @@ export function UsageStats({ onClose }: Props) {
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 {/* Provider breakdown */}
                 <div className="rounded-lg border bg-card p-4">
-                  <h3 className="mb-3 text-sm font-semibold">Provider 分佈</h3>
+                  <h3 className="mb-3 text-sm font-semibold">{t('admin.usage.provider_dist')}</h3>
                   {data!.byProvider.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">無資料</p>
+                    <p className="text-xs text-muted-foreground">{t('common.no_data')}</p>
                   ) : (
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b text-muted-foreground">
-                          <th className="pb-2 text-left">Provider</th>
-                          <th className="pb-2 text-right">Sessions</th>
-                          <th className="pb-2 text-right">Tokens</th>
-                          <th className="pb-2 text-right">費用</th>
+                          <th className="pb-2 text-left">{t('admin.usage.col_provider')}</th>
+                          <th className="pb-2 text-right">{t('admin.usage.col_sessions')}</th>
+                          <th className="pb-2 text-right">{t('admin.usage.col_tokens')}</th>
+                          <th className="pb-2 text-right">{t('admin.usage.col_cost')}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">
@@ -180,17 +182,17 @@ export function UsageStats({ onClose }: Props) {
 
                 {/* Agent stats */}
                 <div className="rounded-lg border bg-card p-4">
-                  <h3 className="mb-3 text-sm font-semibold">Agent 呼叫統計</h3>
+                  <h3 className="mb-3 text-sm font-semibold">{t('admin.usage.agent_stats')}</h3>
                   {data!.byAgent.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">無資料</p>
+                    <p className="text-xs text-muted-foreground">{t('common.no_data')}</p>
                   ) : (
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b text-muted-foreground">
-                          <th className="pb-2 text-left">Agent</th>
-                          <th className="pb-2 text-right">呼叫</th>
-                          <th className="pb-2 text-right">平均延遲</th>
-                          <th className="pb-2 text-right">錯誤</th>
+                          <th className="pb-2 text-left">{t('admin.usage.col_agent')}</th>
+                          <th className="pb-2 text-right">{t('admin.usage.col_calls')}</th>
+                          <th className="pb-2 text-right">{t('admin.usage.col_avg_latency')}</th>
+                          <th className="pb-2 text-right">{t('admin.usage.col_errors')}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">
@@ -212,18 +214,18 @@ export function UsageStats({ onClose }: Props) {
 
               {/* User ranking */}
               <div className="rounded-lg border bg-card p-4">
-                <h3 className="mb-3 text-sm font-semibold">使用者排行</h3>
+                <h3 className="mb-3 text-sm font-semibold">{t('admin.usage.user_ranking')}</h3>
                 {data!.byUser.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">無資料</p>
+                  <p className="text-xs text-muted-foreground">{t('common.no_data')}</p>
                 ) : (
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b text-muted-foreground">
-                        <th className="pb-2 text-left">使用者</th>
-                        <th className="pb-2 text-right">Sessions</th>
-                        <th className="pb-2 text-right">訊息數</th>
-                        <th className="pb-2 text-right">Tokens</th>
-                        <th className="pb-2 text-right">費用</th>
+                        <th className="pb-2 text-left">{t('admin.usage.col_user')}</th>
+                        <th className="pb-2 text-right">{t('admin.usage.col_sessions')}</th>
+                        <th className="pb-2 text-right">{t('admin.usage.col_messages')}</th>
+                        <th className="pb-2 text-right">{t('admin.usage.col_tokens')}</th>
+                        <th className="pb-2 text-right">{t('admin.usage.col_cost')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
@@ -243,18 +245,18 @@ export function UsageStats({ onClose }: Props) {
 
               {/* Daily trend */}
               <div className="rounded-lg border bg-card p-4">
-                <h3 className="mb-3 text-sm font-semibold">最近 30 天趨勢</h3>
+                <h3 className="mb-3 text-sm font-semibold">{t('admin.usage.daily_trend')}</h3>
                 {data!.daily.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">無資料</p>
+                  <p className="text-xs text-muted-foreground">{t('common.no_data')}</p>
                 ) : (
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b text-muted-foreground">
-                        <th className="pb-2 text-left">日期</th>
-                        <th className="pb-2 text-right">Sessions</th>
-                        <th className="pb-2 text-right">Input Tokens</th>
-                        <th className="pb-2 text-right">Output Tokens</th>
-                        <th className="pb-2 text-right">費用</th>
+                        <th className="pb-2 text-left">{t('admin.usage.col_date')}</th>
+                        <th className="pb-2 text-right">{t('admin.usage.col_sessions')}</th>
+                        <th className="pb-2 text-right">{t('admin.usage.col_in_tokens')}</th>
+                        <th className="pb-2 text-right">{t('admin.usage.col_out_tokens')}</th>
+                        <th className="pb-2 text-right">{t('admin.usage.col_cost')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">

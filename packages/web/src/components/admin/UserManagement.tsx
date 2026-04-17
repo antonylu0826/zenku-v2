@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Loader2, Plus, RefreshCw, KeyRound, Trash2, UserX, UserCheck, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
@@ -25,17 +26,18 @@ interface Props {
   onClose: () => void;
 }
 
-const ROLES: Array<{ value: 'admin' | 'builder' | 'user'; label: string }> = [
-  { value: 'admin', label: '管理員' },
-  { value: 'builder', label: '建置者' },
-  { value: 'user', label: '使用者' },
-];
-
 export function UserManagement({ onClose }: Props) {
+  const { t, i18n } = useTranslation();
   const { token, user: me } = useAuth();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
+
+  const ROLES: Array<{ value: 'admin' | 'builder' | 'user'; label: string }> = [
+    { value: 'admin', label: t('admin.roles.admin') },
+    { value: 'builder', label: t('admin.roles.builder') },
+    { value: 'user', label: t('admin.roles.user') },
+  ];
 
   // Add user dialog
   const [showAdd, setShowAdd] = useState(false);
@@ -78,9 +80,11 @@ export function UserManagement({ onClose }: Props) {
     const res = await fetch(`/api/admin/users/${u.id}/${endpoint}`, { method: 'PATCH', headers });
     if (!res.ok) {
       const err = await res.json() as { error: string };
-      toast.error(err.error);
+      toast.error(t(`errors.${err.error}`, { defaultValue: err.error }));
     } else {
-      toast.success(u.disabled ? `已啟用 ${u.name}` : `已停用 ${u.name}`);
+      toast.success(u.disabled 
+        ? t('admin.users.toast_enabled', { name: u.name }) 
+        : t('admin.users.toast_disabled', { name: u.name }));
       void fetchUsers();
     }
     setSaving(null);
@@ -88,15 +92,15 @@ export function UserManagement({ onClose }: Props) {
 
   const handleAddUser = async () => {
     if (!addForm.name || !addForm.email || !addForm.password) {
-      toast.error('請填寫所有必填欄位');
+      toast.error(t('errors.ERROR_MISSING_FIELDS'));
       return;
     }
     setAddLoading(true);
     try {
       const res = await fetch('/api/admin/users', { method: 'POST', headers, body: JSON.stringify(addForm) });
       const json = await res.json() as { success?: boolean; error?: string };
-      if (!res.ok) { toast.error(json.error ?? '新增失敗'); return; }
-      toast.success(`已新增使用者 ${addForm.name}`);
+      if (!res.ok) { toast.error(t(`errors.${json.error}`, { defaultValue: json.error || t('common.error') })); return; }
+      toast.success(t('admin.users.toast_added', { name: addForm.name }));
       setShowAdd(false);
       setAddForm({ name: '', email: '', password: '', role: 'user' });
       void fetchUsers();
@@ -107,7 +111,7 @@ export function UserManagement({ onClose }: Props) {
 
   const handleResetPassword = async () => {
     if (!resetUserId || resetPwd.length < 6) {
-      toast.error('密碼至少 6 個字元');
+      toast.error(t('errors.ERROR_PASSWORD_TOO_SHORT', { min: 6 }));
       return;
     }
     setResetLoading(true);
@@ -116,8 +120,8 @@ export function UserManagement({ onClose }: Props) {
         method: 'POST', headers, body: JSON.stringify({ new_password: resetPwd }),
       });
       const json = await res.json() as { success?: boolean; error?: string };
-      if (!res.ok) { toast.error(json.error ?? '重設失敗'); return; }
-      toast.success('密碼已重設，該使用者的登入 Session 已清除');
+      if (!res.ok) { toast.error(t(`errors.${json.error}`, { defaultValue: json.error || t('common.error') })); return; }
+      toast.success(t('admin.users.toast_reset_success'));
       setResetUserId(null);
       setResetPwd('');
     } finally {
@@ -131,8 +135,8 @@ export function UserManagement({ onClose }: Props) {
     try {
       const res = await fetch(`/api/admin/users/${deleteUserId}`, { method: 'DELETE', headers });
       const json = await res.json() as { success?: boolean; error?: string };
-      if (!res.ok) { toast.error(json.error ?? '刪除失敗'); return; }
-      toast.success('使用者已刪除');
+      if (!res.ok) { toast.error(t(`errors.${json.error}`, { defaultValue: json.error || t('common.error') })); return; }
+      toast.success(t('admin.users.toast_deleted'));
       setDeleteUserId(null);
       void fetchUsers();
     } finally {
@@ -150,13 +154,13 @@ export function UserManagement({ onClose }: Props) {
         <div className="flex w-full max-w-3xl flex-col overflow-hidden rounded-xl border bg-background shadow-xl" style={{ maxHeight: '85vh' }}>
           {/* Header */}
           <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
-            <h2 className="text-base font-semibold">使用者管理</h2>
+            <h2 className="text-base font-semibold">{t('admin.users.title')}</h2>
             <div className="flex items-center gap-2">
               <Button size="sm" onClick={() => setShowAdd(true)}>
                 <Plus className="mr-1.5 h-3.5 w-3.5" />
-                新增使用者
+                {t('admin.users.add_user')}
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => void fetchUsers()} title="重新整理">
+              <Button variant="ghost" size="icon" onClick={() => void fetchUsers()} title={t('admin.users.refresh')}>
                 <RefreshCw className="h-4 w-4" />
               </Button>
               <Button variant="ghost" size="icon" onClick={onClose}>
@@ -175,11 +179,11 @@ export function UserManagement({ onClose }: Props) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>姓名</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>角色</TableHead>
-                    <TableHead>最後登入</TableHead>
-                    <TableHead className="text-right">操作</TableHead>
+                    <TableHead>{t('admin.users.col_name')}</TableHead>
+                    <TableHead>{t('admin.users.col_email')}</TableHead>
+                    <TableHead>{t('admin.users.col_role')}</TableHead>
+                    <TableHead>{t('admin.users.col_last_login')}</TableHead>
+                    <TableHead className="text-right">{t('admin.users.col_actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -188,8 +192,8 @@ export function UserManagement({ onClose }: Props) {
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
                           {u.name}
-                          {u.id === me.id && <Badge variant="secondary" className="text-xs">你</Badge>}
-                          {!!u.disabled && <Badge variant="outline" className="text-xs text-muted-foreground">已停用</Badge>}
+                          {u.id === me.id && <Badge variant="secondary" className="text-xs">{t('admin.users.you')}</Badge>}
+                          {!!u.disabled && <Badge variant="outline" className="text-xs text-muted-foreground">{t('admin.users.disabled')}</Badge>}
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">{u.email}</TableCell>
@@ -210,7 +214,7 @@ export function UserManagement({ onClose }: Props) {
                         </Select>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {u.last_login_at ? new Date(u.last_login_at).toLocaleString('zh-TW') : '未曾登入'}
+                        {u.last_login_at ? new Date(u.last_login_at).toLocaleString(i18n.language) : t('admin.users.never_logged_in')}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">
@@ -218,7 +222,7 @@ export function UserManagement({ onClose }: Props) {
                           <Button
                             variant="ghost"
                             size="icon"
-                            title="重設密碼"
+                            title={t('admin.users.btn_reset')}
                             onClick={() => { setResetUserId(u.id); setResetPwd(''); }}
                             disabled={saving === u.id}
                           >
@@ -229,7 +233,7 @@ export function UserManagement({ onClose }: Props) {
                             <Button
                               variant="ghost"
                               size="icon"
-                              title={u.disabled ? '啟用帳號' : '停用帳號'}
+                              title={u.disabled ? t('admin.users.btn_enable') : t('admin.users.btn_disable')}
                               onClick={() => void toggleDisable(u)}
                               disabled={saving === u.id}
                             >
@@ -243,7 +247,7 @@ export function UserManagement({ onClose }: Props) {
                             <Button
                               variant="ghost"
                               size="icon"
-                              title="刪除使用者"
+                              title={t('admin.users.btn_delete')}
                               onClick={() => setDeleteUserId(u.id)}
                               disabled={saving === u.id}
                             >
@@ -261,7 +265,7 @@ export function UserManagement({ onClose }: Props) {
 
           {/* Footer */}
           <div className="shrink-0 border-t px-6 py-3 text-xs text-muted-foreground">
-            共 {users.length} 位使用者
+            {t('admin.users.total_count', { count: users.length })}
           </div>
         </div>
       </div>
@@ -270,24 +274,24 @@ export function UserManagement({ onClose }: Props) {
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>新增使用者</DialogTitle>
-            <DialogDescription>建立新帳號並設定初始密碼</DialogDescription>
+            <DialogTitle>{t('admin.users.dialog_add_title')}</DialogTitle>
+            <DialogDescription>{t('admin.users.dialog_add_desc')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>姓名 *</Label>
-              <Input value={addForm.name} onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))} placeholder="王小明" />
+              <Label>{t('admin.users.label_name')}</Label>
+              <Input value={addForm.name} onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))} placeholder={t('admin.users.placeholder_name')} />
             </div>
             <div className="space-y-1.5">
-              <Label>Email *</Label>
+              <Label>{t('admin.users.label_email')}</Label>
               <Input type="email" value={addForm.email} onChange={e => setAddForm(f => ({ ...f, email: e.target.value }))} placeholder="user@example.com" />
             </div>
             <div className="space-y-1.5">
-              <Label>初始密碼 *（至少 6 個字元）</Label>
+              <Label>{t('admin.users.label_password')}</Label>
               <Input type="password" value={addForm.password} onChange={e => setAddForm(f => ({ ...f, password: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <Label>角色</Label>
+              <Label>{t('admin.users.label_role')}</Label>
               <Select value={addForm.role} onValueChange={v => setAddForm(f => ({ ...f, role: v as 'admin' | 'builder' | 'user' }))}>
                 <SelectTrigger>
                   <SelectValue />
@@ -299,10 +303,10 @@ export function UserManagement({ onClose }: Props) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAdd(false)}>取消</Button>
+            <Button variant="outline" onClick={() => setShowAdd(false)}>{t('common.cancel')}</Button>
             <Button onClick={() => void handleAddUser()} disabled={addLoading}>
               {addLoading && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-              新增
+              {t('common.ok')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -312,13 +316,13 @@ export function UserManagement({ onClose }: Props) {
       <Dialog open={!!resetUserId} onOpenChange={open => { if (!open) setResetUserId(null); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>重設密碼</DialogTitle>
+            <DialogTitle>{t('admin.users.dialog_reset_title')}</DialogTitle>
             <DialogDescription>
-              為 <span className="font-medium">{resetUser?.name}</span> 設定新密碼。重設後該使用者的現有登入 Session 將失效。
+              {t('admin.users.dialog_reset_desc', { name: resetUser?.name })}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-1.5 py-2">
-            <Label>新密碼（至少 6 個字元）</Label>
+            <Label>{t('admin.users.label_new_password')}</Label>
             <Input
               type="password"
               value={resetPwd}
@@ -328,10 +332,10 @@ export function UserManagement({ onClose }: Props) {
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setResetUserId(null)}>取消</Button>
+            <Button variant="outline" onClick={() => setResetUserId(null)}>{t('common.cancel')}</Button>
             <Button onClick={() => void handleResetPassword()} disabled={resetLoading}>
               {resetLoading && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-              確認重設
+              {t('admin.users.btn_reset')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -341,20 +345,20 @@ export function UserManagement({ onClose }: Props) {
       <AlertDialog open={!!deleteUserId} onOpenChange={open => { if (!open) setDeleteUserId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>確認刪除</AlertDialogTitle>
+            <AlertDialogTitle>{t('admin.users.dialog_delete_title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              確定要刪除使用者 <span className="font-medium">{deleteUser?.name}（{deleteUser?.email}）</span>？此操作無法復原，該使用者的所有登入 Session 也將一併清除。
+              {t('admin.users.dialog_delete_desc', { name: deleteUser?.name, email: deleteUser?.email })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => void handleDelete()}
               disabled={deleteLoading}
             >
               {deleteLoading && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-              刪除
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

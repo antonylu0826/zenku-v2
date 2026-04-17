@@ -1,17 +1,19 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import i18n from '../i18n';
 
 export interface AuthUser {
   id: string;
   email: string;
   name: string;
   role: 'admin' | 'builder' | 'user';
+  language: string;
 }
 
 interface AuthContextValue {
   user: AuthUser;
   token: string;
   logout: () => void;
-  updateUser: (patch: Partial<Pick<AuthUser, 'name'>>) => void;
+  updateUser: (patch: Partial<Pick<AuthUser, 'name' | 'language'>>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -65,6 +67,9 @@ export function AuthProvider({ children, fallback }: Props) {
       }
 
       const user = await meRes.json() as AuthUser;
+      if (user.language) {
+        i18n.changeLanguage(user.language);
+      }
       setState({ status: 'authenticated', user, token, hasUsers: true });
     };
 
@@ -73,6 +78,9 @@ export function AuthProvider({ children, fallback }: Props) {
 
   const handleAuth = (user: AuthUser, token: string) => {
     localStorage.setItem('zenku-token', token);
+    if (user.language) {
+      i18n.changeLanguage(user.language);
+    }
     setState({ status: 'authenticated', user, token, hasUsers: true });
   };
 
@@ -88,7 +96,7 @@ export function AuthProvider({ children, fallback }: Props) {
     setState(prev => ({ ...prev, status: 'unauthenticated', user: null, token: null }));
   };
 
-  const updateUser = (patch: Partial<Pick<AuthUser, 'name'>>) => {
+  const updateUser = (patch: Partial<Pick<AuthUser, 'name' | 'language'>>) => {
     setState(prev => prev.user ? { ...prev, user: { ...prev.user, ...patch } } : prev);
   };
 

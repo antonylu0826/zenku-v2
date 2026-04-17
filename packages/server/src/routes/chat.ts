@@ -19,7 +19,7 @@ router.post('/chat', requireAuth, async (req, res) => {
   };
 
   if (!message) {
-    res.status(400).json({ error: '缺少 message' });
+    res.status(400).json({ error: 'ERROR_MISSING_MESSAGE' });
     return;
   }
 
@@ -46,8 +46,8 @@ router.post('/chat', requireAuth, async (req, res) => {
       res.write(`data: ${chunk}\n`);
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.write(`data: ${JSON.stringify({ type: 'error', message: msg })}\n`);
+    const errorBody = { type: 'error', error: 'ERROR_INTERNAL_SERVER', params: { detail: err instanceof Error ? err.message : String(err) } };
+    res.write(`data: ${JSON.stringify(errorBody)}\n`);
   }
 
   res.end();
@@ -75,7 +75,7 @@ router.get('/sessions/:id/messages', requireAuth, (req, res) => {
   const session = db.prepare(
     'SELECT id FROM _zenku_chat_sessions WHERE id = ? AND user_id = ?'
   ).get(sessionId, req.user!.id);
-  if (!session) { res.status(404).json({ error: '找不到 session' }); return; }
+  if (!session) { res.status(404).json({ error: 'ERROR_SESSION_NOT_FOUND' }); return; }
 
   const messages = db.prepare(
     'SELECT * FROM _zenku_chat_messages WHERE session_id = ? ORDER BY created_at'
@@ -104,11 +104,11 @@ router.patch('/sessions/:id/title', requireAuth, (req, res) => {
   const db = getDb();
   const sessionId = p(req.params.id);
   const { title } = req.body as { title?: string };
-  if (!title?.trim()) { res.status(400).json({ error: '標題不可為空' }); return; }
+  if (!title?.trim()) { res.status(400).json({ error: 'ERROR_INVALID_NAME' }); return; }
   const session = db.prepare(
     'SELECT id FROM _zenku_chat_sessions WHERE id = ? AND user_id = ?'
   ).get(sessionId, req.user!.id);
-  if (!session) { res.status(404).json({ error: '找不到 session' }); return; }
+  if (!session) { res.status(404).json({ error: 'ERROR_SESSION_NOT_FOUND' }); return; }
   db.prepare('UPDATE _zenku_chat_sessions SET title = ? WHERE id = ?').run(title.trim(), sessionId);
   res.json({ success: true });
 });
@@ -119,7 +119,7 @@ router.patch('/sessions/:id/archive', requireAuth, (req, res) => {
   const session = db.prepare(
     'SELECT id FROM _zenku_chat_sessions WHERE id = ? AND user_id = ?'
   ).get(sessionId, req.user!.id);
-  if (!session) { res.status(404).json({ error: '找不到 session' }); return; }
+  if (!session) { res.status(404).json({ error: 'ERROR_SESSION_NOT_FOUND' }); return; }
   db.prepare('UPDATE _zenku_chat_sessions SET archived = 1 WHERE id = ?').run(sessionId);
   res.json({ success: true });
 });
@@ -130,12 +130,12 @@ router.patch('/sessions/:id/archive', requireAuth, (req, res) => {
 router.post('/query', requireAuth, (req, res) => {
   const { sql } = req.body as { sql?: string };
   if (!sql || typeof sql !== 'string') {
-    res.status(400).json({ error: '缺少 sql 參數' });
+    res.status(400).json({ error: 'ERROR_MISSING_SQL' });
     return;
   }
   const normalized = sql.trim().toUpperCase();
   if (!normalized.startsWith('SELECT')) {
-    res.status(400).json({ error: '只允許 SELECT 查詢' });
+    res.status(400).json({ error: 'ERROR_ONLY_SELECT_ALLOWED' });
     return;
   }
   try {
@@ -144,7 +144,7 @@ router.post('/query', requireAuth, (req, res) => {
     const rows = db.prepare(safeSQL).all();
     res.json(rows);
   } catch (err) {
-    res.status(400).json({ error: String(err) });
+    res.status(400).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: String(err) } });
   }
 });
 

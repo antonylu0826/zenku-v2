@@ -15,7 +15,7 @@ const router = Router();
 router.get('/:table/options', requireAuth, (req, res) => {
   const table = p(req.params.table);
   if (table.startsWith('_zenku_')) {
-    res.status(403).json({ error: '不允許存取系統表' });
+    res.status(403).json({ error: 'ERROR_FORBIDDEN_SYSTEM_TABLE' });
     return;
   }
 
@@ -25,7 +25,7 @@ router.get('/:table/options', requireAuth, (req, res) => {
   const id = String(req.query.id ?? '').trim();
 
   if (!isSafeFieldName(valueField) || !isSafeFieldName(displayField)) {
-    res.status(400).json({ error: '無效的欄位名' });
+    res.status(400).json({ error: 'ERROR_INVALID_FIELD' });
     return;
   }
 
@@ -54,7 +54,7 @@ router.get('/:table/options', requireAuth, (req, res) => {
     ).all();
     res.json(rows);
   } catch (err) {
-    res.status(400).json({ error: String(err) });
+    res.status(400).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: String(err) } });
   }
 });
 
@@ -62,11 +62,11 @@ router.get('/:table/options', requireAuth, (req, res) => {
 router.get('/:table/:id', requireAuth, (req, res) => {
   const table = p(req.params.table), id = p(req.params.id);
   if (!isSafeFieldName(table)) {
-    res.status(400).json({ error: '無效的資料表名稱' });
+    res.status(400).json({ error: 'ERROR_INVALID_TABLE' });
     return;
   }
   if (table.startsWith('_zenku_')) {
-    res.status(403).json({ error: '不允許存取系統表' });
+    res.status(403).json({ error: 'ERROR_FORBIDDEN_SYSTEM_TABLE' });
     return;
   }
   try {
@@ -87,12 +87,12 @@ router.get('/:table/:id', requireAuth, (req, res) => {
       `SELECT ${selectClause} FROM "${table}" ${joinClause} WHERE "${table}".id = ?`
     ).get(id);
     if (!row) {
-      res.status(404).json({ error: '找不到資料' });
+      res.status(404).json({ error: 'ERROR_DATA_NOT_FOUND' });
       return;
     }
     res.json(row);
   } catch (err) {
-    res.status(400).json({ error: String(err) });
+    res.status(400).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: String(err) } });
   }
 });
 
@@ -100,11 +100,11 @@ router.get('/:table/:id', requireAuth, (req, res) => {
 router.get('/:table', requireAuth, (req, res) => {
   const table = p(req.params.table);
   if (!isSafeFieldName(table)) {
-    res.status(400).json({ error: '無效的資料表名稱' });
+    res.status(400).json({ error: 'ERROR_INVALID_TABLE' });
     return;
   }
   if (table.startsWith('_zenku_')) {
-    res.status(403).json({ error: '不允許存取系統表' });
+    res.status(403).json({ error: 'ERROR_FORBIDDEN_SYSTEM_TABLE' });
     return;
   }
 
@@ -112,7 +112,7 @@ router.get('/:table', requireAuth, (req, res) => {
     const db = getDb();
     const schema = getTableSchema(table);
     if (schema.length === 0) {
-      res.status(400).json({ error: `找不到資料表或欄位：${table}` });
+      res.status(400).json({ error: 'ERROR_TABLE_NOT_FOUND', params: { table } });
       return;
     }
 
@@ -186,7 +186,7 @@ router.get('/:table', requireAuth, (req, res) => {
       limit,
     });
   } catch (err) {
-    res.status(400).json({ error: String(err) });
+    res.status(400).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: String(err) } });
   }
 });
 
@@ -194,11 +194,11 @@ router.get('/:table', requireAuth, (req, res) => {
 router.post('/:table', requireAuth, async (req, res) => {
   const table = p(req.params.table);
   if (!isSafeFieldName(table)) {
-    res.status(400).json({ error: '無效的資料表名稱' });
+    res.status(400).json({ error: 'ERROR_INVALID_TABLE' });
     return;
   }
   if (table.startsWith('_zenku_')) {
-    res.status(403).json({ error: '不允許存取系統表' });
+    res.status(403).json({ error: 'ERROR_FORBIDDEN_SYSTEM_TABLE' });
     return;
   }
   try {
@@ -208,9 +208,9 @@ router.post('/:table', requireAuth, async (req, res) => {
     delete body.created_at;
     delete body.updated_at;
 
-    const beforeResult = executeBefore(table, 'insert', body);
+    const beforeResult = await executeBefore(table, 'insert', body);
     if (!beforeResult.allowed) {
-      res.status(400).json({ error: beforeResult.errors.join('；') });
+      res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: beforeResult.errors.join('; ') } });
       return;
     }
     // 自動計算公式欄位
@@ -231,7 +231,7 @@ router.post('/:table', requireAuth, async (req, res) => {
       console.error('[RuleEngine] after_insert error:', err)
     );
   } catch (err) {
-    res.status(400).json({ error: String(err) });
+    res.status(400).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: String(err) } });
   }
 });
 
@@ -239,11 +239,11 @@ router.post('/:table', requireAuth, async (req, res) => {
 router.put('/:table/:id', requireAuth, async (req, res) => {
   const table = p(req.params.table), id = p(req.params.id);
   if (!isSafeFieldName(table)) {
-    res.status(400).json({ error: '無效的資料表名稱' });
+    res.status(400).json({ error: 'ERROR_INVALID_TABLE' });
     return;
   }
   if (table.startsWith('_zenku_')) {
-    res.status(403).json({ error: '不允許存取系統表' });
+    res.status(403).json({ error: 'ERROR_FORBIDDEN_SYSTEM_TABLE' });
     return;
   }
   try {
@@ -255,9 +255,9 @@ router.put('/:table/:id', requireAuth, async (req, res) => {
     delete body.created_at;
     body.updated_at = new Date().toISOString();
 
-    const beforeResult = executeBefore(table, 'update', body, oldData);
+    const beforeResult = await executeBefore(table, 'update', body, oldData);
     if (!beforeResult.allowed) {
-      res.status(400).json({ error: beforeResult.errors.join('；') });
+      res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: beforeResult.errors.join('; ') } });
       return;
     }
     // 自動計算公式欄位
@@ -276,7 +276,7 @@ router.put('/:table/:id', requireAuth, async (req, res) => {
       console.error('[RuleEngine] after_update error:', err)
     );
   } catch (err) {
-    res.status(400).json({ error: String(err) });
+    res.status(400).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: String(err) } });
   }
 });
 
@@ -284,11 +284,11 @@ router.put('/:table/:id', requireAuth, async (req, res) => {
 router.delete('/:table/:id', requireAuth, async (req, res) => {
   const table = p(req.params.table), id = p(req.params.id);
   if (!isSafeFieldName(table)) {
-    res.status(400).json({ error: '無效的資料表名稱' });
+    res.status(400).json({ error: 'ERROR_INVALID_TABLE' });
     return;
   }
   if (table.startsWith('_zenku_')) {
-    res.status(403).json({ error: '不允許存取系統表' });
+    res.status(403).json({ error: 'ERROR_FORBIDDEN_SYSTEM_TABLE' });
     return;
   }
   try {
@@ -296,9 +296,9 @@ router.delete('/:table/:id', requireAuth, async (req, res) => {
     const deletedData = db.prepare(`SELECT * FROM "${table}" WHERE id = ?`).get(id) as Record<string, unknown> | undefined;
 
     if (deletedData) {
-      const beforeResult = executeBefore(table, 'delete', deletedData);
+      const beforeResult = await executeBefore(table, 'delete', deletedData);
       if (!beforeResult.allowed) {
-        res.status(400).json({ error: beforeResult.errors.join('；') });
+        res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: beforeResult.errors.join('; ') } });
         return;
       }
     }
@@ -333,7 +333,7 @@ router.delete('/:table/:id', requireAuth, async (req, res) => {
       );
     }
   } catch (err) {
-    res.status(400).json({ error: String(err) });
+    res.status(400).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: String(err) } });
   }
 });
 

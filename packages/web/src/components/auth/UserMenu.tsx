@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { LogOut, Users, ChevronUp, MessageSquare, BarChart2, Settings, ShieldCheck, LayoutTemplate } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { UserManagement } from '../admin/UserManagement';
@@ -8,13 +9,8 @@ import { RulesManagement } from '../admin/RulesManagement';
 import { ViewManagement } from '../admin/ViewManagement';
 import { ProfileDialog } from './ProfileDialog';
 
-const ROLE_LABEL: Record<string, string> = {
-  admin: '管理員',
-  builder: '建置者',
-  user: '使用者',
-};
-
 export function UserMenu() {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
   const [showUserMgmt, setShowUserMgmt] = useState(false);
@@ -37,7 +33,7 @@ export function UserMenu() {
           </div>
           <div className="flex-1 overflow-hidden text-left">
             <div className="truncate font-medium text-foreground">{user.name}</div>
-            <div className="text-xs text-muted-foreground">{ROLE_LABEL[user.role] ?? user.role}</div>
+            <div className="text-xs text-muted-foreground">{t(`admin.roles.${user.role}`, { defaultValue: user.role })}</div>
           </div>
           <ChevronUp
             size={14}
@@ -61,35 +57,35 @@ export function UserMenu() {
                     className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
                   >
                     <Users size={14} />
-                    使用者管理
+                    {t('admin.menu.user_mgmt')}
                   </button>
                   <button
                     onClick={() => { setShowChatHistory(true); setOpen(false); }}
                     className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
                   >
                     <MessageSquare size={14} />
-                    對話歷程
+                    {t('admin.menu.chat_history')}
                   </button>
                   <button
                     onClick={() => { setShowUsageStats(true); setOpen(false); }}
                     className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
                   >
                     <BarChart2 size={14} />
-                    用量統計
+                    {t('admin.menu.usage_stats')}
                   </button>
                   <button
                     onClick={() => { setShowRules(true); setOpen(false); }}
                     className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
                   >
                     <ShieldCheck size={14} />
-                    業務規則
+                    {t('admin.menu.rules_mgmt')}
                   </button>
                   <button
                     onClick={() => { setShowViewMgmt(true); setOpen(false); }}
                     className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
                   >
                     <LayoutTemplate size={14} />
-                    介面管理
+                    {t('admin.menu.view_mgmt')}
                   </button>
                 </>
               )}
@@ -98,14 +94,14 @@ export function UserMenu() {
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
               >
                 <Settings size={14} />
-                個人設定
+                {t('profile.title')}
               </button>
               <button
                 onClick={() => { logout(); setOpen(false); }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10"
               >
                 <LogOut size={14} />
-                登出
+                {t('common.logout')}
               </button>
             </div>
           </>

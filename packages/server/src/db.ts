@@ -23,6 +23,7 @@ function initSystemTables(db: DatabaseSync): void {
       name TEXT NOT NULL,
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'user',
+      language TEXT NOT NULL DEFAULT 'en',
       disabled INTEGER NOT NULL DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
       last_login_at TEXT
@@ -141,6 +142,11 @@ function initSystemTables(db: DatabaseSync): void {
   // Migrations for existing databases
   try {
     db.exec(`ALTER TABLE _zenku_users ADD COLUMN disabled INTEGER NOT NULL DEFAULT 0`);
+  } catch {
+    // Column already exists — ignore
+  }
+  try {
+    db.exec(`ALTER TABLE _zenku_users ADD COLUMN language TEXT NOT NULL DEFAULT 'en'`);
   } catch {
     // Column already exists — ignore
   }
@@ -304,6 +310,7 @@ export interface UserRow {
   name: string;
   password_hash: string;
   role: 'admin' | 'builder' | 'user';
+  language: string;
   created_at: string;
   last_login_at: string | null;
 }
@@ -312,6 +319,12 @@ export function getUserCount(): number {
   const db = getDb();
   const row = db.prepare('SELECT COUNT(*) as count FROM _zenku_users').get() as { count: number };
   return row.count;
+}
+
+export function getUserLanguage(userId: string): string {
+  const db = getDb();
+  const row = db.prepare('SELECT language FROM _zenku_users WHERE id = ?').get(userId) as { language?: string } | undefined;
+  return row?.language || 'en';
 }
 
 // ===== Legacy (kept for compatibility) =====
