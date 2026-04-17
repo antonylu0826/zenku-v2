@@ -1,7 +1,7 @@
 import { useEffect, useState, Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Loader2, RefreshCw, Trash2, X, ChevronDown, ChevronRight,
+  Loader2, RefreshCw, Trash2, ChevronDown, ChevronRight,
   ShieldCheck, ShieldOff, Info,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';

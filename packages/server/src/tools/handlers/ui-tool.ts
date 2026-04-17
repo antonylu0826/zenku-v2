@@ -149,6 +149,7 @@ Type selection guide:
 - dashboard: Statistics panel, requires widgets (no columns/form needed)
 - kanban: Kanban board with drag-drop, requires kanban (group_field, title_field)
 - calendar: Calendar view, requires calendar (date_field, title_field)
+- gallery: Gallery grid with image cards, requires gallery (image_field, title_field)
 
 Field type determines frontend rendering (for table/master-detail):
 - text/number/date/boolean/textarea: Basic input
@@ -165,7 +166,7 @@ group controls sidebar grouping:
 - Omit for ungrouped views (shown at top)
 - Set to a short label (e.g., "採購", "庫存") to cluster related views under a collapsible section
 
-When users say "statistics/kanban/calendar", directly create a view of that type without needing a table first.`,
+When users say "statistics/kanban/calendar/gallery", directly create a view of that type without needing a table first.`,
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -375,6 +376,16 @@ When users say "statistics/kanban/calendar", directly create a view of that type
                 color_field: { type: 'string' },
               },
               required: ['date_field', 'title_field'],
+            },
+            gallery: {
+              type: 'object',
+              description: 'Settings for gallery type',
+              properties: {
+                image_field: { type: 'string' },
+                title_field: { type: 'string' },
+                subtitle_field: { type: 'string' },
+              },
+              required: ['image_field', 'title_field'],
             },
           },
         },

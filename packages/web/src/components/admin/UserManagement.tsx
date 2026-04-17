@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2, Plus, RefreshCw, KeyRound, Trash2, UserX, UserCheck, X } from 'lucide-react';
+import { Loader2, Plus, RefreshCw, KeyRound, Trash2, UserX, UserCheck } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';

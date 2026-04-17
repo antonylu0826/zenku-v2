@@ -10,11 +10,38 @@ interface Props {
   onChange: (value: unknown) => void;
   placeholder?: string;
   disabled?: boolean;
+  includeTime?: boolean;
 }
 
-export function DatePickerField({ value, onChange, placeholder, disabled }: Props) {
+export function DatePickerField({ value, onChange, placeholder, disabled, includeTime = false }: Props) {
   const dateValue = value ? new Date(String(value)) : undefined;
   const isValidDate = dateValue && !isNaN(dateValue.getTime());
+
+  const hours = isValidDate ? String(dateValue.getHours()).padStart(2, '0') : '00';
+  const minutes = isValidDate ? String(dateValue.getMinutes()).padStart(2, '0') : '00';
+
+  const displayFormat = includeTime ? 'yyyy/MM/dd HH:mm' : 'yyyy/MM/dd';
+  const displayValue = isValidDate ? format(dateValue, displayFormat) : (placeholder ?? (includeTime ? '選擇日期與時間' : '選擇日期'));
+
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date) {
+      if (includeTime) {
+        const newDate = new Date(date);
+        newDate.setHours(parseInt(hours), parseInt(minutes));
+        onChange(format(newDate, "yyyy-MM-dd'T'HH:mm:ss"));
+      } else {
+        onChange(format(date, 'yyyy-MM-dd'));
+      }
+    }
+  };
+
+  const handleTimeChange = (type: 'hours' | 'minutes', value: string) => {
+    if (!isValidDate) return;
+    const newDate = new Date(dateValue);
+    if (type === 'hours') newDate.setHours(parseInt(value) || 0);
+    else newDate.setMinutes(parseInt(value) || 0);
+    onChange(format(newDate, "yyyy-MM-dd'T'HH:mm:ss"));
+  };
 
   return (
     <Popover>
@@ -27,21 +54,45 @@ export function DatePickerField({ value, onChange, placeholder, disabled }: Prop
             !isValidDate && 'text-muted-foreground',
           )}
         >
-          <span>{isValidDate ? format(dateValue, 'yyyy/MM/dd') : (placeholder ?? '選擇日期')}</span>
+          <span>{displayValue}</span>
           <CalendarIcon className="h-4 w-4 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          mode="single"
-          selected={isValidDate ? dateValue : undefined}
-          onSelect={date => {
-            if (date) {
-              onChange(format(date, 'yyyy-MM-dd'));
-            }
-          }}
-          autoFocus
-        />
+        <div className="p-3">
+          <Calendar
+            mode="single"
+            selected={isValidDate ? dateValue : undefined}
+            onSelect={handleDateSelect}
+            autoFocus
+          />
+          {includeTime && (
+            <div className="mt-3 flex gap-2 border-t pt-3">
+              <div className="flex-1">
+                <label className="block text-xs font-medium mb-1">時</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="23"
+                  value={hours}
+                  onChange={e => handleTimeChange('hours', e.target.value)}
+                  className="w-full border rounded px-2 py-1 text-sm"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs font-medium mb-1">分</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="59"
+                  value={minutes}
+                  onChange={e => handleTimeChange('minutes', e.target.value)}
+                  className="w-full border rounded px-2 py-1 text-sm"
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </PopoverContent>
     </Popover>
   );

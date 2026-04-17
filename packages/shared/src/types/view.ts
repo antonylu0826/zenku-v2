@@ -4,10 +4,10 @@ import type { AppearanceCondition } from './appearance';
 
 // ===== View 類型 =====
 
-export type ViewType = 'table' | 'master-detail' | 'dashboard' | 'kanban' | 'calendar';
+export type ViewType = 'table' | 'master-detail' | 'dashboard' | 'kanban' | 'calendar' | 'gallery';
 
 /** Runtime 常數陣列（供 server 端 AI tool schema 使用） */
-export const VIEW_TYPES: ViewType[] = ['table', 'master-detail', 'dashboard', 'kanban', 'calendar'];
+export const VIEW_TYPES: ViewType[] = ['table', 'master-detail', 'dashboard', 'kanban', 'calendar', 'gallery'];
 
 // ===== View 定義 =====
 
@@ -32,6 +32,8 @@ export interface ViewDefinition {
   kanban?: KanbanConfig;
   /** calendar 設定 */
   calendar?: CalendarConfig;
+  /** gallery 設定 */
+  gallery?: GalleryConfig;
 
   /** 預設排序 */
   default_sort?: { field: string; direction: 'asc' | 'desc' };
@@ -153,6 +155,15 @@ export interface CalendarConfig {
   title_field: string;
   /** 顏色欄位（用哪個欄位的值決定顏色） */
   color_field?: string;
+}
+
+export interface GalleryConfig {
+  /** 圖片欄位 */
+  image_field: string;
+  /** 標題欄位 */
+  title_field: string;
+  /** 副標題欄位 */
+  subtitle_field?: string;
 }
 
 // ===== 篩選 =====

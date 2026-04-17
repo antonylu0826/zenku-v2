@@ -9,7 +9,7 @@ export type { ColumnDef } from './types/column';
 
 export type {
   ViewType, ViewDefinition, ViewAction, BuiltinAction, CustomViewAction, ActionBehavior,
-  DetailViewDef, DashboardWidget, WidgetType, KanbanConfig, CalendarConfig,
+  DetailViewDef, DashboardWidget, WidgetType, KanbanConfig, CalendarConfig, GalleryConfig,
   Filter, FilterOperator,
 } from './types/view';
 export { VIEW_TYPES } from './types/view';

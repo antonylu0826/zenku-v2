@@ -8,6 +8,7 @@ import { RelationField } from './RelationField';
 import { DynamicSelectField } from './DynamicSelectField';
 import { DatePickerField } from './DatePickerField';
 import { FileInput, FileReadonlyList } from './FileInput';
+import { MultiSelectField, MultiSelectReadonly } from './MultiSelectField';
 import type { FieldDef, FieldType } from '../../types';
 import { cn } from '../../lib/cn';
 
@@ -152,6 +153,10 @@ function DateInput({ field, value, onChange, disabled }: FieldInputInnerProps) {
   return <DatePickerField value={value} onChange={onChange} placeholder={field.placeholder} disabled={disabled} />;
 }
 
+function DateTimeInput({ field, value, onChange, disabled }: FieldInputInnerProps) {
+  return <DatePickerField value={value} onChange={onChange} placeholder={field.placeholder} disabled={disabled} includeTime />;
+}
+
 function RelationInput({ field, value, onChange }: FieldInputInnerProps) {
   return <RelationField field={field} value={value} onChange={onChange} />;
 }
@@ -237,20 +242,26 @@ function FileReadonly({ value }: FieldReadonlyProps) {
 
 // ─── Registry ─────────────────────────────────────────────────────────────────
 
+function MultiSelectInputWrapper({ field, value, onChange }: FieldInputInnerProps) {
+  return <MultiSelectField field={field} value={value} onChange={onChange} />;
+}
+
 export const FIELD_REGISTRY: Record<FieldType, FieldEntry> = {
-  text:     { input: TextInput,      readonly: TextReadonly },
-  number:   { input: NumberInput,    readonly: TextReadonly },
-  currency: { input: NumberInput,    readonly: CurrencyReadonly },
-  textarea: { input: TextareaInput,  readonly: TextReadonly,    fullWidth: true },
-  richtext: { input: TextareaInput,  readonly: TextReadonly,    fullWidth: true },
-  boolean:  { input: BooleanInput,   readonly: BooleanReadonly },
-  date:     { input: DateInput,      readonly: TextReadonly },
-  select:   { input: SelectInput,    readonly: TextReadonly },
-  enum:     { input: SelectInput,    readonly: EnumReadonly },
-  relation: { input: RelationInput,  readonly: RelationReadonly },
-  email:    { input: EmailInput,     readonly: EmailReadonly },
-  phone:    { input: PhoneInput,     readonly: PhoneReadonly },
-  url:      { input: UrlInput,       readonly: UrlReadonly },
-  file:     { input: FileFieldInput, readonly: FileReadonly,    fullWidth: true },
-  image:    { input: FileFieldInput, readonly: FileReadonly,    fullWidth: true },
+  text:     { input: TextInput,            readonly: TextReadonly },
+  number:   { input: NumberInput,          readonly: TextReadonly },
+  currency: { input: NumberInput,          readonly: CurrencyReadonly },
+  textarea: { input: TextareaInput,        readonly: TextReadonly,    fullWidth: true },
+  richtext: { input: TextareaInput,        readonly: TextReadonly,    fullWidth: true },
+  boolean:  { input: BooleanInput,         readonly: BooleanReadonly },
+  date:     { input: DateInput,            readonly: TextReadonly },
+  datetime: { input: DateTimeInput,        readonly: TextReadonly },
+  select:   { input: SelectInput,          readonly: TextReadonly },
+  multiselect: { input: MultiSelectInputWrapper, readonly: MultiSelectReadonly },
+  enum:     { input: SelectInput,          readonly: EnumReadonly },
+  relation: { input: RelationInput,        readonly: RelationReadonly },
+  email:    { input: EmailInput,           readonly: EmailReadonly },
+  phone:    { input: PhoneInput,           readonly: PhoneReadonly },
+  url:      { input: UrlInput,             readonly: UrlReadonly },
+  file:     { input: FileFieldInput,       readonly: FileReadonly,    fullWidth: true },
+  image:    { input: FileFieldInput,       readonly: FileReadonly,    fullWidth: true },
 };

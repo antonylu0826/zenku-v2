@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Loader2, RefreshCw, X, ChevronDown, ChevronRight,
+  Loader2, RefreshCw, ChevronDown, ChevronRight,
   Eye, EyeOff, Lock, Unlock, AlertCircle, Palette, Type,
   Trash2, Table2, FileText, Zap, Info, Plus, Pencil,
 } from 'lucide-react';
@@ -31,8 +31,6 @@ interface AdminView {
   created_at: string;
   updated_at: string;
 }
-
-interface Props { onClose: () => void; }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 

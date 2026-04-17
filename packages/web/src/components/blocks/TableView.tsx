@@ -10,9 +10,11 @@ import { resolveAppearance } from '../../types';
 import { evaluateAppearanceCondition } from '@zenku/shared';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
 import { Button } from '../ui/button';
+import { Checkbox } from '../ui/checkbox';
 import { DynamicIcon } from '../ui/dynamic-icon';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { toast } from 'sonner';
 import { FormView } from './FormView';
@@ -41,12 +43,14 @@ export function TableView({ view, filters, onCreateData }: Props) {
   const [showCreate, setShowCreate] = useState(false);
   const [editingRow, setEditingRow] = useState<RowData | null>(null);
   const [deletingRow, setDeletingRow] = useState<RowData | null>(null);
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     setPagination({ pageIndex: 0, pageSize: 20 });
     setSorting([]);
     setSearch('');
     setSearchInput('');
+    setRowSelection({});
   }, [view.id, filters]);
 
   useEffect(() => {
@@ -112,6 +116,27 @@ export function TableView({ view, filters, onCreateData }: Props) {
   }, [view.id, navigate, fetchRows]);
 
   const columns = useMemo<TableColumnDef<RowData>[]>(() => {
+    const selectColumn: TableColumnDef<RowData> = {
+      id: '_select',
+      header: ({ table }) => (
+        <Checkbox
+          checked={table.getIsAllPageRowsSelected()}
+          onCheckedChange={v => table.toggleAllPageRowsSelected(!!v)}
+          aria-label="全選"
+        />
+      ),
+      cell: ({ row }) => (
+        <div onClick={e => e.stopPropagation()}>
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={v => row.toggleSelected(!!v)}
+            aria-label="選取列"
+          />
+        </div>
+      ),
+      size: 44, minSize: 44, maxSize: 44, enableSorting: false,
+    };
+
     const dataColumns = view.columns.filter(col => !col.hidden_in_table).map(col => ({
       id: col.key,
       accessorFn: (row: RowData) => row[col.key],
@@ -202,20 +227,22 @@ export function TableView({ view, filters, onCreateData }: Props) {
       enableSorting: false,
     };
 
-    return [...dataColumns, actionsColumn];
+    return [selectColumn, ...dataColumns, actionsColumn];
   }, [canDelete, canEdit, isMasterDetail, listCustomActions, handleListCustomAction, view.columns]);
 
   const table = useReactTable({
     data: rows,
     columns,
-    state: { sorting, pagination },
+    state: { sorting, pagination, rowSelection },
     onSortingChange: setSorting,
     onPaginationChange: setPagination,
+    onRowSelectionChange: setRowSelection,
     getCoreRowModel: getCoreRowModel(),
     manualSorting: true,
     manualPagination: true,
     pageCount: Math.max(1, Math.ceil(total / pagination.pageSize)),
     columnResizeMode: 'onChange',
+    enableRowSelection: true,
   });
 
   const totalPages = Math.max(1, Math.ceil(total / pagination.pageSize));
@@ -269,6 +296,22 @@ export function TableView({ view, filters, onCreateData }: Props) {
     }
   };
 
+  const selectedIds = Object.keys(rowSelection)
+    .filter(k => rowSelection[k])
+    .map(k => rows[Number(k)]?.id)
+    .filter((id): id is string | number => id !== undefined);
+
+  const handleBulkDelete = async () => {
+    try {
+      await Promise.all(selectedIds.map(id => deleteRow(view.table_name, id)));
+      toast.success(`已刪除 ${selectedIds.length} 筆`);
+      setRowSelection({});
+      void fetchRows();
+    } catch (err) {
+      toast.error('批次刪除失敗', { description: String(err) });
+    }
+  };
+
   const visibleFieldCount = view.form.fields.filter(f => !f.hidden_in_form).length;
   const formColumns = view.form.columns ?? (visibleFieldCount >= 5 ? 2 : 1);
   const dialogWidthClass =
@@ -276,6 +319,17 @@ export function TableView({ view, filters, onCreateData }: Props) {
 
   return (
     <div className="flex h-full flex-col">
+      {selectedIds.length > 0 && (
+        <div className="flex items-center gap-3 border-b bg-muted/50 px-6 py-2 text-sm">
+          <span className="text-muted-foreground">已選 <strong>{selectedIds.length}</strong> 筆</span>
+          {canDelete && (
+            <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+              <Trash2 className="mr-1 h-4 w-4" />批次刪除
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={() => setRowSelection({})}>取消選取</Button>
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-end gap-3 border-b px-6 py-3">
         <div className="flex items-center gap-2">
           <div className="relative w-64">
@@ -287,6 +341,16 @@ export function TableView({ view, filters, onCreateData }: Props) {
               className="pl-8"
             />
           </div>
+          <Select value={String(pagination.pageSize)} onValueChange={v => setPagination({ ...pagination, pageSize: Number(v), pageIndex: 0 })}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="20">20 筆</SelectItem>
+              <SelectItem value="50">50 筆</SelectItem>
+              <SelectItem value="100">100 筆</SelectItem>
+            </SelectContent>
+          </Select>
           {canCreate ? (
             <Button onClick={() => isMasterDetail ? navigate(`/view/${view.id}/new`) : setShowCreate(true)}>
               <Plus className="h-4 w-4" />
