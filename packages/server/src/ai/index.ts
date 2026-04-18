@@ -1,10 +1,12 @@
-import type { AIProvider as AIProviderName } from '../types';
+import { AI_MODELS } from '@zenku/shared';
+import type { AIProvider as AIProviderName, ModelOption } from '../types';
 import type { AIProvider } from './types';
 export type { AIProvider, ToolDefinition, ChatParams } from './types';
 
 import { ClaudeProvider } from './claude-provider';
 import { OpenAIProvider } from './openai-provider';
 import { GeminiProvider } from './gemini-provider';
+import { OpenRouterProvider } from './openrouter-provider';
 
 // ── Singleton cache (one instance per provider name) ───────────────
 
@@ -33,6 +35,12 @@ export function createProvider(name: AIProviderName): AIProvider {
       provider = new GeminiProvider(key);
       break;
     }
+    case 'openrouter': {
+      const key = process.env.OPENROUTER_API_KEY;
+      if (!key) throw new Error('OPENROUTER_API_KEY not set');
+      provider = new OpenRouterProvider(key);
+      break;
+    }
     default:
       throw new Error(`不支援的 AI provider：${name as string}`);
   }
@@ -45,7 +53,7 @@ export function createProvider(name: AIProviderName): AIProvider {
 
 export interface ProviderInfo {
   name: AIProviderName;
-  models: string[];
+  models: ModelOption[];
   default_model: string;
 }
 
@@ -55,22 +63,29 @@ export function getAvailableProviders(): ProviderInfo[] {
   if (process.env.ANTHROPIC_API_KEY) {
     available.push({
       name: 'claude',
-      models: ['claude-sonnet-4-6', 'claude-haiku-4-5-20251001', 'claude-opus-4-6'],
+      models: AI_MODELS.claude,
       default_model: 'claude-sonnet-4-6',
     });
   }
   if (process.env.OPENAI_API_KEY) {
     available.push({
       name: 'openai',
-      models: ['gpt-4o', 'gpt-4o-mini', 'o3-mini'],
+      models: AI_MODELS.openai,
       default_model: 'gpt-4o',
     });
   }
   if (process.env.GEMINI_API_KEY) {
     available.push({
       name: 'gemini',
-      models: ['gemini-2.5-flash', 'gemini-2.5-pro'],
+      models: AI_MODELS.gemini,
       default_model: 'gemini-2.5-flash',
+    });
+  }
+  if (process.env.OPENROUTER_API_KEY) {
+    available.push({
+      name: 'openrouter',
+      models: AI_MODELS.openrouter,
+      default_model: 'deepseek/deepseek-chat-v3-1',
     });
   }
 
@@ -79,7 +94,7 @@ export function getAvailableProviders(): ProviderInfo[] {
 
 export function getDefaultProviderName(): AIProviderName {
   const env = process.env.DEFAULT_AI_PROVIDER;
-  if (env && ['claude', 'openai', 'gemini'].includes(env)) return env as AIProviderName;
+  if (env && ['claude', 'openai', 'gemini', 'openrouter'].includes(env)) return env as AIProviderName;
   // Fall back to the first available
   const available = getAvailableProviders();
   if (available.length === 0) return 'claude'; // will fail later if no key

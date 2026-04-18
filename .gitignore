@@ -6,3 +6,6 @@ dist/
 plans/
 uploads/
 docs/
+.agents
+/skills-lock.json
+/opencode.json

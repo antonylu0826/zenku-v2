@@ -567,6 +567,7 @@ const PROVIDER_LABELS: Record<string, string> = {
   claude: 'Claude',
   openai: 'OpenAI',
   gemini: 'Gemini',
+  openrouter: 'OpenRouter',
 };
 
 function ProviderSelector({
@@ -604,8 +605,8 @@ function ProviderSelector({
         </SelectTrigger>
         <SelectContent>
           {currentModels.map(m => (
-            <SelectItem key={m} value={m} className="text-xs">
-              {m}
+            <SelectItem key={m.id} value={m.id} className="text-xs">
+              {m.label ?? m.id}
             </SelectItem>
           ))}
         </SelectContent>
