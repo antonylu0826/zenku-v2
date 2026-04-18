@@ -9,6 +9,10 @@ import { DynamicSelectField } from './DynamicSelectField';
 import { DatePickerField } from './DatePickerField';
 import { FileInput, FileReadonlyList } from './FileInput';
 import { MultiSelectField, MultiSelectReadonly } from './MultiSelectField';
+import { RatingField, RatingReadonly } from './RatingField';
+import { ProgressField, ProgressReadonly } from './ProgressField';
+import { ColorField, ColorReadonly } from './ColorField';
+import { TimeField, TimeReadonly } from './TimeField';
 import type { FieldDef, FieldType } from '../../types';
 import { cn } from '../../lib/cn';
 
@@ -246,6 +250,22 @@ function MultiSelectInputWrapper({ field, value, onChange }: FieldInputInnerProp
   return <MultiSelectField field={field} value={value} onChange={onChange} />;
 }
 
+function RatingInputWrapper({ field, value, onChange }: FieldInputInnerProps) {
+  return <RatingField field={field} value={value} onChange={onChange} />;
+}
+
+function ProgressInputWrapper({ field, value, onChange }: FieldInputInnerProps) {
+  return <ProgressField field={field} value={value} onChange={onChange} />;
+}
+
+function ColorInputWrapper({ field, value, onChange }: FieldInputInnerProps) {
+  return <ColorField field={field} value={value} onChange={onChange} />;
+}
+
+function TimeInputWrapper({ field, value, onChange }: FieldInputInnerProps) {
+  return <TimeField field={field} value={value} onChange={onChange} />;
+}
+
 export const FIELD_REGISTRY: Record<FieldType, FieldEntry> = {
   text:     { input: TextInput,            readonly: TextReadonly },
   number:   { input: NumberInput,          readonly: TextReadonly },
@@ -264,4 +284,8 @@ export const FIELD_REGISTRY: Record<FieldType, FieldEntry> = {
   url:      { input: UrlInput,             readonly: UrlReadonly },
   file:     { input: FileFieldInput,       readonly: FileReadonly,    fullWidth: true },
   image:    { input: FileFieldInput,       readonly: FileReadonly,    fullWidth: true },
+  rating:   { input: RatingInputWrapper,   readonly: RatingReadonly },
+  progress: { input: ProgressInputWrapper, readonly: ProgressReadonly },
+  color:    { input: ColorInputWrapper,    readonly: ColorReadonly },
+  time:     { input: TimeInputWrapper,     readonly: TimeReadonly },
 };

@@ -8,7 +8,7 @@ import type { AppearanceRule } from './appearance';
 // ===== 欄位類型 =====
 
 /** Phase 1（現有）基礎型別 */
-export type BasicFieldType = 'text' | 'number' | 'select' | 'multiselect' | 'boolean' | 'date' | 'datetime' | 'textarea';
+export type BasicFieldType = 'text' | 'number' | 'select' | 'multiselect' | 'boolean' | 'date' | 'datetime' | 'textarea' | 'rating' | 'progress' | 'color' | 'time';
 
 /** Phase 2 擴充型別 */
 export type ExtendedFieldType = 'relation' | 'currency' | 'phone' | 'email' | 'url' | 'enum' | 'richtext';
@@ -21,7 +21,7 @@ export type FieldType = BasicFieldType | ExtendedFieldType | FileFieldType;
 
 /** Runtime 常數陣列（供 server 端 AI tool schema 使用） */
 export const FIELD_TYPES: FieldType[] = [
-  'text', 'number', 'select', 'multiselect', 'boolean', 'date', 'datetime', 'textarea',
+  'text', 'number', 'select', 'multiselect', 'boolean', 'date', 'datetime', 'textarea', 'rating', 'progress', 'color', 'time',
   'relation', 'currency', 'phone', 'email', 'url', 'enum', 'richtext',
   'image', 'file',
 ];
