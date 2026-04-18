@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Send, Loader2, Wrench, CheckCircle, XCircle, Plus, Archive, ChevronDown, Pencil, Check, X, Paperclip } from 'lucide-react';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import {
-  sendChat, getAIProviders, getSessions, getSessionMessages, updateSessionTitle, archiveSession,
+  sendChat, getAIProviders, getOllamaModels, getSessions, getSessionMessages, updateSessionTitle, archiveSession,
   type AIProviderInfo, type SessionSummary, type SessionMessage,
 } from '../api';
 import type { ChatMessage, SSEChunk, ToolEvent } from '../types';
@@ -61,6 +61,7 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
   const [providers, setProviders] = useState<AIProviderInfo[]>([]);
   const [selectedProvider, setSelectedProvider] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
+  const [ollamaModels, setOllamaModels] = useState<{ id: string; label?: string }[] | null>(null);
 
   // Session state
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -414,12 +415,29 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
             providers={providers}
             selectedProvider={selectedProvider}
             selectedModel={selectedModel}
-            onProviderChange={(p) => {
+            onProviderChange={async (p) => {
               setSelectedProvider(p);
-              const info = providers.find(x => x.name === p);
-              if (info) setSelectedModel(info.default_model);
+              if (p === 'ollama') {
+                try {
+                  const models = await getOllamaModels();
+                  setOllamaModels(models);
+                  if (models.length > 0) {
+                    setSelectedModel(models[0].id);
+                  } else {
+                    setSelectedModel('llama3.2');
+                  }
+                } catch {
+                  setOllamaModels(null);
+                  setSelectedModel('llama3.2');
+                }
+              } else {
+                setOllamaModels(null);
+                const info = providers.find(x => x.name === p);
+                if (info) setSelectedModel(info.default_model);
+              }
             }}
             onModelChange={setSelectedModel}
+            ollamaModels={ollamaModels}
           />
         )}
 
@@ -568,6 +586,7 @@ const PROVIDER_LABELS: Record<string, string> = {
   openai: 'OpenAI',
   gemini: 'Gemini',
   openrouter: 'OpenRouter',
+  ollama: 'Ollama',
 };
 
 function ProviderSelector({
@@ -576,14 +595,18 @@ function ProviderSelector({
   selectedModel,
   onProviderChange,
   onModelChange,
+  ollamaModels,
 }: {
   providers: AIProviderInfo[];
   selectedProvider: string;
   selectedModel: string;
   onProviderChange: (p: string) => void;
   onModelChange: (m: string) => void;
+  ollamaModels: { id: string; label?: string }[] | null;
 }) {
-  const currentModels = providers.find(p => p.name === selectedProvider)?.models ?? [];
+  const currentModels = selectedProvider === 'ollama' && ollamaModels !== null
+    ? ollamaModels
+    : providers.find(p => p.name === selectedProvider)?.models ?? [];
 
   return (
     <div className="mb-2 flex items-center gap-2">

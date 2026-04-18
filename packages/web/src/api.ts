@@ -140,6 +140,12 @@ export async function getAIProviders(): Promise<AIProviderInfo[]> {
   return parseJsonOrThrow<AIProviderInfo[]>(res);
 }
 
+export async function getOllamaModels(): Promise<ModelOption[]> {
+  const res = await fetch(`${BASE}/ai/ollama/models`, { headers: authHeaders() });
+  const data = await parseJsonOrThrow<{ models: ModelOption[] }>(res);
+  return data.models;
+}
+
 export interface SessionSummary {
   id: string;
   title: string | null;

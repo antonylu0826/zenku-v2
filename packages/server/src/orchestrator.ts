@@ -248,8 +248,8 @@ export async function* chat(
   options?: ChatOptions,
   attachments?: { filename: string; mime_type: string; data: string }[]
 ): AsyncGenerator<string> {
-  const providerName = options?.provider ?? getDefaultProviderName();
-  const model = options?.model ?? getDefaultModel(providerName);
+  const providerName = options?.provider ?? await getDefaultProviderName();
+  const model = options?.model ?? await getDefaultModel(providerName);
   const userId = options?.userId;
   const provider = createProvider(providerName);
   const tools = getToolsForRole(userRole);

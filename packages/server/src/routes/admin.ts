@@ -3,14 +3,19 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { getDb, createApiKey, listApiKeys, revokeApiKey, deleteApiKey, getUserTables } from '../db';
 import { requireAdmin, requireAuth } from '../middleware/auth';
-import { getAvailableProviders } from '../ai';
+import { getAvailableProviders, fetchOllamaModels } from '../ai';
 import { p } from '../utils';
 
 const router = Router();
 
 // AI providers
-router.get('/ai/providers', requireAuth, (_req, res) => {
-  res.json(getAvailableProviders());
+router.get('/ai/providers', requireAuth, async (_req, res) => {
+  res.json(await getAvailableProviders());
+});
+
+router.get('/ai/ollama/models', requireAuth, async (_req, res) => {
+  const models = await fetchOllamaModels();
+  res.json({ models });
 });
 
 // ──────────────────────────────────────────────
