@@ -144,6 +144,8 @@ export interface KanbanConfig {
   title_field: string;
   /** 卡片描述欄位 */
   description_field?: string;
+  /** 欄位背景色（用 group_field 的值決定欄位背景色） */
+  column_color_map?: Record<string, string>;
 }
 
 // ===== Calendar =====

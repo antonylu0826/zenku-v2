@@ -166,6 +166,7 @@ export function KanbanView({ view }: Props) {
             rows={grouped[group] ?? []}
             titleField={titleField}
             descField={descField}
+            columnColor={kanban?.column_color_map?.[group]}
             onEdit={setEditingRow}
             onAddRow={() => {
               setCreatingGroup(group);
@@ -220,7 +221,7 @@ export function KanbanView({ view }: Props) {
 // ===== Column =====
 
 function KanbanColumn({
-  group, rows, titleField, descField, onEdit, onAddRow,
+  group, rows, titleField, descField, onEdit, onAddRow, columnColor,
 }: {
   group: string;
   rows: RowData[];
@@ -228,15 +229,18 @@ function KanbanColumn({
   descField?: string;
   onEdit?: (row: RowData) => void;
   onAddRow?: () => void;
+  columnColor?: string;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: group });
+  const bgStyle = columnColor ? { backgroundColor: columnColor, opacity: 0.08 } : {};
 
   return (
     <div
       ref={setNodeRef}
-      className={`w-64 shrink-0 rounded-lg border bg-muted/40 transition-colors ${
-        isOver ? 'border-primary/50 bg-primary/5' : ''
-      }`}
+      style={bgStyle}
+      className={`w-64 shrink-0 rounded-lg border transition-colors ${
+        columnColor ? '' : 'bg-muted/40'
+      } ${isOver ? 'border-primary/50' : ''}`}
     >
       {/* Column header */}
       <div className="flex items-center justify-between px-3 py-2.5">
