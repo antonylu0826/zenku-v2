@@ -1,4 +1,4 @@
-export type AIProvider = 'claude' | 'openai' | 'gemini' | 'openrouter';
+export type AIProvider = 'claude' | 'openai' | 'gemini' | 'openrouter' | 'ollama';
 
 export interface AIProviderConfig {
   provider: AIProvider;
@@ -50,6 +50,10 @@ export const AI_MODELS: Record<AIProvider, ModelOption[]> = {
     { id: 'moonshotai/kimi-k2.5', label: 'moonshotai/kimi-k2.5 (free)' },
     { id: 'openai/gpt-oss-120b:free', label: 'gpt-oss-120b (free)' },
     { id: 'qwen/qwen3-next-80b-a3b-instruct:free', label: 'qwen3-next-80b (free)' },
+  ],
+  ollama: [
+    { id: 'llama3.2' },
+    { id: 'qwen2.5' },
   ],
 };
 
