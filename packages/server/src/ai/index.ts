@@ -5,6 +5,7 @@ export type { AIProvider, ToolDefinition, ChatParams } from './types';
 import { ClaudeProvider } from './claude-provider';
 import { OpenAIProvider } from './openai-provider';
 import { GeminiProvider } from './gemini-provider';
+import { OpenRouterProvider } from './openrouter-provider';
 
 // ── Singleton cache (one instance per provider name) ───────────────
 
@@ -31,6 +32,12 @@ export function createProvider(name: AIProviderName): AIProvider {
       const key = process.env.GEMINI_API_KEY;
       if (!key) throw new Error('GEMINI_API_KEY 未設定');
       provider = new GeminiProvider(key);
+      break;
+    }
+    case 'openrouter': {
+      const key = process.env.OPENROUTER_API_KEY;
+      if (!key) throw new Error('OPENROUTER_API_KEY not set');
+      provider = new OpenRouterProvider(key);
       break;
     }
     default:
@@ -73,13 +80,20 @@ export function getAvailableProviders(): ProviderInfo[] {
       default_model: 'gemini-2.5-flash',
     });
   }
+  if (process.env.OPENROUTER_API_KEY) {
+    available.push({
+      name: 'openrouter',
+      models: ['deepseek/deepseek-r1', 'deepseek/deepseek-chat', 'meta-llama/llama-4-maverick', 'mistralai/mistral-small-3.1', 'google/gemini-2.5-flash-preview', 'anthropic/claude-sonnet-4-6'],
+      default_model: 'deepseek/deepseek-chat',
+    });
+  }
 
   return available;
 }
 
 export function getDefaultProviderName(): AIProviderName {
   const env = process.env.DEFAULT_AI_PROVIDER;
-  if (env && ['claude', 'openai', 'gemini'].includes(env)) return env as AIProviderName;
+  if (env && ['claude', 'openai', 'gemini', 'openrouter'].includes(env)) return env as AIProviderName;
   // Fall back to the first available
   const available = getAvailableProviders();
   if (available.length === 0) return 'claude'; // will fail later if no key

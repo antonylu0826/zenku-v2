@@ -1,4 +1,4 @@
-export type AIProvider = 'claude' | 'openai' | 'gemini';
+export type AIProvider = 'claude' | 'openai' | 'gemini' | 'openrouter';
 
 export interface AIProviderConfig {
   provider: AIProvider;
@@ -13,6 +13,7 @@ export const AI_MODELS: Record<AIProvider, string[]> = {
   claude: ['claude-sonnet-4-6', 'claude-haiku-4-5-20251001', 'claude-opus-4-6'],
   openai: ['gpt-4o', 'gpt-4o-mini', 'o3-mini'],
   gemini: ['gemini-2.5-flash', 'gemini-2.5-pro'],
+  openrouter: ['deepseek/deepseek-r1', 'deepseek/deepseek-chat', 'meta-llama/llama-4-maverick', 'mistralai/mistral-small-3.1', 'google/gemini-2.5-flash-preview', 'anthropic/claude-sonnet-4-6'],
 };
 
 /** 每 1M tokens 的 USD 價格 */
@@ -25,6 +26,11 @@ export const TOKEN_COSTS: Record<string, { input: number; output: number }> = {
   'o3-mini':                   { input: 1.1,  output: 4.4  },
   'gemini-2.5-flash':          { input: 0.15, output: 0.6  },
   'gemini-2.5-pro':            { input: 1.25, output: 10   },
+  'deepseek/deepseek-r1':            { input: 0.55,  output: 2.19 },
+  'deepseek/deepseek-chat':          { input: 0.14,  output: 0.28 },
+  'meta-llama/llama-4-maverick':     { input: 0.08,  output: 0.32 },
+  'mistralai/mistral-small-3.1':     { input: 0.10,  output: 0.30 },
+  'google/gemini-2.5-flash-preview':  { input: 0.15,  output: 0.60 },
 };
 
 export interface TokenUsage {
