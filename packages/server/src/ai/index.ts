@@ -7,6 +7,10 @@ import { ClaudeProvider } from './claude-provider';
 import { OpenAIProvider } from './openai-provider';
 import { GeminiProvider } from './gemini-provider';
 import { OpenRouterProvider } from './openrouter-provider';
+import { OllamaProvider } from './ollama-provider';
+import { fetchOllamaModels } from './ollama-models';
+
+export { fetchOllamaModels } from './ollama-models';
 
 // ── Singleton cache (one instance per provider name) ───────────────
 
@@ -41,6 +45,11 @@ export function createProvider(name: AIProviderName): AIProvider {
       provider = new OpenRouterProvider(key);
       break;
     }
+    case 'ollama': {
+      const url = process.env.OLLAMA_URL || 'http://localhost:11434';
+      provider = new OllamaProvider(url);
+      break;
+    }
     default:
       throw new Error(`不支援的 AI provider：${name as string}`);
   }
@@ -57,7 +66,7 @@ export interface ProviderInfo {
   default_model: string;
 }
 
-export function getAvailableProviders(): ProviderInfo[] {
+export async function getAvailableProviders(): Promise<ProviderInfo[]> {
   const available: ProviderInfo[] = [];
 
   if (process.env.ANTHROPIC_API_KEY) {
@@ -88,22 +97,30 @@ export function getAvailableProviders(): ProviderInfo[] {
       default_model: 'deepseek/deepseek-chat-v3-1',
     });
   }
+  if (process.env.OLLAMA_URL) {
+    const models = await fetchOllamaModels();
+    available.push({
+      name: 'ollama',
+      models: models.length > 0 ? models : AI_MODELS.ollama,
+      default_model: models.length > 0 ? models[0].id : 'llama3.2',
+    });
+  }
 
   return available;
 }
 
-export function getDefaultProviderName(): AIProviderName {
+export async function getDefaultProviderName(): Promise<AIProviderName> {
   const env = process.env.DEFAULT_AI_PROVIDER;
-  if (env && ['claude', 'openai', 'gemini', 'openrouter'].includes(env)) return env as AIProviderName;
+  if (env && ['claude', 'openai', 'gemini', 'openrouter', 'ollama'].includes(env)) return env as AIProviderName;
   // Fall back to the first available
-  const available = getAvailableProviders();
+  const available = await getAvailableProviders();
   if (available.length === 0) return 'claude'; // will fail later if no key
   return available[0].name;
 }
 
-export function getDefaultModel(providerName: AIProviderName): string {
+export async function getDefaultModel(providerName: AIProviderName): Promise<string> {
   const env = process.env.DEFAULT_AI_MODEL;
   if (env) return env;
-  const info = getAvailableProviders().find(p => p.name === providerName);
+  const info = (await getAvailableProviders()).find(p => p.name === providerName);
   return info?.default_model ?? 'claude-sonnet-4-6';
 }
