@@ -24,6 +24,7 @@ export type {
   LLMMessage, LLMResponse, ContentBlock, ChatAttachment,
 } from './types/ai-provider';
 export { AI_MODELS, TOKEN_COSTS, estimateCost } from './types/ai-provider';
+export type { ModelOption } from './types/ai-provider';
 
 export type {
   ChatSession, ChatMessageRecord, ToolEventRecord, UsageStats,

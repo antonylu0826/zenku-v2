@@ -1,4 +1,5 @@
-import type { AIProvider as AIProviderName } from '../types';
+import { AI_MODELS } from '@zenku/shared';
+import type { AIProvider as AIProviderName, ModelOption } from '../types';
 import type { AIProvider } from './types';
 export type { AIProvider, ToolDefinition, ChatParams } from './types';
 
@@ -52,7 +53,7 @@ export function createProvider(name: AIProviderName): AIProvider {
 
 export interface ProviderInfo {
   name: AIProviderName;
-  models: string[];
+  models: ModelOption[];
   default_model: string;
 }
 
@@ -62,29 +63,29 @@ export function getAvailableProviders(): ProviderInfo[] {
   if (process.env.ANTHROPIC_API_KEY) {
     available.push({
       name: 'claude',
-      models: ['claude-sonnet-4-6', 'claude-haiku-4-5-20251001', 'claude-opus-4-6'],
+      models: AI_MODELS.claude,
       default_model: 'claude-sonnet-4-6',
     });
   }
   if (process.env.OPENAI_API_KEY) {
     available.push({
       name: 'openai',
-      models: ['gpt-4o', 'gpt-4o-mini', 'o3-mini'],
+      models: AI_MODELS.openai,
       default_model: 'gpt-4o',
     });
   }
   if (process.env.GEMINI_API_KEY) {
     available.push({
       name: 'gemini',
-      models: ['gemini-2.5-flash', 'gemini-2.5-pro'],
+      models: AI_MODELS.gemini,
       default_model: 'gemini-2.5-flash',
     });
   }
   if (process.env.OPENROUTER_API_KEY) {
     available.push({
       name: 'openrouter',
-      models: ['deepseek/deepseek-r1', 'deepseek/deepseek-chat', 'meta-llama/llama-4-maverick', 'mistralai/mistral-small-3.1', 'google/gemini-2.5-flash-preview', 'anthropic/claude-sonnet-4-6'],
-      default_model: 'deepseek/deepseek-chat',
+      models: AI_MODELS.openrouter,
+      default_model: 'deepseek/deepseek-chat-v3-1',
     });
   }
 

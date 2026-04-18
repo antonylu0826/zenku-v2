@@ -124,9 +124,14 @@ export async function runQuery(sql: string): Promise<Record<string, unknown>[]> 
   return parseJsonOrThrow<Record<string, unknown>[]>(res);
 }
 
+export interface ModelOption {
+  id: string;
+  label?: string;
+}
+
 export interface AIProviderInfo {
   name: string;
-  models: string[];
+  models: ModelOption[];
   default_model: string;
 }
 

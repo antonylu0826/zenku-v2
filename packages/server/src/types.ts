@@ -5,6 +5,7 @@ export type {
   ViewType, ViewDefinition, ViewAction, DetailViewDef, DashboardWidget, KanbanConfig, CalendarConfig, Filter,
   AgentName, UserRole, AgentResult, AgentPermission,
   AIProvider, AIProviderConfig, TokenUsage, ToolCall, ToolResult, LLMMessage, LLMResponse,
+  ModelOption,
   ChatSession, ChatMessageRecord, ToolEventRecord, UsageStats, SSEChunk, ChatMessage, ToolEvent,
   TriggerType, Rule, RuleCondition, RuleAction,
   JournalType, JournalEntry,
