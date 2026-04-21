@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, Plus, Trash2, ShieldOff, Check, Key } from 'lucide-react';
+import { Copy, Plus, Trash2, ShieldOff, Check, Key, Activity, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../ui/dialog';
@@ -26,8 +26,20 @@ interface ScopeOption {
   group: string;
 }
 
+interface ExtLogEntry {
+  id: number;
+  timestamp: string;
+  description: string;
+  diff: string;
+  user_request: string;
+}
 
 const BASE = '/api';
+
+function parseDiff(raw: string): { before: unknown; after: unknown } | null {
+  try { return JSON.parse(raw) as { before: unknown; after: unknown }; }
+  catch { return null; }
+}
 
 export function ApiKeyManagement() {
   const { t } = useTranslation();
@@ -47,6 +59,12 @@ export function ApiKeyManagement() {
   const [formExpires, setFormExpires] = useState('');
   const [creating, setCreating] = useState(false);
 
+  // Inbound log state
+  const [logs, setLogs] = useState<ExtLogEntry[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
+  const [expandedLog, setExpandedLog] = useState<number | null>(null);
+
   const load = async () => {
     setLoading(true);
     try {
@@ -63,7 +81,25 @@ export function ApiKeyManagement() {
     }
   };
 
+  const loadLogs = async () => {
+    setLogsLoading(true);
+    try {
+      const res = await fetch(`${BASE}/admin/api-keys/logs`, { headers });
+      setLogs(await res.json() as ExtLogEntry[]);
+    } catch {
+      toast.error(t('common.error'));
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
   useEffect(() => { void load(); }, []);
+
+  const handleToggleLogs = () => {
+    const next = !showLogs;
+    setShowLogs(next);
+    if (next && logs.length === 0) void loadLogs();
+  };
 
   const handleCreate = async () => {
     if (!formName.trim() || formScopes.size === 0) {
@@ -139,63 +175,129 @@ export function ApiKeyManagement() {
           </Button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-3">
-            {loading ? (
-              <div className="text-sm text-muted-foreground text-center py-8">{t('common.loading')}</div>
-            ) : keys.length === 0 ? (
-              <div className="text-sm text-muted-foreground text-center py-8">{t('api_keys.empty')}</div>
-            ) : (
-              <div className="space-y-2">
-                {keys.map(k => (
-                  <div key={k.id} className={`border rounded-md p-3 space-y-2 ${k.revoked ? 'opacity-50' : ''}`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="font-medium truncate">{k.name}</span>
-                        {k.revoked ? (
-                          <Badge variant="destructive" className="text-xs shrink-0">{t('api_keys.revoked_badge')}</Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs shrink-0 font-mono">{k.key_prefix}****</Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        {!k.revoked && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground"
-                            title={t('api_keys.revoke')}
-                            onClick={() => void handleRevoke(k.id)}>
-                            <ShieldOff size={13} />
-                          </Button>
-                        )}
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"
-                          title={t('common.delete')}
-                          onClick={() => void handleDelete(k.id)}>
-                          <Trash2 size={13} />
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {/* Key list */}
+          {loading ? (
+            <div className="text-sm text-muted-foreground text-center py-8">{t('common.loading')}</div>
+          ) : keys.length === 0 ? (
+            <div className="text-sm text-muted-foreground text-center py-8">{t('api_keys.empty')}</div>
+          ) : (
+            <div className="space-y-2">
+              {keys.map(k => (
+                <div key={k.id} className={`border rounded-md p-3 space-y-2 ${k.revoked ? 'opacity-50' : ''}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-medium truncate">{k.name}</span>
+                      {k.revoked ? (
+                        <Badge variant="destructive" className="text-xs shrink-0">{t('api_keys.revoked_badge')}</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs shrink-0 font-mono">{k.key_prefix}****</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {!k.revoked && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground"
+                          title={t('api_keys.revoke')}
+                          onClick={() => void handleRevoke(k.id)}>
+                          <ShieldOff size={13} />
                         </Button>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {k.scopes.map(s => (
-                        <Badge key={s} variant="secondary" className="text-xs font-mono">{s}</Badge>
-                      ))}
-                    </div>
-                    <div className="text-xs text-muted-foreground flex gap-4">
-                      <span>{t('api_keys.created')}: {new Date(k.created_at).toLocaleDateString()}</span>
-                      {k.last_used_at && <span>{t('api_keys.last_used')}: {new Date(k.last_used_at).toLocaleDateString()}</span>}
-                      {k.expires_at && <span>{t('api_keys.expires')}: {new Date(k.expires_at).toLocaleDateString()}</span>}
+                      )}
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"
+                        title={t('common.delete')}
+                        onClick={() => void handleDelete(k.id)}>
+                        <Trash2 size={13} />
+                      </Button>
                     </div>
                   </div>
-                ))}
+                  <div className="flex flex-wrap gap-1">
+                    {k.scopes.map(s => (
+                      <Badge key={s} variant="secondary" className="text-xs font-mono">{s}</Badge>
+                    ))}
+                  </div>
+                  <div className="text-xs text-muted-foreground flex gap-4">
+                    <span>{t('api_keys.created')}: {new Date(k.created_at).toLocaleDateString()}</span>
+                    {k.last_used_at && <span>{t('api_keys.last_used')}: {new Date(k.last_used_at).toLocaleDateString()}</span>}
+                    {k.expires_at && <span>{t('api_keys.expires')}: {new Date(k.expires_at).toLocaleDateString()}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Inbound Activity Log */}
+          <div className="border rounded-md overflow-hidden">
+            <button
+              type="button"
+              className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-accent transition-colors"
+              onClick={handleToggleLogs}
+            >
+              <span className="flex items-center gap-2">
+                <Activity size={14} />
+                {t('api_keys.log_title')}
+              </span>
+              {showLogs ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+
+            {showLogs && (
+              <div className="border-t">
+                {logsLoading ? (
+                  <div className="text-xs text-muted-foreground text-center py-6">{t('common.loading')}</div>
+                ) : logs.length === 0 ? (
+                  <div className="text-xs text-muted-foreground text-center py-6">{t('api_keys.log_empty')}</div>
+                ) : (
+                  <div className="divide-y max-h-80 overflow-y-auto">
+                    {logs.map(log => {
+                      const diff = parseDiff(log.diff);
+                      const isExpanded = expandedLog === log.id;
+                      return (
+                        <div key={log.id} className="px-4 py-2.5 space-y-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="text-xs font-mono text-foreground leading-relaxed">{log.description}</span>
+                            <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
+                              {new Date(log.timestamp).toLocaleString()}
+                            </span>
+                          </div>
+                          {diff && (
+                            <button
+                              type="button"
+                              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                              onClick={() => setExpandedLog(isExpanded ? null : log.id)}
+                            >
+                              {isExpanded ? t('api_keys.log_hide_diff') : t('api_keys.log_show_diff')}
+                            </button>
+                          )}
+                          {isExpanded && diff && (
+                            <pre className="text-xs bg-muted rounded p-2 overflow-x-auto max-h-40 whitespace-pre-wrap break-all">
+                              {JSON.stringify(diff.after, null, 2)}
+                            </pre>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <div className="border-t px-4 py-2 flex justify-end">
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => void loadLogs()}
+                  >
+                    {t('api_keys.log_refresh')}
+                  </button>
+                </div>
               </div>
             )}
+          </div>
         </div>
       </div>
 
       {/* Create Key Dialog */}
       <Dialog open={showCreate} onOpenChange={open => { if (!open) setShowCreate(false); }}>
-        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+        <DialogContent className="max-w-lg max-h-[85vh]">
           <DialogHeader>
             <DialogTitle>{t('api_keys.create')}</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+          <div className="flex-1 overflow-y-auto -mx-6 px-6 space-y-4 py-1">
             <div className="space-y-1.5">
               <label className="text-sm font-medium">{t('api_keys.form_name')}</label>
               <Input value={formName} onChange={e => setFormName(e.target.value)} placeholder={t('api_keys.form_name_placeholder')} />

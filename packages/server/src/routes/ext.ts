@@ -1,11 +1,178 @@
 import { Router } from 'express';
-import { getDb, getTableSchema, writeJournal } from '../db';
+import { getDb, getTableSchema, getUserTables, writeJournal } from '../db';
 import { requireApiKey } from '../middleware/api-key-auth';
 import { executeBefore, executeAfter } from '../engine/rule-engine';
 import { recalculateComputedFields } from '../engine/formula-handler';
 import { p, isSafeFieldName, getRelationColumns } from '../utils';
 
 const router = Router();
+
+// ──────────────────────────────────────────────
+// GET /openapi.json — dynamic OpenAPI 3.0 spec
+// ──────────────────────────────────────────────
+
+function sqliteTypeToOpenApi(sqlType: string): { type: string; format?: string } {
+  const t = sqlType.toUpperCase();
+  if (t.includes('INT')) return { type: 'integer' };
+  if (t.includes('REAL') || t.includes('FLOAT') || t.includes('DOUBLE') || t.includes('NUMERIC')) return { type: 'number' };
+  if (t.includes('BOOL')) return { type: 'boolean' };
+  return { type: 'string' };
+}
+
+router.get('/openapi.json', (_req, res) => {
+  const tables = getUserTables();
+
+  const paths: Record<string, unknown> = {
+    '/api/ext/webhook/callback': {
+      post: {
+        summary: 'Webhook callback write-back',
+        tags: ['webhook'],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['table', 'record_id', 'updates'],
+                properties: {
+                  table: { type: 'string', description: 'Target table name' },
+                  record_id: { type: 'string', description: 'Record ID to update' },
+                  updates: { type: 'object', additionalProperties: true },
+                },
+              },
+            },
+          },
+        },
+        responses: { '200': { description: 'OK' } },
+      },
+    },
+  };
+
+  const schemas: Record<string, unknown> = {};
+  const readOnlyFields = ['id', 'created_at', 'updated_at'];
+
+  for (const table of tables) {
+    const columns = getTableSchema(table);
+    const properties: Record<string, unknown> = {};
+
+    for (const col of columns) {
+      const oaType = sqliteTypeToOpenApi(col.type);
+      properties[col.name] = {
+        ...oaType,
+        ...(readOnlyFields.includes(col.name) ? { readOnly: true } : {}),
+      };
+    }
+
+    schemas[table] = { type: 'object', properties };
+
+    const writeableProps: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(properties)) {
+      if (!readOnlyFields.includes(k)) writeableProps[k] = v;
+    }
+    const writeSchema = { type: 'object', properties: writeableProps };
+
+    const collectionPath = `/api/ext/data/${table}`;
+    const itemPath = `/api/ext/data/${table}/{id}`;
+
+    paths[collectionPath] = {
+      get: {
+        summary: `List ${table}`,
+        tags: [table],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 20, maximum: 100 } },
+          { name: 'sort', in: 'query', schema: { type: 'string' } },
+          { name: 'order', in: 'query', schema: { type: 'string', enum: ['asc', 'desc'] } },
+          { name: 'search', in: 'query', schema: { type: 'string' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Paginated list',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    rows: { type: 'array', items: { $ref: `#/components/schemas/${table}` } },
+                    total: { type: 'integer' },
+                    page: { type: 'integer' },
+                    limit: { type: 'integer' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        summary: `Create ${table}`,
+        tags: [table],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: writeSchema } },
+        },
+        responses: {
+          '201': {
+            description: 'Created record',
+            content: { 'application/json': { schema: { $ref: `#/components/schemas/${table}` } } },
+          },
+        },
+      },
+    };
+
+    paths[itemPath] = {
+      get: {
+        summary: `Get ${table} by ID`,
+        tags: [table],
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          '200': { content: { 'application/json': { schema: { $ref: `#/components/schemas/${table}` } } } },
+          '404': { description: 'Not found' },
+        },
+      },
+      patch: {
+        summary: `Partial update ${table}`,
+        tags: [table],
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: writeSchema } },
+        },
+        responses: {
+          '200': { content: { 'application/json': { schema: { $ref: `#/components/schemas/${table}` } } } },
+          '404': { description: 'Not found' },
+        },
+      },
+    };
+  }
+
+  const spec = {
+    openapi: '3.0.0',
+    info: {
+      title: 'Zenku External API',
+      version: '1.0.0',
+      description: 'External API for integrating n8n, Zapier, and other automation tools with Zenku.',
+    },
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'zk_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+        },
+      },
+      schemas,
+    },
+    paths,
+  };
+
+  res.json(spec);
+});
 
 // ──────────────────────────────────────────────
 // GET /:table — list records
@@ -197,7 +364,7 @@ router.patch('/data/:table/:id', requireApiKey('write:*'), async (req, res) => {
 
     writeJournal({
       agent: 'ext_api', type: 'data_change',
-      description: `API Key write-back to ${table} #${id}`,
+      description: `API Key [${req.apiKeyId}] PATCH ${table} #${id}`,
       diff: { before: oldData, after: updated },
       user_request: 'api_key_patch',
       reversible: true,
@@ -251,8 +418,8 @@ router.post('/webhook/callback', requireApiKey('webhook:callback'), async (req, 
     ).run(...(Object.values(updates) as (string | number | null)[]), rid);
 
     writeJournal({
-      agent: 'webhook', type: 'data_change',
-      description: `Webhook callback updated ${table} #${String(rid)}`,
+      agent: 'ext_api', type: 'data_change',
+      description: `API Key [${req.apiKeyId}] callback ${table} #${String(rid)}`,
       diff: { before: oldData ?? null, after: updates },
       user_request: 'webhook_callback',
       reversible: true,

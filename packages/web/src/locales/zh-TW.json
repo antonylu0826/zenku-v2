@@ -442,7 +442,12 @@
     "form_name": "金鑰名稱",
     "form_name_placeholder": "例如：n8n 生產環境",
     "form_scopes": "權限範圍",
-    "form_expires": "到期日"
+    "form_expires": "到期日",
+    "log_title": "流入活動記錄",
+    "log_empty": "尚無流入記錄。",
+    "log_show_diff": "顯示異動內容",
+    "log_hide_diff": "隱藏異動內容",
+    "log_refresh": "重新整理"
   },
   "admin_appearance": {
     "title": "條件外觀管理",

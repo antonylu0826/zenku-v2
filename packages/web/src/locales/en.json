@@ -436,7 +436,12 @@
     "form_name": "Key Name",
     "form_name_placeholder": "e.g. n8n Production",
     "form_scopes": "Permission Scopes",
-    "form_expires": "Expiry Date"
+    "form_expires": "Expiry Date",
+    "log_title": "Inbound Activity Log",
+    "log_empty": "No inbound activity yet.",
+    "log_show_diff": "Show changes",
+    "log_hide_diff": "Hide changes",
+    "log_refresh": "Refresh"
   },
   "admin_appearance": {
     "title": "Conditional Appearance",

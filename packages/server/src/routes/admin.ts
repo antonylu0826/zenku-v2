@@ -512,4 +512,15 @@ router.delete('/admin/api-keys/:id', requireAdmin, (req, res) => {
   res.json({ success: true });
 });
 
+router.get('/admin/api-keys/logs', requireAdmin, (_req, res) => {
+  const db = getDb();
+  const logs = db.prepare(
+    `SELECT id, timestamp, description, diff, user_request
+     FROM _zenku_journal
+     WHERE agent = 'ext_api'
+     ORDER BY id DESC LIMIT 100`
+  ).all();
+  res.json(logs);
+});
+
 export default router;
