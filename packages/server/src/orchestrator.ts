@@ -148,7 +148,7 @@ Field Type Guide:
 - Status/Category (Dynamic) -> schema: TEXT, ui type: select + source.`;
 }
 
-function buildDynamicContext(): string {
+export function buildDynamicContext(): string {
   const tables = getUserTables();
   const views = getAllViews();
   const rules = getAllRules();

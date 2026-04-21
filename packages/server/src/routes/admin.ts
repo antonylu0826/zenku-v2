@@ -466,6 +466,9 @@ router.get('/admin/api-keys/scopes', requireAdmin, (_req, res) => {
     { value: 'read:*', label: 'Read all tables', group: 'Global' },
     { value: 'write:*', label: 'Write all tables', group: 'Global' },
     { value: 'webhook:callback', label: 'Webhook callback', group: 'Global' },
+    { value: 'mcp:read', label: 'MCP — query & read schema', group: 'MCP' },
+    { value: 'mcp:write', label: 'MCP — read + write data', group: 'MCP' },
+    { value: 'mcp:admin', label: 'MCP — full access (schema, UI, rules)', group: 'MCP' },
   ];
   for (const table of tables) {
     for (const action of actions) {

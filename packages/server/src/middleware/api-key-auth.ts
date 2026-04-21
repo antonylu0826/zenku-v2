@@ -24,10 +24,23 @@ function checkRateLimit(keyId: string): boolean {
   return true;
 }
 
+export function expandScopes(scopes: string[]): string[] {
+  const expanded = new Set(scopes);
+  if (expanded.has('mcp:admin')) {
+    expanded.add('mcp:write');
+    expanded.add('mcp:read');
+  }
+  if (expanded.has('mcp:write')) {
+    expanded.add('mcp:read');
+  }
+  return [...expanded];
+}
+
 export function requireApiKey(scope: string) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const header = req.headers.authorization;
     if (!header?.startsWith('Bearer zk_live_')) {
+      res.setHeader('WWW-Authenticate', 'Bearer realm="zenku", charset="UTF-8"');
       res.status(401).json({ error: 'ERROR_API_KEY_REQUIRED' });
       return;
     }

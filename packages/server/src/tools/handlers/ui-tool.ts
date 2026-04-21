@@ -218,8 +218,7 @@ When users say "statistics/kanban/calendar/gallery", directly create a view of t
               properties: {
                 columns: {
                   type: 'integer',
-                  enum: [1, 2, 3, 4],
-                  description: 'Form column count. Always set explicitly when fields >= 5. Use 2 for most multi-field forms; 3 for 8+ fields; 4 for demo/showcase views with many field types.',
+                  description: 'Form column count: 1, 2, 3, or 4. Always set explicitly when fields >= 5. Use 2 for most multi-field forms; 3 for 8+ fields; 4 for demo/showcase views with many field types.',
                 },
                 fields: {
                   type: 'array',

@@ -14,6 +14,7 @@ import dataRouter from './routes/data';
 import chatRouter from './routes/chat';
 import extRouter from './routes/ext';
 import filesRouter from './routes/files';
+import mcpRouter from './routes/mcp';
 import { requireAuth } from './middleware/auth';
 import crypto from 'crypto';
 
@@ -33,6 +34,7 @@ app.use('/api/data', dataRouter);
 app.use('/api', chatRouter);
 app.use('/api/ext', extRouter);
 app.use('/api/files', filesRouter);
+app.use('/api/mcp', mcpRouter);
 
 // ──────────────────────────────────────────────
 // Webhook callback
