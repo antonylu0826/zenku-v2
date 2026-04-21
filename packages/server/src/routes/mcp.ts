@@ -47,11 +47,28 @@ function sanitizeSchemaForMcp(schema: any): any {
 function buildMcpInstructions(): string {
   return `You are connected to a Zenku instance — a low-code application runtime.
 
-Tool usage rules:
-- manage_schema before manage_ui when creating or modifying data types.
+## Tool usage rules
+- Call manage_schema before manage_ui when creating or modifying data types.
 - Never guess column names; call get_table_schema first if unsure.
 - query_data is SELECT-only; use write_data for mutations.
 - Destructive schema changes (drop_column, drop_table) require assess_impact first.
+- When updating an existing view, always call manage_ui(get_view) first, then submit the COMPLETE modified definition with update_view. Never send a partial definition.
+
+## Creating views (manage_ui)
+Every view MUST include an "actions" array. Without it, no buttons appear in the UI.
+- Standard CRUD: actions: ["create", "edit", "delete"]
+- Read-only: actions: []
+- With export: actions: ["create", "edit", "delete", "export"]
+
+Field naming: use English lowercase_underscore for all table and field names.
+
+form.columns controls the form layout width (integer 1–4):
+- Set 2 for most forms with 5+ fields; 3 for 8+ fields.
+
+## Relation fields
+- Schema: INTEGER + references: { table: 'other_table' }
+- UI columns: type "relation", relation: { table, display_field }
+- UI form: type "relation", relation: { table, value_field: "id", display_field }
 
 ${buildDynamicContext()}`;
 }
