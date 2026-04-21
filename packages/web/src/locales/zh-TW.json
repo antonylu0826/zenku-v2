@@ -189,6 +189,8 @@
       "type_kanban": "看板模式",
       "type_calendar": "行事曆",
       "type_gallery": "圖庫",
+      "type_form_only": "單頁表單",
+      "type_timeline": "時間軸",
       "badge_field_count": "{{count}} 欄位",
       "badge_column_count": "{{count}} 欄位",
       "badge_rule_count": "{{count}} 規則",

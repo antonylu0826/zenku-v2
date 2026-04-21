@@ -60,6 +60,8 @@ Every view MUST include an "actions" array. Without it, no buttons appear in the
 - Read-only: actions: []
 - With export: actions: ["create", "edit", "delete", "export"]
 
+**Field key alignment (critical):** Every form field "key" and every column "key" in a view MUST exactly match the actual database column name returned by get_table_schema. A mismatch causes runtime errors when saving records. After calling manage_schema, always verify column names before passing them to manage_ui.
+
 Field naming: use English lowercase_underscore for all table and field names.
 
 form.columns controls the form layout width (integer 1–4):
@@ -107,7 +109,7 @@ router.post('/', requireApiKey('mcp:read'), async (req, res) => {
       };
     }
 
-    const result = await dispatchTool(name, args ?? {});
+    const result = await dispatchTool(name, args ?? {}, '(MCP)');
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result) }],
       isError: !result.success,

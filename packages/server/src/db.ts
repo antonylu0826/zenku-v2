@@ -503,5 +503,5 @@ export function logChange(agent: string, action: string, detail: unknown, userRe
   db.prepare(`
     INSERT INTO _zenku_changes (agent, action, detail, user_request)
     VALUES (?, ?, ?, ?)
-  `).run(agent, action, JSON.stringify(detail), userRequest);
+  `).run(agent, action, JSON.stringify(detail), userRequest ?? '');
 }

@@ -183,6 +183,8 @@
       "type_kanban": "Kanban",
       "type_calendar": "Calendar",
       "type_gallery": "Gallery",
+      "type_form_only": "Form Only",
+      "type_timeline": "Timeline",
       "badge_field_count": "{{count}} fields",
       "badge_column_count": "{{count}} fields",
       "badge_rule_count": "{{count}} rules",

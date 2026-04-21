@@ -41,6 +41,8 @@ const VIEW_TYPE_COLOR: Record<string, string> = {
   'kanban': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
   'calendar': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
   'gallery': 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300',
+  'form-only': 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300',
+  'timeline': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
 };
 const FIELD_TYPE_COLOR: Record<string, string> = {
   text: 'bg-gray-100 text-gray-600', number: 'bg-blue-50 text-blue-600',
@@ -1021,12 +1023,14 @@ export function ViewManagement() {
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
   const VIEW_TYPE_LABEL: Record<string, string> = {
-    'table': t('admin.views.type_table'), 
+    'table': t('admin.views.type_table'),
     'master-detail': t('admin.views.type_master_detail'),
-    'dashboard': t('admin.views.type_dashboard'), 
-    'kanban': t('admin.views.type_kanban'), 
+    'dashboard': t('admin.views.type_dashboard'),
+    'kanban': t('admin.views.type_kanban'),
     'calendar': t('admin.views.type_calendar'),
     'gallery': t('admin.views.type_gallery'),
+    'form-only': t('admin.views.type_form_only'),
+    'timeline': t('admin.views.type_timeline'),
   };
 
   const fetchViews = async () => {
@@ -1324,7 +1328,7 @@ export function ViewManagement() {
                 {/* Columns tab */}
                 <TabsContent value="column" className="flex-1 overflow-y-auto mt-0 mx-6 mb-3 space-y-4">
                   <ColumnSection
-                    title={selected.definition.type === 'master-detail' ? `Master: ${selected.definition.name}` : undefined}
+                    title={selected.definition.type === 'master-detail' ? t('admin.views.title_master_table', { name: selected.definition.name }) : undefined}
                     columns={selected.definition.columns ?? []}
                     onSaveLabel={(key, label) => saveFieldProp('column', key, { label })}
                     onToggle={(key, prop, val) => saveFieldProp('column', key, { [prop]: val })}
@@ -1334,7 +1338,7 @@ export function ViewManagement() {
                   {(selected.definition.detail_views ?? []).map((dv, dvIdx) => (
                     <ColumnSection
                       key={dv.table_name}
-                      title={`Detail: ${dv.tab_label} (${dv.table_name})`}
+                      title={t('admin.views.title_detail_table', { label: dv.tab_label, table: dv.table_name })}
                       columns={dv.view.columns ?? []}
                       onSaveLabel={(key, label) => saveFieldProp('column', key, { label }, dvIdx)}
                       onToggle={(key, prop, val) => saveFieldProp('column', key, { [prop]: val }, dvIdx)}

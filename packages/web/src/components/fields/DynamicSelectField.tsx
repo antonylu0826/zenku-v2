@@ -13,6 +13,11 @@ interface Props {
   onChange: (value: unknown) => void;
 }
 
+function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem('zenku-token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export function DynamicSelectField({ field, value, onChange }: Props) {
   const [options, setOptions] = useState<Option[]>([]);
 
@@ -20,9 +25,9 @@ export function DynamicSelectField({ field, value, onChange }: Props) {
 
   useEffect(() => {
     const params = new URLSearchParams({ value_field, display_field });
-    fetch(`/api/data/${table}/options?${params}`)
-      .then(r => r.json())
-      .then((data: Option[]) => setOptions(data))
+    fetch(`/api/data/${table}/options?${params}`, { headers: getAuthHeaders() })
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((data: unknown) => setOptions(Array.isArray(data) ? (data as Option[]) : []))
       .catch(() => setOptions([]));
   }, [table, value_field, display_field]);
 
