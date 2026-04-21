@@ -1,4 +1,5 @@
 import { getDb, getTableSchema, getAllSchemas, logChange, writeJournal } from '../db';
+import { executeBefore, executeAfter } from '../engine/rule-engine';
 import type { AgentResult } from '../types';
 
 const ALLOWED_TYPES = new Set(['TEXT', 'INTEGER', 'REAL', 'BLOB', 'BOOLEAN', 'DATE', 'DATETIME']);
@@ -192,7 +193,7 @@ interface WriteDataInput {
   where?: Record<string, ScalarValue>;
 }
 
-export function writeData(input: WriteDataInput, userRequest: string): AgentResult {
+export async function writeData(input: WriteDataInput, userRequest: string): Promise<AgentResult> {
   const { operation, table, data = {}, where } = input;
 
   if (!isSafeTableName(table)) {
@@ -219,13 +220,20 @@ export function writeData(input: WriteDataInput, userRequest: string): AgentResu
     const keys = Object.keys(data);
     if (keys.length === 0) return { success: false, message: 'Data cannot be empty for insert' };
 
-    const cols = keys.map(k => `"${k}"`).join(', ');
-    const placeholders = keys.map(() => '?').join(', ');
-    const values = keys.map(k => data[k]);
+    // Run before_insert rules
+    const before = executeBefore(table, 'insert', data as Record<string, unknown>);
+    if (!before.allowed) {
+      return { success: false, message: before.errors.join('; ') };
+    }
+    const finalData = before.data;
+
+    const finalKeys = Object.keys(finalData);
+    const cols = finalKeys.map(k => `"${k}"`).join(', ');
+    const placeholders = finalKeys.map(() => '?').join(', ');
 
     const result = db.prepare(
       `INSERT INTO "${table}" (${cols}) VALUES (${placeholders})`
-    ).run(...values.map(toSQLValue));
+    ).run(...finalKeys.map(k => toSQLValue(finalData[k] as ScalarValue)));
 
     const insertedId = result.lastInsertRowid;
 
@@ -233,11 +241,13 @@ export function writeData(input: WriteDataInput, userRequest: string): AgentResu
       agent: 'user',
       type: 'data_write',
       description: `AI inserted 1 record into ${table} (id: ${insertedId})`,
-      diff: { before: null, after: { table, data } },
+      diff: { before: null, after: { table, data: finalData } },
       user_request: userRequest,
       reversible: true,
       reverse_operations: [{ type: 'sql', sql: `DELETE FROM "${table}" WHERE id = ${insertedId}` }],
     });
+
+    await executeAfter(table, 'insert', { ...finalData, id: Number(insertedId) });
 
     return {
       success: true,
@@ -254,25 +264,42 @@ export function writeData(input: WriteDataInput, userRequest: string): AgentResu
     const dataKeys = Object.keys(data);
     if (dataKeys.length === 0) return { success: false, message: 'Update fields cannot be empty' };
 
-    const sets = dataKeys.map(k => `"${k}" = ?`).join(', ');
+    // Fetch old record for before rules
     const wheres = whereKeys.map(k => `"${k}" = ?`).join(' AND ');
+    const whereValues = whereKeys.map(k => (where as Record<string, ScalarValue>)[k]);
+    const oldRecord = db.prepare(
+      `SELECT * FROM "${table}" WHERE ${wheres} LIMIT 1`
+    ).get(...whereValues.map(toSQLValue)) as Record<string, unknown> | undefined;
+
+    const before = executeBefore(table, 'update', data as Record<string, unknown>, oldRecord);
+    if (!before.allowed) {
+      return { success: false, message: before.errors.join('; ') };
+    }
+    const finalData = before.data;
+
+    const finalKeys = Object.keys(finalData);
+    const sets = finalKeys.map(k => `"${k}" = ?`).join(', ');
     const values = [
-      ...dataKeys.map(k => data[k]),
-      ...whereKeys.map(k => (where as Record<string, ScalarValue>)[k]),
+      ...finalKeys.map(k => finalData[k]),
+      ...whereValues,
     ];
 
     const result = db.prepare(
       `UPDATE "${table}" SET ${sets} WHERE ${wheres}`
-    ).run(...values.map(toSQLValue));
+    ).run(...values.map(v => toSQLValue(v as ScalarValue)));
 
     writeJournal({
       agent: 'user',
       type: 'data_write',
       description: `AI updated ${result.changes} records in ${table}`,
-      diff: { before: where ?? null, after: { ...where, ...data } },
+      diff: { before: oldRecord ?? null, after: { ...where, ...finalData } },
       user_request: userRequest,
       reversible: false,
     });
+
+    if (oldRecord) {
+      await executeAfter(table, 'update', { ...oldRecord, ...finalData }, oldRecord);
+    }
 
     return {
       success: true,
@@ -288,20 +315,33 @@ export function writeData(input: WriteDataInput, userRequest: string): AgentResu
     }
 
     const wheres = whereKeys.map(k => `"${k}" = ?`).join(' AND ');
-    const values = whereKeys.map(k => (where as Record<string, ScalarValue>)[k]);
+    const whereValues = whereKeys.map(k => (where as Record<string, ScalarValue>)[k]);
+
+    const oldRecord = db.prepare(
+      `SELECT * FROM "${table}" WHERE ${wheres} LIMIT 1`
+    ).get(...whereValues.map(toSQLValue)) as Record<string, unknown> | undefined;
+
+    const before = executeBefore(table, 'delete', oldRecord ?? (where as Record<string, unknown>));
+    if (!before.allowed) {
+      return { success: false, message: before.errors.join('; ') };
+    }
 
     const result = db.prepare(
       `DELETE FROM "${table}" WHERE ${wheres}`
-    ).run(...values.map(toSQLValue));
+    ).run(...whereValues.map(toSQLValue));
 
     writeJournal({
       agent: 'user',
       type: 'data_write',
       description: `AI deleted ${result.changes} records from ${table}`,
-      diff: { before: where ?? null, after: null },
+      diff: { before: oldRecord ?? null, after: null },
       user_request: userRequest,
       reversible: false,
     });
+
+    if (oldRecord) {
+      await executeAfter(table, 'delete', oldRecord);
+    }
 
     return {
       success: true,
