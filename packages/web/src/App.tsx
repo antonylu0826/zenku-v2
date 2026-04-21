@@ -6,12 +6,17 @@ import { Toaster } from './components/ui/sonner';
 import { ViewsProvider } from './contexts/ViewsContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { LoginPage } from './components/auth/LoginPage';
+import { SetupWizard } from './components/auth/SetupWizard';
 
 export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider
-        fallback={(hasUsers, onAuth) => <LoginPage hasUsers={hasUsers} onAuth={onAuth} />}
+        fallback={(hasUsers, onAuth) =>
+          hasUsers
+            ? <LoginPage hasUsers={hasUsers} onAuth={onAuth} />
+            : <SetupWizard onAuth={onAuth} />
+        }
       >
         {() => (
           <ViewsProvider>
