@@ -3,6 +3,7 @@ import { getDb, getTableSchema, writeJournal } from '../db';
 import { requireAuth } from '../middleware/auth';
 import { executeBefore, executeAfter } from '../engine/rule-engine';
 import { recalculateComputedFields } from '../engine/formula-handler';
+import { applyAutoNumbers } from '../engine/auto-number-engine';
 import { p, isSafeFieldName, getRelationColumns, getMultiselectColumns } from '../utils';
 
 const router = Router();
@@ -277,8 +278,9 @@ router.post('/:table', requireAuth, async (req, res) => {
       res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: beforeResult.errors.join('; ') } });
       return;
     }
-    // Auto-calculate formula fields
-    const finalData = recalculateComputedFields(table, beforeResult.data);
+    // Auto-generate sequential numbers, then calculate formula fields
+    const withAutoNumbers = applyAutoNumbers(table, beforeResult.data);
+    const finalData = recalculateComputedFields(table, withAutoNumbers);
 
     const keys = Object.keys(finalData);
     const placeholders = keys.map(() => '?').join(', ');

@@ -2,6 +2,7 @@
 export type {
   BasicFieldType, ExtendedFieldType, FileFieldType, FieldType,
   RelationDef, SourceDef, ComputedDef, ValidationDef, FieldDef,
+  AutoNumberConfig,
 } from './types/field';
 export { FIELD_TYPES } from './types/field';
 

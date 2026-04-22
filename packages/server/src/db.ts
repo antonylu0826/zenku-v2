@@ -167,6 +167,15 @@ function initSystemTables(db: DatabaseSync): void {
 
     CREATE INDEX IF NOT EXISTS idx_files_record ON _zenku_files(table_name, record_id, field_name);
 
+    CREATE TABLE IF NOT EXISTS _zenku_counters (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      table_name    TEXT    NOT NULL,
+      field_name    TEXT    NOT NULL,
+      period        TEXT    NOT NULL DEFAULT '',
+      current_value INTEGER NOT NULL DEFAULT 0,
+      UNIQUE(table_name, field_name, period)
+    );
+
   `);
 
   // Migrations for existing databases
@@ -273,6 +282,16 @@ export function getAllViews() {
     created_at: string;
     updated_at: string;
   }[];
+}
+
+export function getPrimaryViewForTable(tableName: string): { definition: string } | undefined {
+  const db = getDb();
+  return db.prepare(`
+    SELECT definition FROM _zenku_views
+    WHERE table_name = ?
+    ORDER BY (CASE WHEN json_extract(definition, '$.type') IN ('table', 'master-detail') THEN 0 ELSE 1 END) ASC
+    LIMIT 1
+  `).get(tableName) as { definition: string } | undefined;
 }
 
 // ===== Rules =====

@@ -1,5 +1,5 @@
 import { evaluateFormula } from '@zenku/shared';
-import { getDb } from '../db';
+import { getPrimaryViewForTable } from '../db';
 import { ViewDefinition } from '../types';
 
 /**
@@ -9,16 +9,7 @@ import { ViewDefinition } from '../types';
  * @returns New data object with computed results
  */
 export function recalculateComputedFields(tableName: string, data: Record<string, any>): Record<string, any> {
-  const db = getDb();
-  
-  // 1. Find the View definition associated with this table
-  // Prefer views of type 'master-detail' or 'table'
-  const viewRow = db.prepare(`
-    SELECT definition FROM _zenku_views 
-    WHERE table_name = ? 
-    ORDER BY (CASE WHEN json_extract(definition, '$.type') = 'master-detail' THEN 0 ELSE 1 END) ASC
-    LIMIT 1
-  `).get(tableName) as { definition: string } | undefined;
+  const viewRow = getPrimaryViewForTable(tableName);
 
   if (!viewRow) return data;
 

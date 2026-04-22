@@ -1,5 +1,6 @@
 import { getDb, getTableSchema, getAllSchemas, logChange, writeJournal } from '../db';
 import { executeBefore, executeAfter } from '../engine/rule-engine';
+import { applyAutoNumbers } from '../engine/auto-number-engine';
 import type { AgentResult } from '../types';
 
 const ALLOWED_TYPES = new Set(['TEXT', 'INTEGER', 'REAL', 'BLOB', 'BOOLEAN', 'DATE', 'DATETIME']);
@@ -220,12 +221,12 @@ export async function writeData(input: WriteDataInput, userRequest: string): Pro
     const keys = Object.keys(data);
     if (keys.length === 0) return { success: false, message: 'Data cannot be empty for insert' };
 
-    // Run before_insert rules
+    // Run before_insert rules, then inject auto-numbers
     const before = executeBefore(table, 'insert', data as Record<string, unknown>);
     if (!before.allowed) {
       return { success: false, message: before.errors.join('; ') };
     }
-    const finalData = before.data;
+    const finalData = applyAutoNumbers(table, before.data);
 
     const finalKeys = Object.keys(finalData);
     const cols = finalKeys.map(k => `"${k}"`).join(', ');

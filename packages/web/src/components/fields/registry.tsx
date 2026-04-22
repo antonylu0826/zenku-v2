@@ -14,6 +14,7 @@ import { ProgressField, ProgressReadonly } from './ProgressField';
 import { ColorField, ColorReadonly } from './ColorField';
 import { TimeField, TimeReadonly } from './TimeField';
 import { ImageField, ImageReadonly } from './ImageField';
+import { AutoNumberField, AutoNumberReadonly } from './AutoNumberField';
 import type { FieldDef, FieldType } from '../../types';
 import { cn } from '../../lib/cn';
 
@@ -295,6 +296,7 @@ export const FIELD_REGISTRY: Record<FieldType, FieldEntry> = {
   image:    { input: ImageInputWrapper,     readonly: ImageReadonlyWrapper, fullWidth: true },
   rating:   { input: RatingInputWrapper,   readonly: RatingReadonly },
   progress: { input: ProgressInputWrapper, readonly: ProgressReadonly },
-  color:    { input: ColorInputWrapper,    readonly: ColorReadonly },
-  time:     { input: TimeInputWrapper,     readonly: TimeReadonly },
+  color:       { input: ColorInputWrapper,    readonly: ColorReadonly },
+  time:        { input: TimeInputWrapper,     readonly: TimeReadonly },
+  auto_number: { input: AutoNumberField,      readonly: AutoNumberReadonly },
 };

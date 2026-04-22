@@ -8,7 +8,7 @@ import type { AppearanceRule } from './appearance';
 // ===== Field Types =====
 
 /** Phase 1 (existing) basic types */
-export type BasicFieldType = 'text' | 'number' | 'select' | 'multiselect' | 'boolean' | 'date' | 'datetime' | 'textarea' | 'rating' | 'progress' | 'color' | 'time';
+export type BasicFieldType = 'text' | 'number' | 'select' | 'multiselect' | 'boolean' | 'date' | 'datetime' | 'textarea' | 'rating' | 'progress' | 'color' | 'time' | 'auto_number';
 
 /** Phase 2 extended types */
 export type ExtendedFieldType = 'relation' | 'currency' | 'phone' | 'email' | 'url' | 'enum' | 'richtext';
@@ -21,7 +21,7 @@ export type FieldType = BasicFieldType | ExtendedFieldType | FileFieldType;
 
 /** Runtime constant array (used by server-side AI tool schema) */
 export const FIELD_TYPES: FieldType[] = [
-  'text', 'number', 'select', 'multiselect', 'boolean', 'date', 'datetime', 'textarea', 'rating', 'progress', 'color', 'time',
+  'text', 'number', 'select', 'multiselect', 'boolean', 'date', 'datetime', 'textarea', 'rating', 'progress', 'color', 'time', 'auto_number',
   'relation', 'currency', 'phone', 'email', 'url', 'enum', 'richtext',
   'image', 'file',
 ];
@@ -48,6 +48,19 @@ export interface SourceDef {
   value_field: string;
   /** Option display field */
   display_field: string;
+}
+
+// ===== Auto Number Config =====
+
+export interface AutoNumberConfig {
+  /** String prefix, e.g. 'ORD-', 'INV-' */
+  prefix?: string;
+  /** Date segment inserted after prefix; also determines reset cycle */
+  date_format?: 'YYYY' | 'YYYYMM' | 'YYYYMMDD';
+  /** Zero-padding width for the sequence number (default: 4) */
+  padding?: number;
+  /** Counter reset cycle (default: 'never') */
+  reset?: 'never' | 'yearly' | 'monthly' | 'daily';
 }
 
 // ===== Computed Field =====
@@ -94,6 +107,8 @@ export interface FieldDef {
   relation?: RelationDef;
   /** Computed field definition */
   computed?: ComputedDef;
+  /** Auto-number field configuration */
+  auto_number?: AutoNumberConfig;
 
   /** Hide in the table list */
   hidden_in_table?: boolean;

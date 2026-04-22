@@ -53,6 +53,23 @@ export const FORM_FIELD_SCHEMA = {
       },
       required: ['formula', 'dependencies'],
     },
+    auto_number: {
+      type: 'object',
+      description: `Auto-number field config (required when type is "auto_number").
+The server generates a sequential number automatically on every insert — do NOT ask the user to fill this field.
+Format: {prefix}{date_segment}{seq padded to padding digits}, e.g. "ORD-20240422-0001".
+Properties:
+- prefix: string prefix, e.g. "ORD-", "INV-" (optional)
+- date_format: "YYYY" | "YYYYMM" | "YYYYMMDD" — inserts a date segment and sets the reset cycle (optional)
+- padding: zero-padding width for the sequence number, default 4
+- reset: "never" | "yearly" | "monthly" | "daily" — when to restart from 1 (default "never")`,
+      properties: {
+        prefix:      { type: 'string' },
+        date_format: { type: 'string', enum: ['YYYY', 'YYYYMM', 'YYYYMMDD'] },
+        padding:     { type: 'number' },
+        reset:       { type: 'string', enum: ['never', 'yearly', 'monthly', 'daily'] },
+      },
+    },
     accept: {
       type: 'string',
       description: 'For file/image fields: allowed MIME types, e.g. "image/*" or "image/*,application/pdf"',
