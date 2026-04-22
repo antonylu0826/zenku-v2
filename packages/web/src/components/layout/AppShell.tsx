@@ -6,7 +6,7 @@ import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Chevron
 import { Button } from '../ui/button';
 import { ThemeToggle } from './ThemeToggle';
 import { Card } from '../ui/card';
-import { Sheet, SheetContent } from '../ui/sheet';
+import { Sheet, SheetContent, SheetTitle } from '../ui/sheet';
 import { Sidebar } from '../Sidebar';
 import { ChatPanel } from '../ChatPanel';
 import { useViews } from '../../contexts/ViewsContext';
@@ -79,12 +79,14 @@ export function AppShell() {
           onToggleChat={() => setMobileChatOpen(true)}
         />
         <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
-          <SheetContent side="left" className="w-64 p-0">
+          <SheetContent side="left" className="w-64 p-0" aria-describedby={undefined}>
+            <SheetTitle className="sr-only">Navigation</SheetTitle>
             <Sidebar collapsed={false} />
           </SheetContent>
         </Sheet>
         <Sheet open={mobileChatOpen} onOpenChange={setMobileChatOpen}>
-          <SheetContent side="right" className="w-full p-0 sm:w-96">
+          <SheetContent side="right" className="w-full p-0 sm:w-96" aria-describedby={undefined}>
+            <SheetTitle className="sr-only">AI Chat</SheetTitle>
             <ChatPanel onViewsChanged={fetchViews} />
           </SheetContent>
         </Sheet>
