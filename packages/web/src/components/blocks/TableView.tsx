@@ -17,6 +17,7 @@ import { Checkbox } from '../ui/checkbox';
 import { DynamicIcon } from '../ui/dynamic-icon';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { toast } from 'sonner';
@@ -538,35 +539,29 @@ export function TableView({ view, filters, onCreateData }: Props) {
 }
 
 function ColumnVisibilityButton({ table }: { table: ReturnType<typeof useReactTable<any>> }) {
-  const [open, setOpen] = useState(false);
   const { t } = useTranslation();
   const allColumns = table.getAllColumns().filter(col => col.getCanHide());
 
   return (
-    <div className="relative">
-      <Button
-        variant="outline"
-        onClick={() => setOpen(!open)}
-      >
-        <Eye className="mr-1.5 h-4 w-4" />
-        {t('table.view.column_visibility_button')}
-      </Button>
-      {open && (
-        <div className="absolute right-0 z-20 mt-1 w-max min-w-36 rounded-md border bg-white p-2 shadow-md dark:bg-slate-950">
-          {allColumns.map(col => (
-            <label key={col.id} className="flex items-center gap-2 px-2 py-1 text-sm hover:bg-muted rounded cursor-pointer">
-              <input
-                type="checkbox"
-                checked={col.getIsVisible()}
-                onChange={col.getToggleVisibilityHandler()}
-                className="rounded"
-              />
-              {typeof col.columnDef.header === 'function' ? col.id : col.columnDef.header as string}
-            </label>
-          ))}
-        </div>
-      )}
-    </div>
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline">
+          <Eye className="mr-1.5 h-4 w-4" />
+          {t('table.view.column_visibility_button')}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-48 p-2">
+        {allColumns.map(col => (
+          <label key={col.id} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted">
+            <Checkbox
+              checked={col.getIsVisible()}
+              onCheckedChange={v => col.toggleVisibility(!!v)}
+            />
+            {typeof col.columnDef.header === 'function' ? col.id : col.columnDef.header as string}
+          </label>
+        ))}
+      </PopoverContent>
+    </Popover>
   );
 }
 
