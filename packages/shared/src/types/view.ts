@@ -135,7 +135,7 @@ export interface DashboardWidget {
   config?: Record<string, unknown>;
 }
 
-export type WidgetType = 'stat_card' | 'bar_chart' | 'line_chart' | 'pie_chart' | 'mini_table' | 'trend_card';
+export type WidgetType = 'stat_card' | 'bar_chart' | 'line_chart' | 'area_chart' | 'pie_chart' | 'mini_table' | 'trend_card';
 
 // ===== Kanban =====
 

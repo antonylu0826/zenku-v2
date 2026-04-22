@@ -6,6 +6,7 @@ import {
   recordMessage, recordToolEvent, toolToAgent,
 } from './tools/chat-logger';
 import { ALL_TOOLS, dispatchTool } from './tools/registry';
+import { buildDashboardInstructions } from './dashboard-instructions';
 import type { ToolDefinition } from './ai';
 import type { ViewDefinition, LLMMessage, ToolResult, AIProvider as AIProviderName } from './types';
 
@@ -64,10 +65,9 @@ Computed Fields (e.g., "Subtotal = Quantity * Price"):
 
 Visualization Interfaces:
 - Statistics / Dashboard ("Show me XXX stats") -> manage_ui, type: 'dashboard', widgets array.
-  - stat_card: Single number, query returns { value: N }.
-  - bar_chart / line_chart: Query returns [{ label, value }], set config.x_key / y_key.
-  - pie_chart: Query returns [{ label, value }], set config.label_key / value_key.
-  - dashboard does NOT need columns / form / actions.
+
+${buildDashboardInstructions()}
+
 - Kanban -> manage_ui, type: 'kanban', set kanban: { group_field, title_field }.
   - group_field should be a select type with options (e.g., status).
   - Still require columns and form (for list mode fallback).

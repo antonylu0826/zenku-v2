@@ -1,7 +1,21 @@
 import { getDb, logChange, writeJournal } from '../db';
 import type { ViewDefinition, AgentResult } from '../types';
 
+const WIDGET_TYPE_SUFFIX = /\s*\((Pie|Line|Bar|Area|Chart|Stat|Card|Table|Trend)\)\s*$/i;
+
+function sanitizeView(view: ViewDefinition): ViewDefinition {
+  if (!view.widgets?.length) return view;
+  return {
+    ...view,
+    widgets: view.widgets.map(w => ({
+      ...w,
+      title: w.title.replace(WIDGET_TYPE_SUFFIX, '').trim(),
+    })),
+  };
+}
+
 export function createOrUpdateView(view: ViewDefinition, userRequest: string): AgentResult {
+  view = sanitizeView(view);
   const db = getDb();
 
   const existing = db.prepare('SELECT id FROM _zenku_views WHERE id = ?').get(view.id);

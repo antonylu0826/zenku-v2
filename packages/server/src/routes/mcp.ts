@@ -5,6 +5,7 @@ import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprot
 import { requireApiKey, expandScopes } from '../middleware/api-key-auth';
 import { ALL_TOOLS, dispatchTool } from '../tools/registry';
 import { buildDynamicContext } from '../orchestrator';
+import { buildDashboardInstructions } from '../dashboard-instructions';
 import type { ToolDefinition } from '../ai';
 
 const router = Router();
@@ -66,6 +67,8 @@ Field naming: use English lowercase_underscore for all table and field names.
 
 form.columns controls the form layout width (integer 1–4):
 - Set 2 for most forms with 5+ fields; 3 for 8+ fields.
+
+${buildDashboardInstructions()}
 
 ## Relation fields
 - Schema: INTEGER + references: { table: 'other_table' }

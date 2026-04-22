@@ -28,6 +28,11 @@
     --radius-md: var(--radius);
     --radius-lg: calc(var(--radius) + 0.125rem);
     --radius-xl: calc(var(--radius) + 0.25rem);
+    --chart-1: 240 65% 60%;
+    --chart-2: 160 65% 42%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 0 72% 58%;
+    --chart-5: 270 65% 60%;
   }
 
   .dark {
@@ -50,6 +55,11 @@
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
     --ring: 240 4.9% 83.9%;
+    --chart-1: 240 65% 68%;
+    --chart-2: 160 60% 52%;
+    --chart-3: 38 92% 58%;
+    --chart-4: 0 72% 65%;
+    --chart-5: 270 65% 70%;
   }
 
   * {

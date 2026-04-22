@@ -527,6 +527,9 @@
     "created_at": "建立時間",
     "last_updated": "最後更新"
   },
+  "dashboard": {
+    "no_widgets": "此儀表板尚無任何小工具"
+  },
   "common_toast": {
     "load_failed": "載入失敗",
     "update_success": "更新成功",

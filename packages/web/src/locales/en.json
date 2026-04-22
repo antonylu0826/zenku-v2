@@ -521,6 +521,9 @@
     "created_at": "Created at",
     "last_updated": "Last updated"
   },
+  "dashboard": {
+    "no_widgets": "This dashboard has no widgets yet"
+  },
   "common_toast": {
     "load_failed": "Failed to load",
     "update_success": "Updated successfully",
