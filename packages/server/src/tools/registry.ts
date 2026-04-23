@@ -9,6 +9,7 @@ import { manageRulesTool } from './handlers/rule-tool';
 import { assessImpactTool } from './handlers/test-tool';
 import { undoActionTool } from './handlers/undo-tool';
 import { metaTool } from './handlers/meta-tool';
+import { guideTool } from './handlers/guide-tool';
 
 export const ALL_TOOLS: ZenkuTool[] = [
   manageSchemaTool,
@@ -19,6 +20,7 @@ export const ALL_TOOLS: ZenkuTool[] = [
   assessImpactTool,
   undoActionTool,
   metaTool,
+  guideTool,
 ];
 
 export async function dispatchTool(toolName: string, input: any, context?: any): Promise<AgentResult> {

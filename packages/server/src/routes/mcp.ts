@@ -10,7 +10,7 @@ import type { ToolDefinition } from '../ai';
 
 const router = Router();
 
-const READ_TOOLS  = new Set(['query_data', 'get_table_schema']);
+const READ_TOOLS  = new Set(['query_data', 'get_table_schema', 'get_integration_guide']);
 const WRITE_TOOLS = new Set(['write_data']);
 const ADMIN_TOOLS = new Set(['manage_schema', 'manage_ui', 'manage_rules', 'assess_impact', 'undo_action']);
 
