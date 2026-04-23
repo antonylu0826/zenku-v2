@@ -29,6 +29,7 @@ Available Tools:
 - manage_rules: Create or modify business rules (automation, validation, triggers).
 - assess_impact: Assess impact of destructive schema changes (must call before modification).
 - get_table_schema: Retrieve names of all tables or detailed column definitions for a specific table.
+- get_integration_guide: Returns the full integration guide for connecting Zenku with n8n or other automation tools (API endpoints, webhook payload format, write-back options, common errors).
 
 Critical Rules:
 1. New Data Type: manage_schema (create_table) first, then manage_ui (create_view).
