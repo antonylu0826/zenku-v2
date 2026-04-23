@@ -2,13 +2,13 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ZenkuTool } from '../types';
 
-const GUIDE_PATH = join(process.cwd(), 'docs', 'agent-integration-guide.md');
+const GUIDE_PATH = join(process.cwd(), 'docs', 'external-integration-guide.md');
 
 function loadGuide(): string {
   try {
     return readFileSync(GUIDE_PATH, 'utf-8');
   } catch {
-    return 'Integration guide not found. Expected at docs/agent-integration-guide.md';
+    return 'Integration guide not found. Expected at docs/external-integration-guide.md';
   }
 }
 
