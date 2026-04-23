@@ -147,7 +147,7 @@ export function MasterDetailView({ view, recordId }: Props) {
 
       {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto">
-        <div className="space-y-6 p-6">
+        <div className="mx-auto max-w-4xl space-y-6 p-6">
 
           {loading ? (
             <div className="space-y-3">
