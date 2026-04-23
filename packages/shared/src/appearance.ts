@@ -5,10 +5,17 @@
 
 import type { AppearanceCondition, AppearanceEffect, AppearanceRule } from './types/appearance';
 
+/** Optional context for cross-scope references (e.g. master record in master-detail views) */
+export interface AppearanceContext {
+  /** Master record values — available when evaluating detail form appearance rules */
+  master?: Record<string, unknown>;
+}
+
 /**
  * Evaluate a single AppearanceCondition
  * @param condition Condition (may be a compound AND/OR or a single leaf node)
  * @param record    Current form values or row data
+ * @param context   Optional cross-scope context (e.g. { master: masterRecord })
  */
 /**
  * Resolve dynamic value tokens in appearance conditions.
@@ -27,16 +34,24 @@ function isDateString(v: unknown): v is string {
 export function evaluateAppearanceCondition(
   condition: AppearanceCondition,
   record: Record<string, unknown>,
+  context?: AppearanceContext,
 ): boolean {
   // Compound condition
   if ('logic' in condition) {
-    const results = condition.conditions.map(c => evaluateAppearanceCondition(c, record));
+    const results = condition.conditions.map(c => evaluateAppearanceCondition(c, record, context));
     return condition.logic === 'and' ? results.every(Boolean) : results.some(Boolean);
   }
 
   // Leaf node
   const { field, operator } = condition;
-  const fieldVal = record[field];
+
+  // Resolve $master. prefix — look up value from context.master
+  let fieldVal: unknown;
+  if (field.startsWith('$master.') && context?.master) {
+    fieldVal = context.master[field.slice(8)];
+  } else {
+    fieldVal = record[field];
+  }
   const value = resolveValue(condition.value);
 
   // Use string comparison for date fields; numeric otherwise
@@ -70,11 +85,12 @@ export function evaluateAppearanceCondition(
 export function resolveAppearance(
   rules: AppearanceRule[],
   record: Record<string, unknown>,
+  context?: AppearanceContext,
 ): AppearanceEffect {
   let effect: AppearanceEffect = {};
   for (const rule of rules) {
     if (rule.enabled === false) continue;  // Skip disabled rules
-    if (evaluateAppearanceCondition(rule.when, record)) {
+    if (evaluateAppearanceCondition(rule.when, record, context)) {
       effect = { ...effect, ...rule.apply };
     }
   }

@@ -1,6 +1,6 @@
 // Re-export all shared types used by the frontend
 export type {
-  AppearanceCondition, AppearanceEffect, AppearanceRule,
+  AppearanceCondition, AppearanceEffect, AppearanceRule, AppearanceContext
 } from '@zenku/shared';
 export { resolveAppearance } from '@zenku/shared';
 

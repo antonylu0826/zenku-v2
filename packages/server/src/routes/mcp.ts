@@ -75,6 +75,10 @@ ${buildDashboardInstructions()}
 - UI columns: type "relation", relation: { table, display_field }
 - UI form: type "relation", relation: { table, value_field: "id", display_field }
 
+## Conditional Appearance
+- Use appearance[] in form.fields to conditionally hide, disable, or style fields based on other field values.
+- In master-detail views, detail form appearance rules can reference the parent master record by prefixing the field with "$master." (e.g. "$master.status").
+
 ${buildDynamicContext()}`;
 }
 

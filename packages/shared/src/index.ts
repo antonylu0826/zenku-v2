@@ -40,6 +40,7 @@ export type { User, AuthToken } from './types/auth';
 
 // ===== Conditional Appearance =====
 export type { LeafCondition, AppearanceCondition, AppearanceEffect, AppearanceRule } from './types/appearance';
+export type { AppearanceContext } from './appearance';
 export { evaluateAppearanceCondition, resolveAppearance } from './appearance';
 
 // ===== Formula Engine =====

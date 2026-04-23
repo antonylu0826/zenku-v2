@@ -29,11 +29,13 @@ interface Props {
   filters?: Record<string, string | number>;
   /** Called after create when used inside DetailTable (to inject FK value) */
   onCreateData?: (data: Record<string, unknown>) => Record<string, unknown>;
+  /** Parent master record for cross-scope appearance rules */
+  masterRecord?: Record<string, unknown>;
 }
 
 type RowData = Record<string, unknown>;
 
-export function TableView({ view, filters, onCreateData }: Props) {
+export function TableView({ view, filters, onCreateData, masterRecord }: Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const isMasterDetail = view.type === 'master-detail';
@@ -477,7 +479,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
             <DialogDescription>{t('table.view.create_dialog_desc')}</DialogDescription>
           </DialogHeader>
           <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
-            <FormView fields={view.form.fields} columns={formColumns} onSubmit={handleCreate} onCancel={() => setShowCreate(false)} />
+            <FormView fields={view.form.fields} columns={formColumns} masterRecord={masterRecord} onSubmit={handleCreate} onCancel={() => setShowCreate(false)} />
           </div>
         </DialogContent>
       </Dialog>
@@ -494,6 +496,7 @@ export function TableView({ view, filters, onCreateData }: Props) {
                 fields={view.form.fields}
                 columns={formColumns}
                 initialValues={editingRow}
+                masterRecord={masterRecord}
                 onSubmit={handleUpdate}
                 onCancel={() => setEditingRow(null)}
               />

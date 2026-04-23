@@ -173,7 +173,7 @@ export function MasterDetailView({ view, recordId }: Props) {
 
           {/* Detail view cards */}
           {(view.detail_views ?? []).map(dv => (
-            <DetailCard key={dv.table_name} detailView={dv} masterId={recordId} />
+            <DetailCard key={dv.table_name} detailView={dv} masterId={recordId} masterRecord={record || undefined} />
           ))}
 
         </div>
@@ -182,7 +182,7 @@ export function MasterDetailView({ view, recordId }: Props) {
   );
 }
 
-function DetailCard({ detailView, masterId }: { detailView: DetailViewDef; masterId: string }) {
+function DetailCard({ detailView, masterId, masterRecord }: { detailView: DetailViewDef; masterId: string; masterRecord?: Record<string, unknown> }) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
@@ -193,6 +193,7 @@ function DetailCard({ detailView, masterId }: { detailView: DetailViewDef; maste
         <TableView
           view={detailView.view}
           filters={{ [detailView.foreign_key]: masterId }}
+          masterRecord={masterRecord}
           onCreateData={data => ({ ...data, [detailView.foreign_key]: masterId })}
         />
       </CardContent>

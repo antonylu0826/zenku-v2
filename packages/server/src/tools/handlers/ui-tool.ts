@@ -105,9 +105,9 @@ Typical use cases:
         properties: {
           when: {
             type: 'object',
-            description: 'Condition based on current form values. Field must be a key present in the same form.',
+            description: 'Condition based on current form values. Field must be a key present in the same form, or use "$master.field_key" to read from parent master record.',
             properties: {
-              field: { type: 'string', description: 'Form field key to evaluate (must exist in same form)' },
+              field: { type: 'string', description: 'Form field key to evaluate, or "$master.key" for master-detail views' },
               operator: {
                 type: 'string',
                 enum: ['eq', 'neq', 'gt', 'lt', 'gte', 'lte', 'contains'],

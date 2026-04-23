@@ -158,6 +158,7 @@ export function MasterDetailCreateView({ view }: Props) {
             key={dv.table_name}
             detailView={dv}
             rows={draftRows[dv.table_name] ?? []}
+            masterRecord={masterValues}
             onAdd={data => addDraftRow(dv.table_name, data)}
             onRemove={index => removeDraftRow(dv.table_name, index)}
           />
@@ -186,11 +187,13 @@ export function MasterDetailCreateView({ view }: Props) {
 function DraftDetailSection({
   detailView,
   rows,
+  masterRecord,
   onAdd,
   onRemove,
 }: {
   detailView: DetailViewDef;
   rows: RowData[];
+  masterRecord?: Record<string, unknown>;
   onAdd: (data: RowData) => void;
   onRemove: (index: number) => void;
 }) {
@@ -259,7 +262,7 @@ function DraftDetailSection({
             <DialogDescription>{t('master_detail.new_detail_desc')}</DialogDescription>
           </DialogHeader>
           <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
-            <FormView fields={formFields} onSubmit={handleAdd} onCancel={() => setShowAdd(false)} />
+            <FormView fields={formFields} masterRecord={masterRecord} onSubmit={handleAdd} onCancel={() => setShowAdd(false)} />
           </div>
         </DialogContent>
       </Dialog>

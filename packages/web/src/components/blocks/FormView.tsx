@@ -21,6 +21,8 @@ interface Props {
   columns?: 1 | 2 | 3 | 4;
   onSubmit?: (data: Record<string, unknown>) => Promise<void>;
   onCancel?: () => void;
+  /** Parent master record for cross-scope appearance rules */
+  masterRecord?: Record<string, unknown>;
 }
 
 function isFullWidth(field: FieldDef): boolean {
@@ -29,7 +31,7 @@ function isFullWidth(field: FieldDef): boolean {
 
 type ErrorMap = Record<string, string | null>;
 
-export function FormView({ fields, initialValues = {}, mode = 'create', columns = 1, onSubmit, onCancel }: Props) {
+export function FormView({ fields, initialValues = {}, mode = 'create', columns = 1, onSubmit, onCancel, masterRecord }: Props) {
   const { t } = useTranslation();
   // Initialize values for all non-statically-hidden fields (including conditionally hidden fields, to keep tracking their values)
   const allFormFields = useMemo(() => fields.filter(f => !f.hidden_in_form), [fields]);
@@ -57,12 +59,12 @@ export function FormView({ fields, initialValues = {}, mode = 'create', columns 
     const map = new Map<string, AppearanceEffect>();
     for (const field of allFormFields) {
       if (field.appearance?.length) {
-        const effect = resolveAppearance(field.appearance, values);
+        const effect = resolveAppearance(field.appearance, values, { master: masterRecord });
         if (Object.keys(effect).length > 0) map.set(field.key, effect);
       }
     }
     return map;
-  }, [allFormFields, values]);
+  }, [allFormFields, values, masterRecord]);
 
   // Visible fields: exclude statically hidden + conditionally hidden
   const visibleFields = useMemo(

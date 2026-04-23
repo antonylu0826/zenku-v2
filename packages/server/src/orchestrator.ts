@@ -113,13 +113,15 @@ Common patterns:
    appearance: [{ when: { field: "amount", operator: "gt", value: 10000 }, apply: { text_color: "#dc2626", font_weight: "bold" } }]
 4. Conditionally required:
    appearance: [{ when: { field: "payment_method", operator: "eq", value: "credit_card" }, apply: { required: true } }]
-5. Multiple rules (later rules override earlier when both match).
+5. Master record lookup (Master-Detail only):
+   Use "$master." prefix to read values from the parent master record when configuring detail views.
+   appearance: [{ when: { field: "$master.status", operator: "neq", value: "draft" }, apply: { enabled: false } }]
+6. Multiple rules (later rules override earlier when both match).
 
 Important constraints:
 - appearance[] only works in form.fields (not columns).
-- The "field" in "when" must be a key that exists in the same form.
+- The "field" in "when" must be a key that exists in the same form OR use "$master.field_key" for master-detail.
 - For permanent hiding, use hidden_in_form: true instead of appearance[].
-- For cross-table conditions, use Business Rules (manage_rules) instead.
 - To remove a conditional appearance rule, call update_view and omit the appearance property from that field.
 
 Custom ViewActions:
