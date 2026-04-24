@@ -23,8 +23,8 @@ Dashboard views do NOT use columns / form / actions.
 The title is a plain business label. The renderer already knows the widget type.
 NEVER write the widget type in the title, with or without parentheses.
 
-❌ WRONG: "銷售走勢圖 (Line)"   "產品佔比 (Pie)"   "趨勢 (Area)"
-✅ RIGHT:  "銷售走勢"           "產品銷售佔比"     "營收趨勢"
+❌ WRONG: "Sales Trend (Line)"   "Product Share (Pie)"   "Trend (Area)"
+✅ RIGHT:  "Sales Trend"         "Product Sales Share"   "Revenue Trend"
 
 ---
 
@@ -46,7 +46,7 @@ Map every SQL column alias to a human-readable display name. Raw SQL names must 
 - area_chart / bar_chart: map x_key and y_key.
 - pie_chart: map label_key and value_key.
 - mini_table: map every SELECT alias.
-Example: config: { x_key: "order_date", y_key: "revenue", column_labels: { "order_date": "日期", "revenue": "營收" } }
+Example: config: { x_key: "order_date", y_key: "revenue", column_labels: { "order_date": "Date", "revenue": "Revenue" } }
 
 **delta query pattern (call get_table_schema first to confirm the actual date column name):**
 SELECT SUM(amount) as current_value,

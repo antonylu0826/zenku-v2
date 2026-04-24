@@ -5,7 +5,18 @@ import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprot
 import { requireApiKey, expandScopes } from '../middleware/api-key-auth';
 import { ALL_TOOLS, dispatchTool } from '../tools/registry';
 import { buildDynamicContext } from '../orchestrator';
-import { buildDashboardInstructions } from '../dashboard-instructions';
+import { buildCoreToolRules } from '../prompts/core-tool-rules-instructions';
+import { buildViewInstructions } from '../prompts/view-instructions';
+import { buildRelationInstructions } from '../prompts/relation-instructions';
+import { buildKanbanInstructions } from '../prompts/kanban-instructions';
+import { buildCalendarInstructions } from '../prompts/calendar-instructions';
+import { buildTimelineInstructions } from '../prompts/timeline-instructions';
+import { buildDashboardInstructions } from '../prompts/dashboard-instructions';
+import { buildBusinessRulesInstructions } from '../prompts/business-rules-instructions';
+import { buildDestructiveSchemaInstructions } from '../prompts/destructive-schema-instructions';
+import { buildConditionalAppearanceInstructions } from '../prompts/conditional-appearance-instructions';
+import { buildViewActionsInstructions } from '../prompts/view-actions-instructions';
+import { buildFieldTypeInstructions } from '../prompts/field-type-instructions';
 import type { ToolDefinition } from '../ai';
 
 const router = Router();
@@ -42,58 +53,29 @@ async function buildMcpInstructions(): Promise<string> {
   const dynamicContext = await buildDynamicContext();
   return `You are connected to a Zenku instance — a low-code application runtime.
 
-## Tool usage rules
-- Call manage_schema before manage_ui when creating or modifying data types.
-- Never guess column names; call get_table_schema first if unsure.
-- query_data is SELECT-only; use write_data for mutations.
-- Destructive schema changes (drop_column, drop_table) require assess_impact first.
-- When updating an existing view, always call manage_ui(get_view) first, then submit the COMPLETE modified definition with update_view. Never send a partial definition.
+${buildCoreToolRules()}
 
-## Creating views (manage_ui)
+${buildViewInstructions()}
 
-**CRITICAL: Avoid undefined values in view definitions:**
-- Never include properties with undefined/null values
-- Every column.key and form.field.key MUST match actual database columns (verify with get_table_schema)
-- relation type REQUIRES relation object with: table, value_field, display_field
-- select type REQUIRES options array
-- auto_number type REQUIRES auto_number object with prefix and/or date_format
-- computed type REQUIRES computed object with formula, dependencies, and format
-- form MUST have fields array (can be empty [])
-- actions MUST be set (use [] for read-only, ["create","edit","delete"] for CRUD)
-
-Every view MUST include an "actions" array:
-- Standard CRUD: actions: ["create", "edit", "delete"]
-- Read-only: actions: []
-- With export: actions: ["create", "edit", "delete", "export"]
-
-**Field key alignment (critical):** Every form field "key" and every column "key" in a view MUST exactly match the actual database column name returned by get_table_schema. A mismatch causes runtime errors when saving records. After calling manage_schema, always verify column names before passing them to manage_ui.
-
-Field naming: use English lowercase_underscore for all table and field names.
-
-form.columns controls the form layout width (integer 1–4):
-- Set 2 for most forms with 5+ fields; 3 for 8+ fields.
-- Always set this explicitly when form has 5+ fields.
-
-## View creation workflow
-1. Call get_table_schema to retrieve all columns and their types
-2. Create view definition with:
-   - id, name, table_name (from schema)
-   - type: "table" (most common)
-   - columns: list each database column (key MUST match schema)
-   - form: { columns: 2, fields: [...] }
-   - actions: ["create", "edit", "delete"]
-3. Do NOT include optional properties if you won't set them (e.g., don't add "group" unless you'll set a value)
+${buildRelationInstructions()}
 
 ${buildDashboardInstructions()}
 
-## Relation fields
-- Schema: INTEGER + references: { table: 'other_table' }
-- UI columns: type "relation", relation: { table, display_field }
-- UI form: type "relation", relation: { table, value_field: "id", display_field }
+${buildKanbanInstructions()}
 
-## Conditional Appearance
-- Use appearance[] in form.fields to conditionally hide, disable, or style fields based on other field values.
-- In master-detail views, detail form appearance rules can reference the parent master record by prefixing the field with "$master." (e.g. "$master.status").
+${buildCalendarInstructions()}
+
+${buildTimelineInstructions()}
+
+${buildConditionalAppearanceInstructions()}
+
+${buildBusinessRulesInstructions()}
+
+${buildViewActionsInstructions()}
+
+${buildDestructiveSchemaInstructions()}
+
+${buildFieldTypeInstructions()}
 
 ${dynamicContext}`;
 }

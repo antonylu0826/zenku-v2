@@ -9,9 +9,20 @@ import {
   recordMessage, recordToolEvent, toolToAgent,
 } from './tools/chat-logger';
 import { ALL_TOOLS, dispatchTool } from './tools/registry';
-import { buildDashboardInstructions } from './dashboard-instructions';
+import { buildCoreToolRules } from './prompts/core-tool-rules-instructions';
+import { buildViewInstructions } from './prompts/view-instructions';
+import { buildRelationInstructions } from './prompts/relation-instructions';
+import { buildKanbanInstructions } from './prompts/kanban-instructions';
+import { buildCalendarInstructions } from './prompts/calendar-instructions';
+import { buildTimelineInstructions } from './prompts/timeline-instructions';
+import { buildDashboardInstructions } from './prompts/dashboard-instructions';
+import { buildBusinessRulesInstructions } from './prompts/business-rules-instructions';
+import { buildDestructiveSchemaInstructions } from './prompts/destructive-schema-instructions';
+import { buildConditionalAppearanceInstructions } from './prompts/conditional-appearance-instructions';
+import { buildViewActionsInstructions } from './prompts/view-actions-instructions';
+import { buildFieldTypeInstructions } from './prompts/field-type-instructions';
 import type { ToolDefinition } from './ai';
-import type { ViewDefinition, LLMMessage, ToolResult, AIProvider as AIProviderName } from './types';
+import type { LLMMessage, ToolResult, AIProvider as AIProviderName } from './types';
 
 export interface SystemPromptParts {
   static: string;
@@ -31,16 +42,9 @@ Available Tools:
 - get_table_schema: Retrieve names of all tables or detailed column definitions for a specific table.
 - get_integration_guide: Returns the full integration guide for connecting Zenku with n8n or other automation tools (API endpoints, webhook payload format, write-back options, common errors).
 
-Critical Rules:
-1. New Data Type: manage_schema (create_table) first, then manage_ui (create_view).
-2. Modify Structure: manage_schema (alter_table) first, then manage_ui (update_view).
-3. Statistics queries: Use query_data.
-4. Naming: Use English lowercase underscores for tables and fields.
-5. Language: ALL responses to the user must be in the [${userLanguage}] language.
-6. Identity: View ID should usually match its table_name.
-7. Modifying an existing view: ALWAYS call manage_ui (get_view) first to retrieve the current definition, then apply your changes and call update_view with the COMPLETE modified definition. Never write a partial definition — it will overwrite and lose existing fields, columns, and actions.
-8. Unknown Schema: If you need to query or modify a table but don't know its column definitions, you MUST call get_table_schema(action: 'get_schema', table_name: '...') first. Never guess column names.
-9. Required Fields: Any schema column with required: true MUST also have required: true on the corresponding form.fields entry. Omitting this causes NOT NULL constraint errors on insert.
+Language: ALL responses to the user must be in the [${userLanguage}] language.
+
+${buildCoreToolRules()}
 
 STRICT TOOL CALL FORMAT (failure to follow causes errors):
 
@@ -58,117 +62,30 @@ NEVER call create_view without the view object. NEVER omit view.id, view.name, o
 manage_ui get_view — view_id is MANDATORY:
 { "action": "get_view", "view_id": "products" }
 
-Relation Guidance (e.g., "Orders link to Customers"):
-1. manage_schema: Field uses INTEGER + references: { table: 'customers' }.
-2. manage_ui columns: type uses 'relation', relation: { table: 'customers', display_field: 'name' }.
-3. manage_ui form.fields: type uses 'relation', relation: { table: 'customers', value_field: 'id', display_field: 'name' }.
+${buildRelationInstructions()}
 
-Dynamic Select (e.g., "Category loaded from category table"):
-1. Ensure source table exists.
-2. form.fields: type 'select', set source: { table: 'categories', value_field: 'name', display_field: 'name' }.
-
-One-to-Many Relationships (e.g., "Order + Order Items"):
-1. manage_schema -> Build master table (e.g., orders).
-2. manage_schema -> Build detail table (e.g., order_items) with foreign key: INTEGER + references: { table: 'orders' }.
-3. manage_ui -> Create master-detail view, type 'master-detail', define details in detail_views.
-   - detail_views[0].foreign_key: Field in detail table pointing to master (e.g., 'order_id').
-   - detail_views[0].view.type must be 'table'.
-   - Detail form fields do not need the foreign key field (system injection).
-
-Computed Fields (e.g., "Subtotal = Quantity * Price"):
-1. manage_schema: Field type REAL.
-2. manage_ui form.fields: Add computed: { formula: 'quantity * unit_price', dependencies: ['quantity', 'unit_price'], format: 'currency' }.
-3. manage_ui columns: type 'currency' or 'number'.
+${buildViewInstructions()}
 
 Visualization Interfaces:
-- Statistics / Dashboard ("Show me XXX stats") -> manage_ui, type: 'dashboard', widgets array.
+- Statistics / Dashboard -> manage_ui, type: 'dashboard', widgets array.
 
 ${buildDashboardInstructions()}
 
-- Kanban -> manage_ui, type: 'kanban', set kanban: { group_field, title_field }.
-  - group_field should be a select type with options (e.g., status).
-  - Still require columns and form (for list mode fallback).
-- Calendar -> manage_ui, type: 'calendar', set calendar: { date_field, title_field }.
-  - Still require columns and form.
-- Timeline -> manage_ui, type: 'timeline', set timeline: { date_field, title_field, description_field?, icon_field?, tags_field? }.
-  - icon_field: A field containing a lucide icon name (e.g., "package", "check-circle").
-  - tags_field: A field containing an array of strings (e.g., ["Urgent", "VIP"]).
-  - Still require columns and form.
+${buildKanbanInstructions()}
 
-Business Rules (e.g., "90% discount for VIPs"):
-1. manage_rules -> create_rule.
-2. trigger_type: before_insert (modification/validation), after_insert (side effects).
-3. condition.field: Supports FK dot path, e.g., "order_id.customer_id.tier".
-4. actions:
-   - set_field: Modify field values of source record.
-   - validate: Reject operation with message.
-   - create_record: INSERT into another table.
-   - update_record: UPDATE record in another table via where condition and record_data.
-   - update_related_records: Batch update multiple records via intermediate table (e.g., order -> items -> inventory).
-     - via_table: Intermediate detail table.
-     - via_foreign_key: FK in detail table pointing to source.
-     - target_table: Table to update.
-     - where: Mapping between target table fields and source/detail fields.
-     - record_data: Update expressions, target current value is prefixed with __old_.
-   - webhook: Call external URL.
+${buildCalendarInstructions()}
 
-Destructive Schema Changes (drop_column, rename_column, change_type, drop_table):
-1. Must call assess_impact first.
-2. Report impact to user.
-3. Proceed with manage_schema only after user confirmation.
+${buildTimelineInstructions()}
 
-Conditional Appearance (Dynamic UI rendering):
-Use appearance[] on form fields to change how a field looks or behaves based on other field values. This is evaluated client-side in real time — no extra server calls.
+${buildBusinessRulesInstructions()}
 
-Common patterns:
-1. Show a field only when another field has a specific value:
-   appearance: [{ when: { field: "customer_type", operator: "neq", value: "company" }, apply: { visibility: "hidden" } }]
-2. Make fields read-only after a status is set:
-   appearance: [{ when: { field: "status", operator: "eq", value: "completed" }, apply: { enabled: false } }]
-3. Highlight value by threshold:
-   appearance: [{ when: { field: "amount", operator: "gt", value: 10000 }, apply: { text_color: "#dc2626", font_weight: "bold" } }]
-4. Conditionally required:
-   appearance: [{ when: { field: "payment_method", operator: "eq", value: "credit_card" }, apply: { required: true } }]
-5. Master record lookup (Master-Detail only):
-   Use "$master." prefix to read values from the parent master record when configuring detail views.
-   appearance: [{ when: { field: "$master.status", operator: "neq", value: "draft" }, apply: { enabled: false } }]
-6. Multiple rules (later rules override earlier when both match).
+${buildDestructiveSchemaInstructions()}
 
-Important constraints:
-- appearance[] only works in form.fields (not columns).
-- The "field" in "when" must be a key that exists in the same form OR use "$master.field_key" for master-detail.
-- For permanent hiding, use hidden_in_form: true instead of appearance[].
-- To remove a conditional appearance rule, call update_view and omit the appearance property from that field.
+${buildConditionalAppearanceInstructions()}
 
-Custom ViewActions:
-To add a custom action to an existing view, always follow this sequence:
-1. manage_ui({ action: 'get_view', view_id: '...' }) — get current full definition
-2. Add the new action object into definition.actions[]
-3. manage_ui({ action: 'update_view', view: { ...full modified definition } })
+${buildViewActionsInstructions()}
 
-behavior types:
-1. set_field — { type: 'set_field', field: 'status', value: 'approved' }
-2. trigger_rule — { type: 'trigger_rule', rule_id: '<rule_id>' }
-3. webhook — { type: 'webhook', url: 'https://...', method: 'POST', payload: '{"id":"{{id}}"}' }
-4. navigate — { type: 'navigate', view_id: 'orders', filter_field: 'customer_id', filter_value_from: 'id' }
-5. create_related — { type: 'create_related', table: 'shipments', field_mapping: { order_id: 'id', status: 'pending' } }
-
-context rules: 'record' (default) | 'list' | 'both'
-Use visible_when, confirm { title, description } for status transitions.
-
-Form Layout:
-- form.columns: 1 | 2 | 3 | 4. Controls how many columns the form renders.
-- Default fallback: 2 if visible fields >= 5, otherwise 1.
-- Always set explicitly when creating a view with many fields (>= 5) to avoid a single long column.
-- Use 3 for 8+ fields; use 4 for showcase/demo views with many field types.
-
-Field Type Guide:
-- Currency -> schema: REAL, ui type: currency.
-- Phone -> schema: TEXT, ui type: phone.
-- Email -> schema: TEXT, ui type: email.
-- URL -> schema: TEXT, ui type: url.
-- Status/Category (Fixed) -> schema: TEXT, ui type: select + options.
-- Status/Category (Dynamic) -> schema: TEXT, ui type: select + source.`;
+${buildFieldTypeInstructions()}`;
 }
 
 export async function buildDynamicContext(): Promise<string> {
