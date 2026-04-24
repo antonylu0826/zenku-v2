@@ -148,6 +148,7 @@ export class MssqlAdapter implements DbAdapter {
   readonly type = 'mssql';
   private pool!: mssql.ConnectionPool;
   private readonly connectionString: string;
+  private initialized = false;
 
   constructor(connectionString: string) {
     this.connectionString = connectionString;
@@ -155,7 +156,62 @@ export class MssqlAdapter implements DbAdapter {
 
   async connect(): Promise<void> {
     if (!this.pool || !this.pool.connected) {
-      this.pool = await mssql.connect(this.connectionString);
+      const config: any = {
+        options: {
+          encrypt: false,
+          trustServerCertificate: true,
+          enableArithAbort: true
+        },
+        pool: { max: 1, min: 0 }
+      };
+      
+      if (this.connectionString.startsWith('mssql://')) {
+        const url = new URL(this.connectionString);
+        config.user = decodeURIComponent(url.username);
+        config.password = decodeURIComponent(url.password);
+        config.server = url.hostname;
+        config.port = url.port ? parseInt(url.port) : 1433;
+        config.database = url.pathname.slice(1) || 'master';
+      } else {
+        this.connectionString.split(';').forEach(part => {
+          const [k, v] = part.split('=');
+          if (!k || !v) return;
+          const key = k.trim().toLowerCase();
+          const val = v.trim();
+          if (key === 'user id' || key === 'user' || key === 'uid') config.user = val;
+          if (key === 'password' || key === 'pwd') config.password = val;
+          if (key === 'server' || key === 'data source' || key === 'address') config.server = val;
+          if (key === 'database' || key === 'initial catalog') config.database = val;
+          if (key === 'port') config.port = parseInt(val);
+        });
+      }
+
+      // Default values
+      if (!config.user) config.user = 'sa';
+      if (!config.server) config.server = 'localhost';
+      if (!config.port) config.port = 1433;
+
+      // Auto-create database if needed
+      if (!this.initialized && config.database && config.database.toLowerCase() !== 'master') {
+        const masterConfig = { ...config, database: 'master' };
+        const tempPool = new mssql.ConnectionPool(masterConfig);
+        try {
+          await tempPool.connect();
+          const res = await tempPool.request().input('db', mssql.NVarChar, config.database).query('SELECT DB_ID(@db) as id');
+          if (!res.recordset[0].id) {
+            await tempPool.request().query(`CREATE DATABASE [${config.database}]`);
+            console.log(`[MssqlAdapter] Created database: ${config.database}`);
+          }
+          this.initialized = true;
+        } catch (err) {
+          console.error('[MssqlAdapter] Failed to ensure DB exists:', err);
+        } finally {
+          await tempPool.close();
+        }
+      }
+
+      this.pool = new mssql.ConnectionPool(config);
+      await this.pool.connect();
     }
   }
 
@@ -198,6 +254,19 @@ export class MssqlAdapter implements DbAdapter {
       } catch {
         // Table has no 'id' column — fall through
       }
+    }
+
+    const upperSql = sql.trim().toUpperCase();
+    if (['BEGIN', 'COMMIT', 'ROLLBACK'].includes(upperSql)) {
+      const request = await this.req();
+      if (upperSql === 'BEGIN') {
+        await request.query('IF @@TRANCOUNT = 0 BEGIN TRANSACTION; SELECT @@TRANCOUNT');
+      } else if (upperSql === 'COMMIT') {
+        await request.query('IF @@TRANCOUNT > 0 COMMIT TRANSACTION; SELECT @@TRANCOUNT');
+      } else if (upperSql === 'ROLLBACK') {
+        await request.query('IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION; SELECT @@TRANCOUNT');
+      }
+      return { rowsAffected: 0 };
     }
 
     const request = await this.req();

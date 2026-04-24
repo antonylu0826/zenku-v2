@@ -294,14 +294,14 @@ router.put('/:table/:id', requireAuth, async (req, res) => {
       res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: beforeResult.errors.join('; ') } });
       return;
     }
+
     const finalData = await recalculateComputedFields(table, beforeResult.data);
     const schema = await getTableSchema(table);
     const keys = Object.keys(finalData);
-    const setClause = keys.map(k => `"${k}" = ?`).join(', ');
+    const setClause = keys.map(k => (db.type === 'mssql' ? `[${k}]` : `"${k}"`) + ' = ?').join(', ');
     const values = keys.map(key => {
       const v = finalData[key];
       const col = schema.find(c => c.name === key);
-      // PostgreSQL: numeric columns cannot be empty strings
       if (db.type === 'postgres' && v === '' && col && (col.type.toUpperCase().includes('INT') || col.type.toUpperCase().includes('REAL'))) {
         return null;
       }
@@ -310,7 +310,8 @@ router.put('/:table/:id', requireAuth, async (req, res) => {
     });
     values.push(id);
 
-    await db.execute(`UPDATE "${table}" SET ${setClause} WHERE id = ?`, values);
+    const updateSql = db.type === 'mssql' ? `UPDATE [${table}] SET ${setClause} WHERE id = ?` : `UPDATE "${table}" SET ${setClause} WHERE id = ?`;
+    await db.execute(updateSql, values);
 
     const { rows: updated } = await db.query<Record<string, unknown>>(
       `SELECT * FROM "${table}" WHERE id = ?`, [id]
@@ -322,9 +323,11 @@ router.put('/:table/:id', requireAuth, async (req, res) => {
     );
   } catch (err) {
     const msg = String(err);
-    const notNull = msg.match(/NOT NULL constraint failed: \w+\.(\w+)/);
-    if (notNull) {
-      res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: `"${notNull[1]}" is required` } });
+    const notNullSqlite = msg.match(/NOT NULL constraint failed: \w+\.(\w+)/);
+    const notNullPg = msg.match(/null value in column "([^"]+)"/);
+    if (notNullSqlite || notNullPg) {
+      const col = notNullSqlite ? notNullSqlite[1] : notNullPg ? notNullPg[1] : 'field';
+      res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: `"${col}" is required` } });
     } else {
       res.status(400).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: msg } });
     }
@@ -337,9 +340,8 @@ router.delete('/:table/:id', requireAuth, async (req, res) => {
   if (table.startsWith('_zenku_')) { res.status(403).json({ error: 'ERROR_FORBIDDEN_SYSTEM_TABLE' }); return; }
   try {
     const db = getDb();
-    const { rows: deletedRows } = await db.query<Record<string, unknown>>(
-      `SELECT * FROM "${table}" WHERE id = ?`, [id]
-    );
+    const selectSql = db.type === 'mssql' ? `SELECT * FROM [${table}] WHERE id = ?` : `SELECT * FROM "${table}" WHERE id = ?`;
+    const { rows: deletedRows } = await db.query<Record<string, unknown>>(selectSql, [id]);
     const deletedData = deletedRows[0];
 
     if (deletedData) {
@@ -351,7 +353,8 @@ router.delete('/:table/:id', requireAuth, async (req, res) => {
     }
 
     // Cascade delete child records
-    await db.execute('BEGIN');
+    const useTransaction = db.type !== 'mssql';
+    if (useTransaction) await db.execute('BEGIN');
     try {
       if (db.type === 'sqlite') {
         const allTables = await db.listTables();
@@ -378,12 +381,25 @@ router.delete('/:table/:id', requireAuth, async (req, res) => {
         for (const fk of fkList) {
           await db.execute(`DELETE FROM "${fk.table_name}" WHERE "${fk.column_name}" = ?`, [id]);
         }
+      } else if (db.type === 'mssql') {
+        const { rows: fkList } = await db.query<{ table_name: string; column_name: string }>(`
+          SELECT OBJECT_NAME(f.parent_object_id) AS table_name,
+                 COL_NAME(fc.parent_object_id, fc.parent_column_id) AS column_name
+          FROM sys.foreign_keys AS f
+          INNER JOIN sys.foreign_key_columns AS fc ON f.object_id = fc.constraint_object_id
+          WHERE OBJECT_NAME(f.referenced_object_id) = ?
+        `, [table]);
+
+        for (const fk of fkList) {
+          await db.execute(`DELETE FROM [${fk.table_name}] WHERE [${fk.column_name}] = ?`, [id]);
+        }
       }
 
-      await db.execute(`DELETE FROM "${table}" WHERE id = ?`, [id]);
-      await db.execute('COMMIT');
+      const deleteSql = db.type === 'mssql' ? `DELETE FROM [${table}] WHERE id = ?` : `DELETE FROM "${table}" WHERE id = ?`;
+      await db.execute(deleteSql, [id]);
+      if (useTransaction) await db.execute('COMMIT');
     } catch (err) {
-      await db.execute('ROLLBACK');
+      if (useTransaction) await db.execute('ROLLBACK');
       throw err;
     }
     res.json({ success: true });
@@ -394,6 +410,7 @@ router.delete('/:table/:id', requireAuth, async (req, res) => {
       );
     }
   } catch (err) {
+    console.error('[DataRoute] DELETE error:', err);
     res.status(400).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: String(err) } });
   }
 });

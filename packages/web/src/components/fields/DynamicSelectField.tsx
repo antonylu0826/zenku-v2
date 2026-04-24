@@ -40,9 +40,7 @@ export function DynamicSelectField({ field, value, onChange }: Props) {
   return (
     <Select value={String(value ?? '')} onValueChange={v => onChange(v)}>
       <SelectTrigger>
-        <SelectValue placeholder={field.placeholder || t('relation.placeholder')}>
-          {selectedLabel}
-        </SelectValue>
+        <SelectValue placeholder={field.placeholder || t('relation.placeholder')} />
       </SelectTrigger>
       <SelectContent>
         {options.map(opt => (
