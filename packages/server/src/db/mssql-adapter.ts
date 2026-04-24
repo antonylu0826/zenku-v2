@@ -310,16 +310,7 @@ export class MssqlAdapter implements DbAdapter {
   }
 
   async addColumn(tableName: string, column: ColumnSpec): Promise<void> {
-    const sqlType = TYPE_MAP[column.type];
-    let def = `[${column.name}] ${sqlType}`;
-    if (column.default !== undefined) {
-      if (column.required) def += ` NOT NULL`;
-      def += ` DEFAULT ${buildDefault(column.default)}`;
-    }
-    if (column.references) {
-      const refCol = column.references.column ?? 'id';
-      def += ` REFERENCES [${column.references.table}]([${refCol}])`;
-    }
+    const def = buildColDef(column);
     await (await this.req()).query(`ALTER TABLE [${tableName}] ADD ${def}`);
   }
 

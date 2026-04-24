@@ -109,22 +109,26 @@ export async function alterTable(
   for (const change of changes) {
     if (change.operation === 'add_column') {
       const col = change.column;
-      const type = col.type.toUpperCase();
+      const type = col.type.toUpperCase() as FieldType;
       if (!ALLOWED_TYPES.has(type)) {
         return { success: false, message: `Unsupported type: ${col.type}` };
       }
-
-      let colDef = `"${col.name}" ${type}`;
-      if (col.references) {
-        const refTable = col.references.table;
-        const refCol = col.references.column ?? 'id';
-        if (!isSafeTableName(refTable)) {
-          return { success: false, message: `Invalid foreign key table name: ${refTable}` };
-        }
-        colDef += ` REFERENCES "${refTable}"("${refCol}")`;
+      if (!isSafeFieldName(col.name)) {
+        return { success: false, message: `Invalid field name: ${col.name}` };
+      }
+      if (col.references && !isSafeTableName(col.references.table)) {
+        return { success: false, message: `Invalid foreign key table name: ${col.references.table}` };
       }
 
-      await db.execute(`ALTER TABLE "${tableName}" ADD COLUMN ${colDef}`);
+      await db.addColumn(tableName, {
+        name: col.name,
+        type,
+        required: col.required,
+        default: col.default_value,
+        references: col.references
+          ? { table: col.references.table, column: col.references.column }
+          : undefined,
+      });
       results.push(`Added field ${col.name}`);
 
       await writeJournal({

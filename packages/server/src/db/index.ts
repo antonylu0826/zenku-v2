@@ -23,14 +23,7 @@ export function getDb(): DbAdapter {
 
 /** Call once at server startup after getDb() is first invoked. */
 export async function initDb(): Promise<void> {
-  const adapter = getDb();
-
-  // Ensure database exists for PostgreSQL before initializing tables
-  if (adapter instanceof PostgresAdapter) {
-    await adapter.ensureDatabaseExists();
-  }
-
-  await adapter.initSystemTables();
+  await getDb().initSystemTables();
 }
 
 /** For tests — replace the singleton with a custom adapter instance. */

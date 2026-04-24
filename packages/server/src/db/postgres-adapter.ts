@@ -146,16 +146,7 @@ export class PostgresAdapter implements DbAdapter {
 
   async addColumn(tableName: string, column: ColumnSpec): Promise<void> {
     await this.ensureConnected();
-    const sqlType = TYPE_MAP[column.type];
-    let def = `"${column.name}" ${sqlType}`;
-    if (column.default !== undefined) {
-      if (column.required) def += ` NOT NULL`;
-      def += ` DEFAULT ${buildDefault(column.default)}`;
-    }
-    if (column.references) {
-      const refCol = column.references.column ?? 'id';
-      def += ` REFERENCES "${column.references.table}"("${refCol}")`;
-    }
+    const def = buildColDef(column);
     await this.sql!.unsafe(`ALTER TABLE "${tableName}" ADD COLUMN ${def}`);
   }
 
@@ -231,18 +222,19 @@ export class PostgresAdapter implements DbAdapter {
 
   async upsertCounter(tableName: string, fieldName: string, period: string): Promise<number> {
     await this.ensureConnected();
-    // PostgreSQL supports the same ON CONFLICT ... DO UPDATE ... RETURNING syntax as SQLite
-    const result = await this.sql!.unsafe(`
+    const sql = toPositional(`
       INSERT INTO _zenku_counters (table_name, field_name, period, current_value)
       VALUES (?, ?, ?, 1)
       ON CONFLICT(table_name, field_name, period)
       DO UPDATE SET current_value = _zenku_counters.current_value + 1
       RETURNING current_value
-    `, [tableName, fieldName, period]);
+    `);
+    const result = await this.sql!.unsafe(sql, [tableName, fieldName, period] as postgres.ParameterOrJSON<never>[]);
     return (result[0] as unknown as { current_value: number })?.current_value ?? 1;
   }
 
   async initSystemTables(): Promise<void> {
+    await this.ensureDatabaseExists();
     await this.ensureConnected();
     await this.sql!.unsafe(`
       CREATE TABLE IF NOT EXISTS _zenku_users (
@@ -402,15 +394,6 @@ export class PostgresAdapter implements DbAdapter {
 
       CREATE INDEX IF NOT EXISTS idx_files_record ON _zenku_files(table_name, record_id, field_name);
 
-      CREATE TABLE IF NOT EXISTS _zenku_counters (
-        id            SERIAL PRIMARY KEY,
-        table_name    TEXT NOT NULL,
-        field_name    TEXT NOT NULL,
-        period        TEXT NOT NULL DEFAULT '',
-        current_value INTEGER NOT NULL DEFAULT 0,
-        UNIQUE(table_name, field_name, period)
-      );
-
       CREATE TABLE IF NOT EXISTS _zenku_webhook_logs (
         id           SERIAL PRIMARY KEY,
         triggered_at TEXT    NOT NULL DEFAULT NOW()::TEXT,
@@ -432,9 +415,9 @@ export class PostgresAdapter implements DbAdapter {
     `);
 
     // Migrations — PostgreSQL supports ADD COLUMN IF NOT EXISTS (v9.6+)
-    await this.sql.unsafe(`ALTER TABLE _zenku_users ADD COLUMN IF NOT EXISTS disabled INTEGER NOT NULL DEFAULT 0`);
-    await this.sql.unsafe(`ALTER TABLE _zenku_users ADD COLUMN IF NOT EXISTS language TEXT NOT NULL DEFAULT 'en'`);
-    await this.sql.unsafe(`ALTER TABLE _zenku_chat_sessions ADD COLUMN IF NOT EXISTS archived INTEGER NOT NULL DEFAULT 0`);
+    await this.sql!.unsafe(`ALTER TABLE _zenku_users ADD COLUMN IF NOT EXISTS disabled INTEGER NOT NULL DEFAULT 0`);
+    await this.sql!.unsafe(`ALTER TABLE _zenku_users ADD COLUMN IF NOT EXISTS language TEXT NOT NULL DEFAULT 'en'`);
+    await this.sql!.unsafe(`ALTER TABLE _zenku_chat_sessions ADD COLUMN IF NOT EXISTS archived INTEGER NOT NULL DEFAULT 0`);
   }
 
   async close(): Promise<void> {
