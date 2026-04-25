@@ -8,6 +8,7 @@ import {
 } from 'recharts';
 import { runQuery } from '../../api';
 import type { DashboardWidget, ViewDefinition } from '../../types';
+import { useViews } from '../../contexts/ViewsContext';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Skeleton } from '../ui/skeleton';
@@ -54,14 +55,20 @@ function buildConfig(entries: { key: string; label: string; colorIndex?: number 
 
 export function DashboardView({ view }: Props) {
   const { t } = useTranslation();
+  const { views } = useViews();
   const widgets = view.widgets ?? [];
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Build label map from all views so mini_table widgets can resolve
+  // column names from any table, not just the current view's form fields
   const fieldLabelMap = useMemo(() => {
     const map: Record<string, string> = {};
-    for (const f of view.form?.fields ?? []) map[f.key] = f.label;
+    for (const v of views) {
+      for (const f of v.form?.fields ?? []) if (f.key && f.label) map[f.key] = f.label;
+      for (const c of v.columns ?? []) if (c.key && c.label) map[c.key] = c.label;
+    }
     return map;
-  }, [view.form?.fields]);
+  }, [views]);
 
   if (widgets.length === 0) {
     return (

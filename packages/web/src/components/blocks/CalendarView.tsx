@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { createRow, getTableData, updateRow } from '../../api';
 import type { ViewDefinition } from '../../types';
+import { useViews } from '../../contexts/ViewsContext';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { cn } from '../../lib/cn';
@@ -195,7 +196,15 @@ function DayView({ shared, noDataLabel, clickToAddLabel }: {
 
 export function CalendarView({ view }: Props) {
   const { t, i18n } = useTranslation();
+  const { views } = useViews();
   const calendar = view.calendar;
+
+  // Use the primary (non-calendar) view name for dialog titles to avoid
+  // showing the view-type suffix (e.g., "客戶訂單行事曆" → "客戶訂單")
+  const entityName = useMemo(() => {
+    const primary = views.find(v => v.table_name === view.table_name && v.type !== 'calendar');
+    return primary?.name ?? view.name;
+  }, [views, view.table_name, view.name]);
 
   const [rows, setRows]             = useState<RowData[]>([]);
   const [loading, setLoading]       = useState(true);
@@ -375,7 +384,7 @@ export function CalendarView({ view }: Props) {
       <Dialog open={Boolean(editingRow)} onOpenChange={open => { if (!open) setEditingRow(null); }}>
         <DialogContent className={dialogWidthClass}>
           <DialogHeader>
-            <DialogTitle>{t('table.view.edit_dialog_title', { name: view.name })}</DialogTitle>
+            <DialogTitle>{t('table.view.edit_dialog_title', { name: entityName })}</DialogTitle>
             <DialogDescription>{t('table.view.edit_dialog_desc')}</DialogDescription>
           </DialogHeader>
           {editingRow && <FormView fields={view.form.fields} columns={formColumns} initialValues={editingRow} onSubmit={handleUpdate} onCancel={() => setEditingRow(null)} />}
@@ -385,7 +394,7 @@ export function CalendarView({ view }: Props) {
       <Dialog open={showCreate} onOpenChange={open => { if (!open) { setShowCreate(false); setCreatingDate(null); } }}>
         <DialogContent className={dialogWidthClass}>
           <DialogHeader>
-            <DialogTitle>{t('table.view.create_dialog_title', { name: view.name })}</DialogTitle>
+            <DialogTitle>{t('table.view.create_dialog_title', { name: entityName })}</DialogTitle>
             <DialogDescription>{t('table.view.create_dialog_desc')}</DialogDescription>
           </DialogHeader>
           <FormView fields={view.form.fields} columns={formColumns} onSubmit={handleCreate} onCancel={() => { setShowCreate(false); setCreatingDate(null); }} />

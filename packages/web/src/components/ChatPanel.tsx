@@ -458,6 +458,7 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
         <div className="flex gap-2">
           <input
             ref={attachInputRef}
+            id="chat-file-input"
             type="file"
             multiple
             accept="image/*,application/pdf,text/*"
@@ -487,6 +488,7 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
             <Paperclip size={15} />
           </Button>
           <Textarea
+            id="chat-input"
             className="min-h-[74px] flex-1 resize-none"
             rows={2}
             value={input}
