@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { json } from '@codemirror/lang-json';
 import { oneDark } from '@codemirror/theme-one-dark';
@@ -26,7 +27,17 @@ const darkTheme = EditorView.theme({
 }, { dark: true });
 
 export function JsonEditor({ value, onChange, disabled }: Props) {
-  const isDark = document.documentElement.classList.contains('dark');
+  const [isDark, setIsDark] = useState(
+    () => document.documentElement.classList.contains('dark')
+  );
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    });
+    observer.observe(document.documentElement, { attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <CodeMirror

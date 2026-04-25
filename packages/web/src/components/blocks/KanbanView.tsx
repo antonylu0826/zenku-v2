@@ -60,6 +60,9 @@ export function KanbanView({ view }: Props) {
   const [creatingGroup, setCreatingGroup] = useState<string | null>(null);
   const pendingSave = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Clear any pending sort-save on unmount to avoid orphaned API calls
+  useEffect(() => () => { if (pendingSave.current) clearTimeout(pendingSave.current); }, []);
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const fetchRows = useCallback(async () => {

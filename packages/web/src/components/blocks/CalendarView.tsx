@@ -25,16 +25,170 @@ interface Props {
 const EVENT_COLORS = [
   'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300',
   'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
-  'bg-amber-100  text-amber-800  dark:bg-amber-900/40  dark:text-amber-300',
-  'bg-rose-100   text-rose-800   dark:bg-rose-900/40   dark:text-rose-300',
+  'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+  'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300',
   'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300',
-  'bg-sky-100    text-sky-800    dark:bg-sky-900/40    dark:text-sky-300',
+  'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300',
 ];
 
 function colorClass(val: string | undefined, map: Map<string, number>) {
   if (!val) return EVENT_COLORS[0];
   if (!map.has(val)) map.set(val, map.size % EVENT_COLORS.length);
   return EVENT_COLORS[map.get(val)!];
+}
+
+// ─── Shared context passed to sub-components (avoids prop drilling) ───────────
+
+interface CalShared {
+  titleField: string;
+  colorField?: string;
+  colorMap: Map<string, number>;
+  draggingId: React.MutableRefObject<string | number | null>;
+  eventsByDate: Record<string, RowData[]>;
+  focusDate: Date;
+  viewMode: ViewMode;
+  onEdit: (row: RowData) => void;
+  openCreate: (dateStr: string) => void;
+  onDrop: (dateStr: string) => Promise<void>;
+}
+
+// ─── EventPill ────────────────────────────────────────────────────────────────
+
+function EventPill({ event, shared }: { event: RowData; shared: CalShared }) {
+  const cls = colorClass(
+    shared.colorField ? String(event[shared.colorField] ?? '') : undefined,
+    shared.colorMap,
+  );
+  return (
+    <div
+      draggable
+      onDragStart={e => { shared.draggingId.current = event.id as string | number; e.dataTransfer.effectAllowed = 'move'; }}
+      onDragEnd={() => { shared.draggingId.current = null; }}
+      className={cn('truncate rounded px-1 py-0.5 text-xs leading-tight cursor-grab active:cursor-grabbing hover:brightness-95', cls)}
+      title={String(event[shared.titleField] ?? '')}
+      onClick={e => { e.stopPropagation(); shared.onEdit(event); }}
+    >
+      {String(event[shared.titleField] ?? '')}
+    </div>
+  );
+}
+
+// ─── DayCell ──────────────────────────────────────────────────────────────────
+
+function DayCell({ date, muted = false, shared, moreLabel }: {
+  date: Date; muted?: boolean; shared: CalShared; moreLabel: (n: number) => string;
+}) {
+  const dateStr = format(date, 'yyyy-MM-dd');
+  const events  = shared.eventsByDate[dateStr] ?? [];
+  const today   = isToday(date);
+  const isFocus = isSameDay(date, shared.focusDate);
+  return (
+    <div
+      className={cn(
+        'min-h-[80px] border-b border-r p-1 cursor-pointer hover:bg-accent/50',
+        muted && 'bg-muted/20',
+        today && 'bg-primary/5',
+      )}
+      onClick={() => shared.openCreate(dateStr)}
+      onDragOver={e => e.preventDefault()}
+      onDrop={e => { e.preventDefault(); void shared.onDrop(dateStr); }}
+    >
+      <span className={cn(
+        'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs',
+        today    ? 'bg-primary text-primary-foreground font-semibold' :
+        isFocus && shared.viewMode !== 'month' ? 'ring-1 ring-primary text-primary' :
+        muted    ? 'text-muted-foreground' : 'text-foreground',
+      )}>
+        {date.getDate()}
+      </span>
+      <div className="mt-0.5 space-y-0.5">
+        {events.slice(0, 3).map((ev, i) => <EventPill key={i} event={ev} shared={shared} />)}
+        {events.length > 3 && <div className="px-1 text-xs text-muted-foreground">{moreLabel(events.length - 3)}</div>}
+      </div>
+    </div>
+  );
+}
+
+// ─── MonthView ────────────────────────────────────────────────────────────────
+
+function MonthView({ shared, weekdays, moreLabel }: {
+  shared: CalShared; weekdays: string[]; moreLabel: (n: number) => string;
+}) {
+  const firstDay    = new Date(shared.focusDate.getFullYear(), shared.focusDate.getMonth(), 1);
+  const daysInMonth = getDaysInMonth(firstDay);
+  const startOffset = getDay(firstDay);
+  const cells: (Date | null)[] = [];
+  for (let i = 0; i < startOffset; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(shared.focusDate.getFullYear(), shared.focusDate.getMonth(), d));
+  while (cells.length % 7 !== 0) cells.push(null);
+  return (
+    <>
+      <div className="grid shrink-0 grid-cols-7 border-b">
+        {weekdays.map(d => <div key={d} className="py-2 text-center text-xs font-medium text-muted-foreground">{d}</div>)}
+      </div>
+      <div className="grid flex-1 grid-cols-7 overflow-auto">
+        {cells.map((date, idx) => date
+          ? <DayCell key={format(date, 'yyyy-MM-dd')} date={date} shared={shared} moreLabel={moreLabel} />
+          : <div key={`empty-${idx}`} className="min-h-[80px] border-b border-r bg-muted/20" />
+        )}
+      </div>
+    </>
+  );
+}
+
+// ─── WeekView ─────────────────────────────────────────────────────────────────
+
+function WeekView({ shared, weekdays, moreLabel }: {
+  shared: CalShared; weekdays: string[]; moreLabel: (n: number) => string;
+}) {
+  const weekStart = startOfWeek(shared.focusDate, { weekStartsOn: 0 });
+  const days      = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  return (
+    <>
+      <div className="grid shrink-0 grid-cols-7 border-b">
+        {days.map((d, i) => (
+          <div key={i} className={cn('py-2 text-center text-xs font-medium', isToday(d) ? 'text-primary' : 'text-muted-foreground')}>
+            <div>{weekdays[i]}</div>
+            <div className={cn('mx-auto mt-0.5 flex h-6 w-6 items-center justify-center rounded-full text-sm',
+              isToday(d) && 'bg-primary text-primary-foreground font-bold')}>{d.getDate()}</div>
+          </div>
+        ))}
+      </div>
+      <div className="grid flex-1 grid-cols-7 overflow-auto">
+        {days.map(date => <DayCell key={format(date, 'yyyy-MM-dd')} date={date} shared={shared} moreLabel={moreLabel} />)}
+      </div>
+    </>
+  );
+}
+
+// ─── DayView ──────────────────────────────────────────────────────────────────
+
+function DayView({ shared, noDataLabel, clickToAddLabel }: {
+  shared: CalShared; noDataLabel: string; clickToAddLabel: string;
+}) {
+  const dateStr = format(shared.focusDate, 'yyyy-MM-dd');
+  const events  = shared.eventsByDate[dateStr] ?? [];
+  return (
+    <div
+      className="flex-1 overflow-auto p-4"
+      onDragOver={e => e.preventDefault()}
+      onDrop={e => { e.preventDefault(); void shared.onDrop(dateStr); }}
+      onClick={() => shared.openCreate(dateStr)}
+    >
+      {events.length === 0 ? (
+        <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">{noDataLabel}</div>
+      ) : (
+        <div className="space-y-2" onClick={e => e.stopPropagation()}>
+          {events.map((ev, i) => (
+            <div key={i} className="rounded-md border p-3 hover:bg-accent/50 cursor-pointer" onClick={() => shared.onEdit(ev)}>
+              <EventPill event={ev} shared={shared} />
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="mt-4 text-center text-xs text-muted-foreground">{clickToAddLabel}</div>
+    </div>
+  );
 }
 
 // ─── CalendarView ─────────────────────────────────────────────────────────────
@@ -52,6 +206,9 @@ export function CalendarView({ view }: Props) {
   const [creatingDate, setCreatingDate] = useState<string | null>(null);
   const draggingId = useRef<string | number | null>(null);
   const colorMap   = useRef(new Map<string, number>());
+
+  // Reset color assignments when rows change so colors stay consistent
+  useEffect(() => { colorMap.current = new Map(); }, [rows]);
 
   const fetchRows = useCallback(async () => {
     setLoading(true);
@@ -74,7 +231,6 @@ export function CalendarView({ view }: Props) {
     if (viewMode === 'week')  return dir < 0 ? subWeeks(d, 1)  : addWeeks(d, 1);
     return dir < 0 ? subDays(d, 1) : addDays(d, 1);
   });
-  const goToday = () => setFocusDate(new Date());
 
   const periodLabel = useMemo(() => {
     const locale = i18n.language;
@@ -82,9 +238,7 @@ export function CalendarView({ view }: Props) {
     if (viewMode === 'day')   return focusDate.toLocaleString(locale, { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
     const ws = startOfWeek(focusDate, { weekStartsOn: 0 });
     const we = addDays(ws, 6);
-    const sm = ws.toLocaleString(locale, { month: 'short', day: 'numeric' });
-    const em = we.toLocaleString(locale, { month: 'short', day: 'numeric' });
-    return `${sm} – ${em}`;
+    return `${ws.toLocaleString(locale, { month: 'short', day: 'numeric' })} – ${we.toLocaleString(locale, { month: 'short', day: 'numeric' })}`;
   }, [focusDate, viewMode, i18n.language]);
 
   // ── Event grouping ──────────────────────────────────────────────────────────
@@ -129,10 +283,9 @@ export function CalendarView({ view }: Props) {
   };
 
   const handleUpdate = async (data: Record<string, unknown>) => {
-    const id = editingRow?.id;
-    if (id == null) return;
+    if (editingRow?.id == null) return;
     try {
-      await updateRow(view.table_name, id, data);
+      await updateRow(view.table_name, editingRow.id, data);
       toast.success(t('common_toast.update_success'));
       setEditingRow(null); void fetchRows();
     } catch (err) {
@@ -140,7 +293,7 @@ export function CalendarView({ view }: Props) {
     }
   };
 
-  const handleDrop = async (dateStr: string) => {
+  const handleDrop = useCallback(async (dateStr: string) => {
     const id = draggingId.current;
     if (!id || !calendar) return;
     const row = rows.find(r => r.id === id);
@@ -153,9 +306,9 @@ export function CalendarView({ view }: Props) {
       toast.error(t('common_toast.update_failed'), { description: String(err) });
     }
     draggingId.current = null;
-  };
+  }, [calendar, rows, view.table_name, t, fetchRows]);
 
-  const openCreate = (dateStr: string) => { setCreatingDate(dateStr); setShowCreate(true); };
+  const openCreate = useCallback((dateStr: string) => { setCreatingDate(dateStr); setShowCreate(true); }, []);
 
   // ── Form sizing ─────────────────────────────────────────────────────────────
 
@@ -167,138 +320,21 @@ export function CalendarView({ view }: Props) {
     return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{t('calendar.missing_config')}</div>;
   }
 
-  // ── Shared event pill ────────────────────────────────────────────────────────
+  const weekdays   = t('calendar.weekdays', { returnObjects: true }) as string[];
+  const moreLabel  = (n: number) => t('calendar.more_events', { count: n });
 
-  const EventPill = ({ event, compact = false }: { event: RowData; compact?: boolean }) => {
-    const colorVal = calendar.color_field ? String(event[calendar.color_field] ?? '') : undefined;
-    const cls = colorClass(colorVal, colorMap.current);
-    return (
-      <div
-        draggable
-        onDragStart={e => { draggingId.current = event.id as string | number; e.dataTransfer.effectAllowed = 'move'; }}
-        onDragEnd={() => { draggingId.current = null; }}
-        className={cn('truncate rounded px-1 py-0.5 text-xs leading-tight cursor-grab active:cursor-grabbing hover:brightness-95', cls, compact && 'py-0')}
-        title={String(event[calendar.title_field] ?? '')}
-        onClick={e => { e.stopPropagation(); setEditingRow(event); }}
-      >
-        {String(event[calendar.title_field] ?? '')}
-      </div>
-    );
+  const shared: CalShared = {
+    titleField: calendar.title_field,
+    colorField: calendar.color_field,
+    colorMap:   colorMap.current,
+    draggingId,
+    eventsByDate,
+    focusDate,
+    viewMode,
+    onEdit:      setEditingRow,
+    openCreate,
+    onDrop:      handleDrop,
   };
-
-  // ── Day cell ─────────────────────────────────────────────────────────────────
-
-  const DayCell = ({ date, muted = false }: { date: Date; muted?: boolean }) => {
-    const dateStr  = format(date, 'yyyy-MM-dd');
-    const events   = eventsByDate[dateStr] ?? [];
-    const today    = isToday(date);
-    const isFocus  = isSameDay(date, focusDate);
-    return (
-      <div
-        className={cn(
-          'min-h-[80px] border-b border-r p-1 cursor-pointer hover:bg-accent/50',
-          muted && 'bg-muted/20',
-          today && 'bg-primary/5',
-        )}
-        onClick={() => openCreate(dateStr)}
-        onDragOver={e => e.preventDefault()}
-        onDrop={e => { e.preventDefault(); void handleDrop(dateStr); }}
-      >
-        <span className={cn(
-          'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs',
-          today    ? 'bg-primary text-primary-foreground font-semibold' :
-          isFocus && viewMode !== 'month' ? 'ring-1 ring-primary text-primary' :
-          muted    ? 'text-muted-foreground' : 'text-foreground',
-        )}>
-          {date.getDate()}
-        </span>
-        <div className="mt-0.5 space-y-0.5">
-          {events.slice(0, 3).map((ev, i) => <EventPill key={i} event={ev} />)}
-          {events.length > 3 && <div className="px-1 text-xs text-muted-foreground">{t('calendar.more_events', { count: events.length - 3 })}</div>}
-        </div>
-      </div>
-    );
-  };
-
-  // ── Month view ────────────────────────────────────────────────────────────────
-
-  const MonthView = () => {
-    const weekdays = t('calendar.weekdays', { returnObjects: true }) as string[];
-    const firstDay   = new Date(focusDate.getFullYear(), focusDate.getMonth(), 1);
-    const daysInMonth = getDaysInMonth(firstDay);
-    const startOffset = getDay(firstDay);
-    const cells: (Date | null)[] = [];
-    for (let i = 0; i < startOffset; i++) cells.push(null);
-    for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(focusDate.getFullYear(), focusDate.getMonth(), d));
-    while (cells.length % 7 !== 0) cells.push(null);
-    return (
-      <>
-        <div className="grid shrink-0 grid-cols-7 border-b">
-          {weekdays.map(d => <div key={d} className="py-2 text-center text-xs font-medium text-muted-foreground">{d}</div>)}
-        </div>
-        <div className="grid flex-1 grid-cols-7 overflow-auto">
-          {cells.map((date, idx) => date
-            ? <DayCell key={format(date, 'yyyy-MM-dd')} date={date} />
-            : <div key={`empty-${idx}`} className="min-h-[80px] border-b border-r bg-muted/20" />
-          )}
-        </div>
-      </>
-    );
-  };
-
-  // ── Week view ─────────────────────────────────────────────────────────────────
-
-  const WeekView = () => {
-    const weekdays  = t('calendar.weekdays', { returnObjects: true }) as string[];
-    const weekStart = startOfWeek(focusDate, { weekStartsOn: 0 });
-    const days      = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-    return (
-      <>
-        <div className="grid shrink-0 grid-cols-7 border-b">
-          {days.map((d, i) => (
-            <div key={i} className={cn('py-2 text-center text-xs font-medium', isToday(d) ? 'text-primary' : 'text-muted-foreground')}>
-              <div>{weekdays[i]}</div>
-              <div className={cn('mx-auto mt-0.5 flex h-6 w-6 items-center justify-center rounded-full text-sm',
-                isToday(d) && 'bg-primary text-primary-foreground font-bold')}>{d.getDate()}</div>
-            </div>
-          ))}
-        </div>
-        <div className="grid flex-1 grid-cols-7 overflow-auto">
-          {days.map(date => <DayCell key={format(date, 'yyyy-MM-dd')} date={date} />)}
-        </div>
-      </>
-    );
-  };
-
-  // ── Day view ──────────────────────────────────────────────────────────────────
-
-  const DayView = () => {
-    const dateStr = format(focusDate, 'yyyy-MM-dd');
-    const events  = eventsByDate[dateStr] ?? [];
-    return (
-      <div
-        className="flex-1 overflow-auto p-4"
-        onDragOver={e => e.preventDefault()}
-        onDrop={e => { e.preventDefault(); void handleDrop(dateStr); }}
-        onClick={() => openCreate(dateStr)}
-      >
-        {events.length === 0 ? (
-          <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">{t('common.no_data')}</div>
-        ) : (
-          <div className="space-y-2" onClick={e => e.stopPropagation()}>
-            {events.map((ev, i) => (
-              <div key={i} className="rounded-md border p-3 hover:bg-accent/50 cursor-pointer" onClick={() => setEditingRow(ev)}>
-                <EventPill event={ev} />
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="mt-4 text-center text-xs text-muted-foreground">{t('calendar.click_to_add')}</div>
-      </div>
-    );
-  };
-
-  // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
     <>
@@ -306,7 +342,7 @@ export function CalendarView({ view }: Props) {
         {/* Toolbar */}
         <div className="flex shrink-0 items-center justify-between border-b px-6 py-3">
           <div className="flex items-center gap-1">
-            <Button variant="outline" size="sm" onClick={goToday}>{t('calendar.today')}</Button>
+            <Button variant="outline" size="sm" onClick={() => setFocusDate(new Date())}>{t('calendar.today')}</Button>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => go(-1)}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -316,7 +352,6 @@ export function CalendarView({ view }: Props) {
             <span className="ml-1 min-w-[160px] text-sm font-semibold">{periodLabel}</span>
             {loading && <span className="ml-2 text-xs text-muted-foreground">{t('common.loading')}</span>}
           </div>
-          {/* View mode toggle */}
           <div className="flex rounded-md border">
             {(['month', 'week', 'day'] as ViewMode[]).map(mode => (
               <Button
@@ -332,12 +367,11 @@ export function CalendarView({ view }: Props) {
           </div>
         </div>
 
-        {viewMode === 'month' && <MonthView />}
-        {viewMode === 'week'  && <WeekView />}
-        {viewMode === 'day'   && <DayView />}
+        {viewMode === 'month' && <MonthView shared={shared} weekdays={weekdays} moreLabel={moreLabel} />}
+        {viewMode === 'week'  && <WeekView  shared={shared} weekdays={weekdays} moreLabel={moreLabel} />}
+        {viewMode === 'day'   && <DayView   shared={shared} noDataLabel={t('common.no_data')} clickToAddLabel={t('calendar.click_to_add')} />}
       </div>
 
-      {/* Edit dialog */}
       <Dialog open={Boolean(editingRow)} onOpenChange={open => { if (!open) setEditingRow(null); }}>
         <DialogContent className={dialogWidthClass}>
           <DialogHeader>
@@ -348,7 +382,6 @@ export function CalendarView({ view }: Props) {
         </DialogContent>
       </Dialog>
 
-      {/* Create dialog */}
       <Dialog open={showCreate} onOpenChange={open => { if (!open) { setShowCreate(false); setCreatingDate(null); } }}>
         <DialogContent className={dialogWidthClass}>
           <DialogHeader>
