@@ -193,6 +193,7 @@
       "type_timeline": "時間軸",
       "type_tree": "樹狀視圖",
       "type_gantt": "甘特圖",
+      "type_embed": "嵌入頁面",
       "badge_field_count": "{{count}} 欄位",
       "badge_column_count": "{{count}} 欄位",
       "badge_rule_count": "{{count}} 規則",
@@ -513,7 +514,12 @@
   "calendar": {
     "today": "今天",
     "more_events": "+{{count}} 更多",
-    "weekdays": ["日", "一", "二", "三", "四", "五", "六"]
+    "weekdays": ["日", "一", "二", "三", "四", "五", "六"],
+    "mode_month": "月",
+    "mode_week": "週",
+    "mode_day": "日",
+    "missing_config": "行事曆設定缺失",
+    "click_to_add": "點擊此處新增事件"
   },
   "form": {
     "edit_btn": "編輯",
@@ -620,7 +626,9 @@
       "toast_id_not_found": "找不到資料識別碼",
       "toast_action_success": "{{action}} 執行成功",
       "toast_action_failed": "{{action}} 執行失敗",
-      "column_visibility_button": "欄位"
+      "column_visibility_button": "欄位",
+      "export_csv": "匯出 CSV",
+      "export_failed": "匯出失敗"
     }
   },
   "relation": {
@@ -652,6 +660,12 @@
       "image_placeholder": "圖片網址",
       "confirm": "確認"
     }
+  },
+  "json": {
+    "format": "格式化"
+  },
+  "embed": {
+    "missing_config": "嵌入設定缺失（請設定 url 或 html）"
   },
   "gantt": {
     "view": {

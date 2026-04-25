@@ -1,10 +1,10 @@
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { ColumnDef as TableColumnDef, PaginationState, SortingState, VisibilityState } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import { ArrowDown, ArrowUp, ArrowUpDown, Filter, Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Download, Filter, Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { ApiError, createRow, deleteRow, executeViewAction, getTableData, updateRow } from '../../api';
 import type { CustomViewAction, ViewDefinition } from '../../types';
 import { resolveAppearance } from '../../types';
@@ -102,8 +102,9 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
 
   const builtinActions = view.actions.filter((a): a is import('../../types').BuiltinAction => typeof a === 'string');
   const canCreate = builtinActions.includes('create');
-  const canEdit = builtinActions.includes('edit');
-  const canDelete = builtinActions.includes('delete');
+  const canEdit   = builtinActions.includes('edit');
+  const canDelete  = builtinActions.includes('delete');
+  const canExport  = builtinActions.includes('export');
 
   const listCustomActions = view.actions
     .filter((a): a is CustomViewAction => typeof a === 'object')
@@ -160,12 +161,21 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
           ? resolveAppearance(col.appearance, rowData)
           : undefined;
         return (
-          <CellValue
+          <InlineCell
             value={getValue()}
             colKey={col.key}
             type={col.type}
             row={rowData}
             appearance={appearance}
+            canInlineEdit={canEdit}
+            onSave={async (val) => {
+              try {
+                await updateRow(view.table_name, rowData.id, { [col.key]: val });
+                void fetchRows();
+              } catch (err) {
+                toast.error(t('table.view.toast_update_failed'), { description: String(err) });
+              }
+            }}
           />
         );
       },
@@ -329,6 +339,32 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
     }
   };
 
+  const handleExport = async () => {
+    try {
+      const result = await getTableData(view.table_name, {
+        page: 1, limit: 100000, filters, advFilters: advFilters.length ? advFilters : undefined,
+      });
+      const visibleCols = view.columns.filter(col => !col.hidden_in_table);
+      const escape = (v: unknown) => {
+        const s = v == null ? '' : String(v);
+        return s.includes(',') || s.includes('"') || s.includes('\n')
+          ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const header = visibleCols.map(c => escape(c.label)).join(',');
+      const rows   = result.rows.map(row =>
+        visibleCols.map(c => escape(row[c.key])).join(',')
+      );
+      const csv = [header, ...rows].join('\r\n');
+      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = `${view.name}.csv`; a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error(t('table.view.export_failed'), { description: String(error) });
+    }
+  };
+
   const visibleFieldCount = view.form.fields.filter(f => !f.hidden_in_form).length;
   const formColumns = (view.form.columns ?? (visibleFieldCount >= 5 ? 2 : 1)) as 1 | 2 | 3 | 4;
   const dialogWidthClass =
@@ -384,6 +420,12 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
             </SelectContent>
           </Select>
           <ColumnVisibilityButton table={table} />
+          {canExport ? (
+            <Button variant="outline" onClick={handleExport}>
+              <Download className="mr-1.5 h-4 w-4" />
+              {t('table.view.export_csv')}
+            </Button>
+          ) : null}
           {canCreate ? (
             <Button onClick={() => isMasterDetail ? navigate(`/view/${view.id}/new`) : setShowCreate(true)}>
               <Plus className="h-4 w-4" />
@@ -679,4 +721,63 @@ function SortIcon({ state }: { state: false | 'asc' | 'desc' }) {
   if (state === 'asc') return <ArrowUp className="h-4 w-4" />;
   if (state === 'desc') return <ArrowDown className="h-4 w-4" />;
   return <ArrowUpDown className="h-4 w-4 text-muted-foreground" />;
+}
+
+// ─── Inline editable cell types ───────────────────────────────────────────────
+
+const INLINE_EDITABLE_TYPES = new Set(['text', 'number', 'currency', 'email', 'phone', 'url', 'textarea']);
+
+function InlineCell({
+  value, colKey, type, row, appearance, canInlineEdit, onSave,
+}: {
+  value: unknown; colKey: string; type: string; row: RowData;
+  appearance?: import('../../types').AppearanceEffect;
+  canInlineEdit: boolean;
+  onSave: (val: unknown) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [localVal, setLocalVal] = useState('');
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+
+  const startEdit = () => {
+    if (!canInlineEdit || !INLINE_EDITABLE_TYPES.has(type)) return;
+    setLocalVal(value == null ? '' : String(value));
+    setEditing(true);
+  };
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  const commit = async () => {
+    setEditing(false);
+    const newVal = type === 'number' || type === 'currency' ? (localVal === '' ? null : Number(localVal)) : localVal;
+    if (newVal !== value) await onSave(newVal);
+  };
+
+  if (!editing) {
+    return (
+      <div
+        onClick={canInlineEdit && INLINE_EDITABLE_TYPES.has(type) ? startEdit : undefined}
+        className={canInlineEdit && INLINE_EDITABLE_TYPES.has(type) ? 'cursor-text rounded hover:ring-1 hover:ring-muted-foreground/30 px-0.5 -mx-0.5' : ''}
+      >
+        <CellValue value={value} colKey={colKey} type={type} row={row} appearance={appearance} />
+      </div>
+    );
+  }
+
+  const sharedProps = {
+    value: localVal,
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setLocalVal(e.target.value),
+    onBlur: commit,
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && type !== 'textarea') { e.preventDefault(); void commit(); }
+      if (e.key === 'Escape') setEditing(false);
+    },
+    className: 'w-full rounded border border-primary bg-background px-1.5 py-0.5 text-sm outline-none ring-1 ring-primary',
+  };
+
+  return type === 'textarea'
+    ? <textarea {...sharedProps} ref={inputRef as React.RefObject<HTMLTextAreaElement>} rows={2} />
+    : <input   {...sharedProps} ref={inputRef as React.RefObject<HTMLInputElement>} type={type === 'number' || type === 'currency' ? 'number' : 'text'} />;
 }

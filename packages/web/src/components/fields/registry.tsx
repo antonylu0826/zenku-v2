@@ -18,6 +18,7 @@ import { TimeField, TimeReadonly } from './TimeField';
 import { ImageField, ImageReadonly } from './ImageField';
 import { AutoNumberField, AutoNumberReadonly } from './AutoNumberField';
 import { MarkdownInput, MarkdownReadonly } from './MarkdownField';
+import { JsonInput, JsonReadonly } from './JsonField';
 import type { FieldDef, FieldType } from '../../types';
 
 // ─── Sheet field (lazy-loaded — Univer bundle is large) ───────────────────────
@@ -336,4 +337,5 @@ export const FIELD_REGISTRY: Record<FieldType, FieldEntry> = {
   time:        { input: TimeInputWrapper,     readonly: TimeReadonly },
   auto_number: { input: AutoNumberField,      readonly: AutoNumberReadonly },
   sheet:       { input: SheetInputWrapper,    readonly: SheetReadonlyWrapper, fullWidth: true },
+  json:        { input: JsonInput,            readonly: JsonReadonly,         fullWidth: true },
 };

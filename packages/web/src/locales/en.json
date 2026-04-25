@@ -187,6 +187,7 @@
       "type_timeline": "Timeline",
       "type_tree": "Tree View",
       "type_gantt": "Gantt Chart",
+      "type_embed": "Embed",
       "badge_field_count": "{{count}} fields",
       "badge_column_count": "{{count}} fields",
       "badge_rule_count": "{{count}} rules",
@@ -507,7 +508,12 @@
   "calendar": {
     "today": "Today",
     "more_events": "+{{count}} more",
-    "weekdays": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    "weekdays": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+    "mode_month": "Month",
+    "mode_week": "Week",
+    "mode_day": "Day",
+    "missing_config": "Calendar configuration is missing",
+    "click_to_add": "Click to add event"
   },
   "form": {
     "edit_btn": "Edit",
@@ -614,7 +620,9 @@
       "toast_id_not_found": "Record ID not found",
       "toast_action_success": "{{action}} executed successfully",
       "toast_action_failed": "{{action}} execution failed",
-      "column_visibility_button": "Columns"
+      "column_visibility_button": "Columns",
+      "export_csv": "Export CSV",
+      "export_failed": "Export failed"
     }
   },
   "relation": {
@@ -646,6 +654,12 @@
       "image_placeholder": "Image URL",
       "confirm": "Confirm"
     }
+  },
+  "json": {
+    "format": "Format"
+  },
+  "embed": {
+    "missing_config": "Embed configuration is missing (set url or html)"
   },
   "gantt": {
     "view": {

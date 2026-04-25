@@ -179,6 +179,7 @@ Type selection guide:
 - timeline: Vertical timeline sorted by date; requires timeline (date_field, title_field)
 - tree: Hierarchical tree view for self-referential data (org charts, categories, folders); requires tree (parent_field, label_field)
 - gantt: Gantt chart with date bars; requires gantt (start_field, end_field, title_field)
+- embed: Embed an external URL or custom HTML; requires embed ({ url } or { html })
 
 Field type determines frontend rendering (for table/master-detail):
 - text/number/date/boolean/textarea: Basic input
@@ -188,6 +189,7 @@ Field type determines frontend rendering (for table/master-detail):
 - computed: Only set in form.fields, use number type in columns
 - markdown: Rich formatted content (Tiptap WYSIWYG); stores Markdown text; use for descriptions, notes, specs. Prefer over richtext (deprecated).
 - sheet: Embedded spreadsheet (Univer); stores full workbook JSON; use only when a field genuinely needs spreadsheet capability (formulas, multi-sheet, formatting). Heavy — avoid unless necessary.
+- json: JSON editor (CodeMirror); stores any valid JSON string; use for flexible metadata or config fields.
 
 form.columns controls form column count (integer 1/2/3):
 - Always set explicitly when fields >= 5, otherwise form becomes a single long column
@@ -403,11 +405,12 @@ When users say "statistics/kanban/calendar/gallery", directly create a view of t
             },
             calendar: {
               type: 'object',
-              description: 'Settings for calendar type',
+              description: 'Settings for calendar type. Supports month/week/day view toggle and drag-to-reschedule.',
               properties: {
-                date_field: { type: 'string' },
-                title_field: { type: 'string' },
-                color_field: { type: 'string' },
+                date_field:     { type: 'string', description: 'Start date field' },
+                title_field:    { type: 'string', description: 'Event title field' },
+                color_field:    { type: 'string', description: 'Optional field for color grouping' },
+                end_date_field: { type: 'string', description: 'Optional end date field — enables multi-day spanning events' },
               },
               required: ['date_field', 'title_field'],
             },
@@ -443,6 +446,14 @@ When users say "statistics/kanban/calendar/gallery", directly create a view of t
                 color_field:    { type: 'string', description: 'Optional hex color column for per-task bar color' },
               },
               required: ['start_field', 'end_field', 'title_field'],
+            },
+            embed: {
+              type: 'object',
+              description: 'Settings for embed type. Provide either url (iframe external page) or html (srcdoc sandbox with custom markup). Does not need columns, form, or actions.',
+              properties: {
+                url:  { type: 'string', description: 'External URL to embed in an iframe' },
+                html: { type: 'string', description: 'Custom HTML to render in a sandboxed srcdoc iframe. Supports {{field}} template variables.' },
+              },
             },
             tree: {
               type: 'object',

@@ -8,6 +8,7 @@ import { CalendarView } from './CalendarView';
 import { GalleryView } from './GalleryView';
 import { FormOnlyView } from './FormOnlyView';
 import { TimelineView } from './TimelineView';
+import { EmbedView } from './EmbedView';
 import { GanttView } from './GanttView';
 import { TreeView } from './TreeView';
 
@@ -50,6 +51,9 @@ export const VIEW_REGISTRY: Record<ViewType, ViewEntry> = {
   },
   timeline: {
     component: TimelineView,
+  },
+  embed: {
+    component: EmbedView,
   },
   gantt: {
     component: GanttView,

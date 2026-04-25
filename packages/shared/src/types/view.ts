@@ -4,10 +4,10 @@ import type { AppearanceCondition } from './appearance';
 
 // ===== View Types =====
 
-export type ViewType = 'table' | 'master-detail' | 'dashboard' | 'kanban' | 'calendar' | 'gallery' | 'form-only' | 'timeline' | 'tree' | 'gantt';
+export type ViewType = 'table' | 'master-detail' | 'dashboard' | 'kanban' | 'calendar' | 'gallery' | 'form-only' | 'timeline' | 'tree' | 'gantt' | 'embed';
 
 /** Runtime constant array (used by server-side AI tool schema) */
-export const VIEW_TYPES: ViewType[] = ['table', 'master-detail', 'dashboard', 'kanban', 'calendar', 'gallery', 'form-only', 'timeline', 'tree', 'gantt'];
+export const VIEW_TYPES: ViewType[] = ['table', 'master-detail', 'dashboard', 'kanban', 'calendar', 'gallery', 'form-only', 'timeline', 'tree', 'gantt', 'embed'];
 
 // ===== View Definition =====
 
@@ -40,6 +40,8 @@ export interface ViewDefinition {
   tree?: TreeConfig;
   /** Gantt settings */
   gantt?: GanttConfig;
+  /** Embed settings */
+  embed?: EmbedConfig;
 
   /** Default sort */
   default_sort?: { field: string; direction: 'asc' | 'desc' };
@@ -152,6 +154,8 @@ export interface KanbanConfig {
   description_field?: string;
   /** Column background color map (keyed by group_field value) */
   column_color_map?: Record<string, string>;
+  /** Optional integer field to persist within-column sort order */
+  sort_field?: string;
 }
 
 // ===== Calendar =====
@@ -163,6 +167,8 @@ export interface CalendarConfig {
   title_field: string;
   /** Color field (which field value determines the color) */
   color_field?: string;
+  /** End date field — enables multi-day spanning events */
+  end_date_field?: string;
 }
 
 export interface GalleryConfig {
@@ -215,6 +221,15 @@ export interface GanttConfig {
   progress_field?: string;
   /** Optional hex color field for the bar */
   color_field?: string;
+}
+
+// ===== Embed =====
+
+export interface EmbedConfig {
+  /** URL mode: embed an external page in an iframe */
+  url?: string;
+  /** HTML mode: render custom HTML in a sandboxed srcdoc iframe */
+  html?: string;
 }
 
 // ===== Filters =====
