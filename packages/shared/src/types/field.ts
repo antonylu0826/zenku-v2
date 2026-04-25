@@ -11,7 +11,7 @@ import type { AppearanceRule } from './appearance';
 export type BasicFieldType = 'text' | 'number' | 'select' | 'multiselect' | 'boolean' | 'date' | 'datetime' | 'textarea' | 'rating' | 'progress' | 'color' | 'time' | 'auto_number';
 
 /** Phase 2 extended types */
-export type ExtendedFieldType = 'relation' | 'currency' | 'phone' | 'email' | 'url' | 'enum' | 'richtext';
+export type ExtendedFieldType = 'relation' | 'currency' | 'phone' | 'email' | 'url' | 'enum' | 'richtext' | 'markdown' | 'sheet';
 
 /** Phase 4 file types */
 export type FileFieldType = 'image' | 'file';
@@ -22,7 +22,7 @@ export type FieldType = BasicFieldType | ExtendedFieldType | FileFieldType;
 /** Runtime constant array (used by server-side AI tool schema) */
 export const FIELD_TYPES: FieldType[] = [
   'text', 'number', 'select', 'multiselect', 'boolean', 'date', 'datetime', 'textarea', 'rating', 'progress', 'color', 'time', 'auto_number',
-  'relation', 'currency', 'phone', 'email', 'url', 'enum', 'richtext',
+  'relation', 'currency', 'phone', 'email', 'url', 'enum', 'richtext', 'markdown', 'sheet',
   'image', 'file',
 ];
 

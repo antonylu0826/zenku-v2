@@ -4,10 +4,10 @@ import type { AppearanceCondition } from './appearance';
 
 // ===== View Types =====
 
-export type ViewType = 'table' | 'master-detail' | 'dashboard' | 'kanban' | 'calendar' | 'gallery' | 'form-only' | 'timeline';
+export type ViewType = 'table' | 'master-detail' | 'dashboard' | 'kanban' | 'calendar' | 'gallery' | 'form-only' | 'timeline' | 'tree' | 'gantt';
 
 /** Runtime constant array (used by server-side AI tool schema) */
-export const VIEW_TYPES: ViewType[] = ['table', 'master-detail', 'dashboard', 'kanban', 'calendar', 'gallery', 'form-only', 'timeline'];
+export const VIEW_TYPES: ViewType[] = ['table', 'master-detail', 'dashboard', 'kanban', 'calendar', 'gallery', 'form-only', 'timeline', 'tree', 'gantt'];
 
 // ===== View Definition =====
 
@@ -36,6 +36,10 @@ export interface ViewDefinition {
   gallery?: GalleryConfig;
   /** Timeline settings */
   timeline?: TimelineConfig;
+  /** Tree settings */
+  tree?: TreeConfig;
+  /** Gantt settings */
+  gantt?: GanttConfig;
 
   /** Default sort */
   default_sort?: { field: string; direction: 'asc' | 'desc' };
@@ -185,6 +189,32 @@ export interface TimelineConfig {
   icon_field?: string;
   /** Tags field (field containing an array of strings to show as badges) */
   tags_field?: string;
+}
+
+// ===== Tree =====
+
+export interface TreeConfig {
+  /** Field key that holds the parent record id (self-referential FK) */
+  parent_field: string;
+  /** Field key to use as the node label */
+  label_field: string;
+  /** Optional field key for a lucide icon name per node */
+  icon_field?: string;
+}
+
+// ===== Gantt =====
+
+export interface GanttConfig {
+  /** Field key for task start date */
+  start_field: string;
+  /** Field key for task end date */
+  end_field: string;
+  /** Field key for task label */
+  title_field: string;
+  /** Optional 0–100 progress field */
+  progress_field?: string;
+  /** Optional hex color field for the bar */
+  color_field?: string;
 }
 
 // ===== Filters =====

@@ -185,6 +185,8 @@
       "type_gallery": "Gallery",
       "type_form_only": "Form Only",
       "type_timeline": "Timeline",
+      "type_tree": "Tree View",
+      "type_gantt": "Gantt Chart",
       "badge_field_count": "{{count}} fields",
       "badge_column_count": "{{count}} fields",
       "badge_rule_count": "{{count}} rules",
@@ -619,5 +621,47 @@
     "placeholder": "Please select...",
     "search_placeholder": "Search...",
     "no_results": "No matching results"
+  },
+  "markdown": {
+    "editor": {
+      "undo": "Undo",
+      "redo": "Redo",
+      "bold": "Bold",
+      "italic": "Italic",
+      "strike": "Strikethrough",
+      "code_inline": "Inline Code",
+      "heading1": "Heading 1",
+      "heading2": "Heading 2",
+      "heading3": "Heading 3",
+      "bullet_list": "Bullet List",
+      "ordered_list": "Ordered List",
+      "task_list": "Task List",
+      "blockquote": "Blockquote",
+      "code_block": "Code Block",
+      "hr": "Horizontal Rule",
+      "table": "Insert Table",
+      "link": "Insert Link",
+      "link_placeholder": "https://...",
+      "image": "Insert Image (or paste from clipboard)",
+      "image_placeholder": "Image URL",
+      "confirm": "Confirm"
+    }
+  },
+  "gantt": {
+    "view": {
+      "missing_config": "Gantt configuration is missing",
+      "task_column": "Task",
+      "today": "Today"
+    }
+  },
+  "tree": {
+    "view": {
+      "missing_config": "Tree view configuration is missing",
+      "add_root": "Add Root Node",
+      "add_child": "Add Child",
+      "edit": "Edit",
+      "expand_all": "Expand All",
+      "collapse_all": "Collapse All"
+    }
   }
 }

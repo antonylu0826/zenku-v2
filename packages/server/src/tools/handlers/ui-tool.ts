@@ -177,6 +177,8 @@ Type selection guide:
 - gallery: Gallery grid with image cards, requires gallery (image_field, title_field)
 - form-only: Single-record form (e.g., settings page); auto-creates record if table is empty
 - timeline: Vertical timeline sorted by date; requires timeline (date_field, title_field)
+- tree: Hierarchical tree view for self-referential data (org charts, categories, folders); requires tree (parent_field, label_field)
+- gantt: Gantt chart with date bars; requires gantt (start_field, end_field, title_field)
 
 Field type determines frontend rendering (for table/master-detail):
 - text/number/date/boolean/textarea: Basic input
@@ -184,6 +186,8 @@ Field type determines frontend rendering (for table/master-detail):
 - relation + relation: Related field (searchable dropdown, stores id)
 - currency: Currency amount (with thousand separators)
 - computed: Only set in form.fields, use number type in columns
+- markdown: Rich formatted content (Tiptap WYSIWYG); stores Markdown text; use for descriptions, notes, specs. Prefer over richtext (deprecated).
+- sheet: Embedded spreadsheet (Univer); stores full workbook JSON; use only when a field genuinely needs spreadsheet capability (formulas, multi-sheet, formatting). Heavy — avoid unless necessary.
 
 form.columns controls form column count (integer 1/2/3):
 - Always set explicitly when fields >= 5, otherwise form becomes a single long column
@@ -427,6 +431,28 @@ When users say "statistics/kanban/calendar/gallery", directly create a view of t
                 color_field: { type: 'string' },
               },
               required: ['date_field', 'title_field'],
+            },
+            gantt: {
+              type: 'object',
+              description: 'Settings for gantt type',
+              properties: {
+                start_field:    { type: 'string', description: 'Date column for task start' },
+                end_field:      { type: 'string', description: 'Date column for task end (inclusive)' },
+                title_field:    { type: 'string', description: 'Column to display as the task label' },
+                progress_field: { type: 'string', description: 'Optional integer 0–100 column for progress overlay' },
+                color_field:    { type: 'string', description: 'Optional hex color column for per-task bar color' },
+              },
+              required: ['start_field', 'end_field', 'title_field'],
+            },
+            tree: {
+              type: 'object',
+              description: 'Settings for tree type. The table must have a self-referential FK column (e.g., parent_id INTEGER REFERENCES self). Set parent_field to that column name.',
+              properties: {
+                parent_field: { type: 'string', description: 'Column name that stores the parent row id (self-referential FK, nullable)' },
+                label_field:  { type: 'string', description: 'Column name to display as the node label' },
+                icon_field:   { type: 'string', description: 'Optional column name containing a Lucide icon name per node' },
+              },
+              required: ['parent_field', 'label_field'],
             },
           },
         },

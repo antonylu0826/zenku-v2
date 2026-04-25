@@ -191,6 +191,8 @@
       "type_gallery": "圖庫",
       "type_form_only": "單頁表單",
       "type_timeline": "時間軸",
+      "type_tree": "樹狀視圖",
+      "type_gantt": "甘特圖",
       "badge_field_count": "{{count}} 欄位",
       "badge_column_count": "{{count}} 欄位",
       "badge_rule_count": "{{count}} 規則",
@@ -625,5 +627,47 @@
     "placeholder": "請選擇...",
     "search_placeholder": "搜尋...",
     "no_results": "無符合的結果"
+  },
+  "markdown": {
+    "editor": {
+      "undo": "復原",
+      "redo": "重做",
+      "bold": "粗體",
+      "italic": "斜體",
+      "strike": "刪除線",
+      "code_inline": "行內程式碼",
+      "heading1": "標題 1",
+      "heading2": "標題 2",
+      "heading3": "標題 3",
+      "bullet_list": "項目清單",
+      "ordered_list": "編號清單",
+      "task_list": "待辦清單",
+      "blockquote": "引用區塊",
+      "code_block": "程式碼區塊",
+      "hr": "水平分隔線",
+      "table": "插入表格",
+      "link": "插入連結",
+      "link_placeholder": "https://...",
+      "image": "插入圖片（或直接貼上）",
+      "image_placeholder": "圖片網址",
+      "confirm": "確認"
+    }
+  },
+  "gantt": {
+    "view": {
+      "missing_config": "甘特圖設定缺失",
+      "task_column": "任務名稱",
+      "today": "今天"
+    }
+  },
+  "tree": {
+    "view": {
+      "missing_config": "樹狀視圖設定缺失",
+      "add_root": "新增根節點",
+      "add_child": "新增子節點",
+      "edit": "編輯",
+      "expand_all": "全部展開",
+      "collapse_all": "全部收合"
+    }
   }
 }

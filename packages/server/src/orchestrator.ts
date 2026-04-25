@@ -15,6 +15,8 @@ import { buildRelationInstructions } from './prompts/relation-instructions';
 import { buildKanbanInstructions } from './prompts/kanban-instructions';
 import { buildCalendarInstructions } from './prompts/calendar-instructions';
 import { buildTimelineInstructions } from './prompts/timeline-instructions';
+import { buildGanttInstructions } from './prompts/gantt-instructions';
+import { buildTreeInstructions } from './prompts/tree-instructions';
 import { buildDashboardInstructions } from './prompts/dashboard-instructions';
 import { buildBusinessRulesInstructions } from './prompts/business-rules-instructions';
 import { buildDestructiveSchemaInstructions } from './prompts/destructive-schema-instructions';
@@ -76,6 +78,10 @@ ${buildKanbanInstructions()}
 ${buildCalendarInstructions()}
 
 ${buildTimelineInstructions()}
+
+${buildGanttInstructions()}
+
+${buildTreeInstructions()}
 
 ${buildBusinessRulesInstructions()}
 

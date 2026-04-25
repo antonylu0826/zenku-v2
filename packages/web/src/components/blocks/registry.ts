@@ -8,6 +8,8 @@ import { CalendarView } from './CalendarView';
 import { GalleryView } from './GalleryView';
 import { FormOnlyView } from './FormOnlyView';
 import { TimelineView } from './TimelineView';
+import { GanttView } from './GanttView';
+import { TreeView } from './TreeView';
 
 // ─── Registry entry ───────────────────────────────────────────────────────────
 
@@ -48,6 +50,12 @@ export const VIEW_REGISTRY: Record<ViewType, ViewEntry> = {
   },
   timeline: {
     component: TimelineView,
+  },
+  gantt: {
+    component: GanttView,
+  },
+  tree: {
+    component: TreeView,
   },
   // To add a new View type, just add one entry here ↓
 };

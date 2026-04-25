@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
@@ -16,7 +17,34 @@ import { ColorField, ColorReadonly } from './ColorField';
 import { TimeField, TimeReadonly } from './TimeField';
 import { ImageField, ImageReadonly } from './ImageField';
 import { AutoNumberField, AutoNumberReadonly } from './AutoNumberField';
+import { MarkdownInput, MarkdownReadonly } from './MarkdownField';
 import type { FieldDef, FieldType } from '../../types';
+
+// ─── Sheet field (lazy-loaded — Univer bundle is large) ───────────────────────
+
+const LazySheetInput    = lazy(() => import('./SheetField').then(m => ({ default: m.SheetInput })));
+const LazySheetReadonly = lazy(() => import('./SheetField').then(m => ({ default: m.SheetReadonly })));
+
+function SheetInputWrapper(props: FieldInputInnerProps) {
+  const { t } = useTranslation();
+  return (
+    <Suspense fallback={
+      <div className="flex h-[420px] items-center justify-center rounded-md border bg-muted/30 text-sm text-muted-foreground">
+        {t('common.loading')}
+      </div>
+    }>
+      <LazySheetInput {...props} />
+    </Suspense>
+  );
+}
+
+function SheetReadonlyWrapper(props: FieldReadonlyProps) {
+  return (
+    <Suspense fallback={<div className="h-[420px] rounded-md border bg-muted/30" />}>
+      <LazySheetReadonly {...props} />
+    </Suspense>
+  );
+}
 import { cn } from '../../lib/cn';
 
 // ─── Shared prop types ────────────────────────────────────────────────────────
@@ -289,6 +317,7 @@ export const FIELD_REGISTRY: Record<FieldType, FieldEntry> = {
   currency: { input: NumberInput,          readonly: CurrencyReadonly },
   textarea: { input: TextareaInput,        readonly: TextReadonly,    fullWidth: true },
   richtext: { input: TextareaInput,        readonly: TextReadonly,    fullWidth: true },
+  markdown: { input: MarkdownInput,        readonly: MarkdownReadonly, fullWidth: true },
   boolean:  { input: BooleanInput,         readonly: BooleanReadonly },
   date:     { input: DateInput,            readonly: TextReadonly },
   datetime: { input: DateTimeInput,        readonly: TextReadonly },
@@ -306,4 +335,5 @@ export const FIELD_REGISTRY: Record<FieldType, FieldEntry> = {
   color:       { input: ColorInputWrapper,    readonly: ColorReadonly },
   time:        { input: TimeInputWrapper,     readonly: TimeReadonly },
   auto_number: { input: AutoNumberField,      readonly: AutoNumberReadonly },
+  sheet:       { input: SheetInputWrapper,    readonly: SheetReadonlyWrapper, fullWidth: true },
 };
