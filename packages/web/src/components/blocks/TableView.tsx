@@ -129,6 +129,19 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
   const canDelete  = builtinActions.includes('delete');
   const canExport  = builtinActions.includes('export');
 
+  const filterColumns = useMemo(() =>
+    view.columns.map(col => {
+      if (col.type !== 'select') return col;
+      const field = view.form.fields.find(f => f.key === col.key);
+      if (!field) return col;
+      return {
+        ...col,
+        options: col.options ?? field.options,
+        option_labels: col.option_labels ?? field.option_labels,
+      };
+    }),
+  [view.columns, view.form.fields]);
+
   const listCustomActions = view.actions
     .filter((a): a is CustomViewAction => typeof a === 'object')
     .filter(a => a.context === 'list' || a.context === 'both');
@@ -174,15 +187,7 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
       size: 44, minSize: 44, maxSize: 44, enableSorting: false,
     };
 
-    // Enrich columns with option_labels from form fields
-    const enrichedColumns = view.columns.map(col => {
-      if (col.type === 'select' && !col.option_labels) {
-        const field = view.form.fields.find(f => f.key === col.key);
-        if (field?.option_labels) return { ...col, option_labels: field.option_labels };
-      }
-      return col;
-    });
-    const visibleCols = enrichedColumns.filter(col => !col.hidden_in_table);
+    const visibleCols = filterColumns.filter(col => !col.hidden_in_table);
     const dataColumns = visibleCols.map((col, colIndex) => ({
       id: col.key,
       accessorFn: (row: RowData) => row[col.key],
@@ -295,7 +300,7 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
     };
 
     return [selectColumn, ...dataColumns, actionsColumn];
-  }, [canDelete, canEdit, isMasterDetail, listCustomActions, handleListCustomAction, view.columns]);
+  }, [canDelete, canEdit, isMasterDetail, listCustomActions, handleListCustomAction, filterColumns]);
 
   const table = useReactTable({
     data: rows,
@@ -491,18 +496,7 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
 
       {showFilterPanel && (
         <FilterPanel
-          columns={view.columns.map(col => {
-            if (col.type === 'select') {
-              const field = view.form.fields.find(f => f.key === col.key);
-              if (!field) return col;
-              return {
-                ...col,
-                options: col.options ?? field.options,
-                option_labels: col.option_labels ?? field.option_labels,
-              };
-            }
-            return col;
-          })}
+          columns={filterColumns}
           filters={advFilters}
           onChange={filters => {
             setAdvFilters(filters);

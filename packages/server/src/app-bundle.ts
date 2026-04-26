@@ -3,7 +3,7 @@ import { getAllSchemas, getUserTables } from './db/schema';
 import { getAllViews } from './db/views';
 import { getAllRules } from './db/rules';
 import { getAllTranslations, upsertTranslations } from './db/translations';
-import { reloadI18n } from './i18n';
+import { initI18n } from './i18n';
 import type { ColumnInfo, FieldType } from './db/adapter';
 import type { ViewDefinition } from '@zenku/shared';
 
@@ -350,7 +350,7 @@ export async function applyBundle(
     if (entries.length > 0) {
       try {
         await upsertTranslations(entries);
-        await reloadI18n();
+        await initI18n();
       } catch (err) {
         result.errors.push(`Failed to import translations: ${String(err)}`);
       }

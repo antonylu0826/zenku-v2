@@ -3,9 +3,6 @@ import type { TranslationRow } from './db/translations';
 
 export type { TranslationRow };
 
-// ─── In-memory cache ──────────────────────────────────────────────────────────
-
-// Map key: `${locale}::${translationKey}`
 let cache = new Map<string, string>();
 let initialized = false;
 
@@ -19,16 +16,6 @@ export async function initI18n(): Promise<void> {
   initialized = true;
 }
 
-export async function reloadI18n(): Promise<void> {
-  await initI18n();
-}
-
-// ─── Translation resolution ───────────────────────────────────────────────────
-
-/**
- * Resolve a translation key for the given locale.
- * Falls back to 'en', then returns the key itself (without the $ prefix).
- */
 export function t(key: string, locale: string): string {
   if (!key.startsWith('$')) return key;
   if (!initialized) return key.slice(1);
@@ -41,9 +28,6 @@ export function t(key: string, locale: string): string {
   );
 }
 
-/**
- * Walk a plain object / array and resolve any string values that start with '$'.
- */
 export function resolveI18n(value: unknown, locale: string): unknown {
   if (typeof value === 'string') {
     return value.startsWith('$') ? t(value, locale) : value;
@@ -58,8 +42,6 @@ export function resolveI18n(value: unknown, locale: string): unknown {
   }
   return value;
 }
-
-// ─── Cache mutation helpers ───────────────────────────────────────────────────
 
 export async function setTranslation(key: string, locale: string, content: string): Promise<void> {
   await upsertTranslation(key, locale, content);

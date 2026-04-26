@@ -21,6 +21,30 @@ interface Props {
 
 type RowData = Record<string, unknown>;
 
+function RecordNav({ ids, recordId, viewId, navigate, prevLabel, nextLabel }: {
+  ids: (string | number)[];
+  recordId: string;
+  viewId: string;
+  navigate: (path: string) => void;
+  prevLabel: string;
+  nextLabel: string;
+}) {
+  let idx = ids.indexOf(recordId as string | number);
+  if (idx === -1) idx = ids.findIndex(id => String(id) === String(recordId));
+  const prevId = idx > 0 ? ids[idx - 1] : null;
+  const nextId = idx !== -1 && idx < ids.length - 1 ? ids[idx + 1] : null;
+  return (
+    <div className="flex items-center gap-1">
+      <Button variant="ghost" size="icon" disabled={!prevId} onClick={() => prevId && navigate(`/view/${viewId}/${prevId}`)} title={prevLabel}>
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+      <span className="text-xs text-muted-foreground">{idx + 1} / {ids.length}</span>
+      <Button variant="ghost" size="icon" disabled={!nextId} onClick={() => nextId && navigate(`/view/${viewId}/${nextId}`)} title={nextLabel}>
+        <ChevronRight className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
 
 export function MasterDetailView({ view, recordId }: Props) {
   const { t } = useTranslation();
@@ -113,34 +137,14 @@ export function MasterDetailView({ view, recordId }: Props) {
         <span className="text-sm text-muted-foreground">#{recordId}</span>
 
         {/* Prev / Next navigation */}
-        {adjacentIds.length > 0 && (() => {
-          const idx = adjacentIds.indexOf(recordId as string | number) !== -1
-            ? adjacentIds.indexOf(recordId as string | number)
-            : adjacentIds.findIndex(id => String(id) === String(recordId));
-          const prevId = idx > 0 ? adjacentIds[idx - 1] : null;
-          const nextId = idx !== -1 && idx < adjacentIds.length - 1 ? adjacentIds[idx + 1] : null;
-          return (
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost" size="icon"
-                disabled={!prevId}
-                onClick={() => prevId && navigate(`/view/${view.id}/${prevId}`)}
-                title={t('common.prev_page')}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-xs text-muted-foreground">{idx + 1} / {adjacentIds.length}</span>
-              <Button
-                variant="ghost" size="icon"
-                disabled={!nextId}
-                onClick={() => nextId && navigate(`/view/${view.id}/${nextId}`)}
-                title={t('common.next_page')}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          );
-        })()}
+        {adjacentIds.length > 0 && <RecordNav
+          ids={adjacentIds}
+          recordId={recordId}
+          viewId={view.id}
+          navigate={navigate}
+          prevLabel={t('common.prev_page')}
+          nextLabel={t('common.next_page')}
+        />}
 
         {/* Custom action buttons */}
         {record && recordCustomActions.length > 0 && (

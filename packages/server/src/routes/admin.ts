@@ -7,7 +7,7 @@ import { createApiKey, listApiKeys, revokeApiKey, deleteApiKey } from '../db/aut
 import { listOidcProviders, createOidcProvider, updateOidcProvider, deleteOidcProvider, listRoleMappings, createRoleMapping, deleteRoleMapping } from '../db/oidc';
 import { getSetting, setSetting } from '../db/settings';
 import { getAllTranslations, upsertTranslation, deleteTranslation } from '../db/translations';
-import { reloadI18n } from '../i18n';
+import { initI18n } from '../i18n';
 import { requireAdmin, requireAuth } from '../middleware/auth';
 import { getAvailableProviders, fetchOllamaModels } from '../ai';
 import { p } from '../utils';
@@ -565,7 +565,7 @@ router.put('/admin/translations', requireAdmin, async (req, res) => {
     res.status(400).json({ error: 'Translation key must start with $' }); return;
   }
   await upsertTranslation(key, locale, content);
-  await reloadI18n();
+  await initI18n();
   res.json({ success: true });
 });
 
@@ -575,7 +575,7 @@ router.delete('/admin/translations', requireAdmin, async (req, res) => {
     res.status(400).json({ error: 'ERROR_MISSING_FIELDS' }); return;
   }
   await deleteTranslation(key, locale);
-  await reloadI18n();
+  await initI18n();
   res.json({ success: true });
 });
 
