@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, ChevronDown, ChevronRight, Wrench } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { MarkdownRenderer } from '../MarkdownRenderer';
 
 interface ToolEventRow {
   id: string;
@@ -163,7 +164,10 @@ function MessageBubble({ msg }: { msg: MessageRow }) {
               ? 'bg-primary text-primary-foreground'
               : 'border bg-card'
           }`}>
-            <pre className="whitespace-pre-wrap break-words font-sans">{msg.content}</pre>
+            {isUser
+              ? <pre className="whitespace-pre-wrap break-words font-sans">{msg.content}</pre>
+              : <MarkdownRenderer content={msg.content} />
+            }
           </div>
         )}
 

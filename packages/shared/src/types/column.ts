@@ -20,6 +20,9 @@ export interface ColumnDef {
   /** Hide this column in the table list (definition is preserved and can be toggled in the interface manager) */
   hidden_in_table?: boolean;
 
+  /** Static select options (for select-type columns, used to render filter dropdowns) */
+  options?: string[];
+
   /** Conditional appearance rules (dynamically apply styles per row based on data) */
   appearance?: AppearanceRule[];
 }

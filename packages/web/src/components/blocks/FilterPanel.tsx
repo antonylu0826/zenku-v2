@@ -174,12 +174,25 @@ export function FilterPanel({ columns, filters, onChange }: Props) {
 
             {/* Value */}
             {showValue ? (
-              <Input
-                className="h-8 text-xs w-40"
-                placeholder={t('table.filter.input_placeholder')}
-                value={String(f.value ?? '')}
-                onChange={e => updateFilter(i, { value: e.target.value })}
-              />
+              col?.type === 'select' && col.options?.length ? (
+                <Select value={String(f.value ?? '')} onValueChange={v => updateFilter(i, { value: v })}>
+                  <SelectTrigger className="w-40 h-8 text-xs">
+                    <SelectValue placeholder={t('table.filter.input_placeholder')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {col.options.map(opt => (
+                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  className="h-8 text-xs w-40"
+                  placeholder={t('table.filter.input_placeholder')}
+                  value={String(f.value ?? '')}
+                  onChange={e => updateFilter(i, { value: e.target.value })}
+                />
+              )
             ) : (
               <div className="w-40" />
             )}

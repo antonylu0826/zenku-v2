@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { ColumnDef as TableColumnDef, PaginationState, SortingState, VisibilityState } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import { ArrowDown, ArrowUp, ArrowUpDown, Download, Filter, Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Download, Filter, Eye, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { ApiError, createRow, deleteRow, executeViewAction, getTableData, updateRow } from '../../api';
 import type { CustomViewAction, ViewDefinition } from '../../types';
 import { resolveAppearance } from '../../types';
@@ -35,10 +35,16 @@ interface Props {
 
 type RowData = Record<string, unknown>;
 
+function toRecordLabel(tableName: string): string {
+  const base = tableName.replace(/_/g, ' ').replace(/s$/i, '');
+  return base.charAt(0).toUpperCase() + base.slice(1);
+}
+
 export function TableView({ view, filters, onCreateData, masterRecord }: Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const isMasterDetail = view.type === 'master-detail';
+  const recordLabel = toRecordLabel(view.table_name);
 
   const [rows, setRows] = useState<RowData[]>([]);
   const [total, setTotal] = useState(0);
@@ -391,8 +397,17 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
               value={searchInput}
               onChange={event => setSearchInput(event.target.value)}
               placeholder={t('table.view.search_placeholder')}
-              className="pl-8"
+              className="pl-8 pr-8"
             />
+            {searchInput && (
+              <button
+                type="button"
+                onClick={() => setSearchInput('')}
+                className="absolute right-2.5 top-3 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
           <Button
             variant={showFilterPanel || advFilters.length > 0 ? 'default' : 'outline'}
@@ -437,7 +452,13 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
 
       {showFilterPanel && (
         <FilterPanel
-          columns={view.columns}
+          columns={view.columns.map(col => {
+            if (col.type === 'select' && !col.options) {
+              const field = view.form.fields.find(f => f.key === col.key);
+              return field?.options ? { ...col, options: field.options } : col;
+            }
+            return col;
+          })}
           filters={advFilters}
           onChange={filters => {
             setAdvFilters(filters);
@@ -483,7 +504,14 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
               </TableRow>
             ) : table.getRowModel().rows.length ? (
               table.getRowModel().rows.map(row => (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  onClick={canEdit ? () => {
+                    const data = row.original as RowData;
+                    isMasterDetail ? navigate(`/view/${view.id}/${data.id}`) : setEditingRow(data);
+                  } : undefined}
+                  className={canEdit ? 'cursor-pointer' : undefined}
+                >
                   {row.getVisibleCells().map(cell => (
                     <TableCell key={cell.id} style={{ width: cell.column.getSize() }}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                   ))}
@@ -517,7 +545,7 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className={dialogWidthClass}>
           <DialogHeader>
-            <DialogTitle>{t('table.view.create_dialog_title', { name: view.name })}</DialogTitle>
+            <DialogTitle>{t('table.view.create_dialog_title', { name: recordLabel })}</DialogTitle>
             <DialogDescription>{t('table.view.create_dialog_desc')}</DialogDescription>
           </DialogHeader>
           <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
@@ -529,7 +557,7 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
       <Dialog open={Boolean(editingRow)} onOpenChange={open => (!open ? setEditingRow(null) : null)}>
         <DialogContent className={dialogWidthClass}>
           <DialogHeader>
-            <DialogTitle>{t('table.view.edit_dialog_title', { name: view.name })}</DialogTitle>
+            <DialogTitle>{t('table.view.edit_dialog_title', { name: recordLabel })}</DialogTitle>
             <DialogDescription>{t('table.view.edit_dialog_desc')}</DialogDescription>
           </DialogHeader>
           {editingRow ? (
@@ -555,7 +583,7 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('table.view.cancel')}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>{t('table.view.delete')}</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{t('table.view.delete')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
