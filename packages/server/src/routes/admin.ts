@@ -531,6 +531,31 @@ router.get('/admin/translations', requireAdmin, async (_req, res) => {
   res.json(rows);
 });
 
+/** Scan all view definitions and return every unique $key found */
+router.get('/admin/translations/scan', requireAdmin, async (_req, res) => {
+  const { rows } = await getDb().query<{ definition: string }>(
+    'SELECT definition FROM _zenku_views'
+  );
+  const keys = new Set<string>();
+
+  function walk(val: unknown) {
+    if (typeof val === 'string') {
+      if (val.startsWith('$')) keys.add(val);
+      return;
+    }
+    if (Array.isArray(val)) { val.forEach(walk); return; }
+    if (val !== null && typeof val === 'object') {
+      Object.values(val as Record<string, unknown>).forEach(walk);
+    }
+  }
+
+  for (const row of rows) {
+    try { walk(JSON.parse(row.definition)); } catch { /* skip malformed */ }
+  }
+
+  res.json([...keys].sort());
+});
+
 router.put('/admin/translations', requireAdmin, async (req, res) => {
   const { key, locale, content } = req.body as { key?: string; locale?: string; content?: string };
   if (!key || !locale || content === undefined) {

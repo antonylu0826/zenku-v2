@@ -142,7 +142,7 @@ function SelectInput({ field, value, onChange, disabled }: FieldInputInnerProps)
         {(field.options ?? []).map((opt, i) => {
           const optObj = typeof opt === 'object' && opt !== null ? opt as { value: string; label: string } : null;
           const val = optObj ? optObj.value : opt;
-          const label = optObj ? optObj.label : opt;
+          const label = field.option_labels?.[val] ?? (optObj ? optObj.label : opt);
           return (
             <SelectItem key={`${val}-${i}`} value={val}>{label}</SelectItem>
           );

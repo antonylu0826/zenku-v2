@@ -778,6 +778,13 @@
     "toast_saved": "Translation saved",
     "toast_save_failed": "Failed to save translation",
     "toast_deleted": "Translation deleted",
-    "toast_delete_failed": "Failed to delete translation"
+    "toast_delete_failed": "Failed to delete translation",
+    "scan_btn": "Scan Views",
+    "scan_hint": "Scan all view definitions to discover unregistered $key values",
+    "scan_result": "Scan complete: {{total}} keys found, {{new}} not yet translated",
+    "export_btn": "Export JSON",
+    "import_btn": "Import JSON",
+    "import_success": "Imported {{count}} translations",
+    "unregistered": "Needs translation"
   }
 }

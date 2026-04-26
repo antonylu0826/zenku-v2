@@ -174,7 +174,15 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
       size: 44, minSize: 44, maxSize: 44, enableSorting: false,
     };
 
-    const visibleCols = view.columns.filter(col => !col.hidden_in_table);
+    // Enrich columns with option_labels from form fields
+    const enrichedColumns = view.columns.map(col => {
+      if (col.type === 'select' && !col.option_labels) {
+        const field = view.form.fields.find(f => f.key === col.key);
+        if (field?.option_labels) return { ...col, option_labels: field.option_labels };
+      }
+      return col;
+    });
+    const visibleCols = enrichedColumns.filter(col => !col.hidden_in_table);
     const dataColumns = visibleCols.map((col, colIndex) => ({
       id: col.key,
       accessorFn: (row: RowData) => row[col.key],
@@ -191,6 +199,7 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
             type={col.type}
             row={rowData}
             appearance={appearance}
+            optionLabels={col.option_labels}
             canInlineEdit={canEdit}
             onSave={async (val) => {
               try {
@@ -483,9 +492,14 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
       {showFilterPanel && (
         <FilterPanel
           columns={view.columns.map(col => {
-            if (col.type === 'select' && !col.options) {
+            if (col.type === 'select') {
               const field = view.form.fields.find(f => f.key === col.key);
-              return field?.options ? { ...col, options: field.options } : col;
+              if (!field) return col;
+              return {
+                ...col,
+                options: col.options ?? field.options,
+                option_labels: col.option_labels ?? field.option_labels,
+              };
             }
             return col;
           })}
@@ -694,13 +708,14 @@ function ColumnVisibilityButton({ table }: { table: ReturnType<typeof useReactTa
 }
 
 function CellValue({
-  value, colKey, type, row, appearance,
+  value, colKey, type, row, appearance, optionLabels,
 }: {
   value: unknown;
   colKey: string;
   type: string;
   row: RowData;
   appearance?: import('../../types').AppearanceEffect;
+  optionLabels?: Record<string, string>;
 }) {
   const { t } = useTranslation();
   const textStyle: React.CSSProperties = {};
@@ -773,6 +788,16 @@ function CellValue({
       );
     }
 
+    case 'select':
+    case 'multiselect': {
+      const display = optionLabels?.[String(value)] ?? String(value);
+      return wrap(
+        <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+          {display}
+        </span>
+      );
+    }
+
     case 'color': {
       const hex = String(value);
       return (
@@ -811,10 +836,11 @@ function SortIcon({ state }: { state: false | 'asc' | 'desc' }) {
 const INLINE_EDITABLE_TYPES = new Set(['text', 'number', 'currency', 'email', 'phone', 'url', 'textarea']);
 
 function InlineCell({
-  value, colKey, type, row, appearance, canInlineEdit, onSave,
+  value, colKey, type, row, appearance, optionLabels, canInlineEdit, onSave,
 }: {
   value: unknown; colKey: string; type: string; row: RowData;
   appearance?: import('../../types').AppearanceEffect;
+  optionLabels?: Record<string, string>;
   canInlineEdit: boolean;
   onSave: (val: unknown) => Promise<void>;
 }) {
@@ -844,7 +870,7 @@ function InlineCell({
         onClick={canInlineEdit && INLINE_EDITABLE_TYPES.has(type) ? startEdit : undefined}
         className={canInlineEdit && INLINE_EDITABLE_TYPES.has(type) ? 'cursor-text rounded hover:ring-1 hover:ring-muted-foreground/30 px-0.5 -mx-0.5' : ''}
       >
-        <CellValue value={value} colKey={colKey} type={type} row={row} appearance={appearance} />
+        <CellValue value={value} colKey={colKey} type={type} row={row} appearance={appearance} optionLabels={optionLabels} />
       </div>
     );
   }

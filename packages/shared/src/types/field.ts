@@ -99,8 +99,14 @@ export interface FieldDef {
   /** Input placeholder text */
   placeholder?: string;
 
-  /** Static select options */
+  /** Static select options (stored DB values — stable, never translated) */
   options?: string[];
+  /**
+   * Display labels for select options: { storedValue: displayLabel | $key }.
+   * When present, the UI shows option_labels[value] instead of value itself.
+   * Values in option_labels may be $key strings resolved by the backend i18n service.
+   */
+  option_labels?: Record<string, string>;
   /** Dynamic select source (replaces options) */
   source?: SourceDef;
   /** Relation field definition */

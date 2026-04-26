@@ -784,6 +784,13 @@
     "toast_saved": "翻譯已儲存",
     "toast_save_failed": "儲存翻譯失敗",
     "toast_deleted": "翻譯已刪除",
-    "toast_delete_failed": "刪除翻譯失敗"
+    "toast_delete_failed": "刪除翻譯失敗",
+    "scan_btn": "掃描 View",
+    "scan_hint": "掃描所有視圖定義，找出尚未登錄的 $key",
+    "scan_result": "掃描完成：共 {{total}} 個鍵值，{{new}} 個尚未翻譯",
+    "export_btn": "匯出 JSON",
+    "import_btn": "匯入 JSON",
+    "import_success": "已匯入 {{count}} 條翻譯",
+    "unregistered": "待翻譯"
   }
 }

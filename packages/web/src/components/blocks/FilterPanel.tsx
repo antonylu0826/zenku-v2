@@ -181,7 +181,9 @@ export function FilterPanel({ columns, filters, onChange }: Props) {
                   </SelectTrigger>
                   <SelectContent>
                     {col.options.map(opt => (
-                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                      <SelectItem key={opt} value={opt}>
+                        {col.option_labels?.[opt] ?? opt}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

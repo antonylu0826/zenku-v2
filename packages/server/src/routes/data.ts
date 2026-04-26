@@ -225,7 +225,7 @@ router.post('/:table', requireAuth, async (req, res) => {
     delete rawBody.id; delete rawBody.created_at; delete rawBody.updated_at;
     const body = serializeMultiselect(rawBody, await getMultiselectColumns(table));
 
-    const beforeResult = await executeBefore(table, 'insert', body);
+    const beforeResult = await executeBefore(table, 'insert', body, undefined, req.user?.language);
     if (!beforeResult.allowed) {
       res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: beforeResult.errors.join('; ') } });
       return;
@@ -289,7 +289,7 @@ router.put('/:table/:id', requireAuth, async (req, res) => {
     rawBody.updated_at = new Date().toISOString();
     const body = serializeMultiselect(rawBody, await getMultiselectColumns(table));
 
-    const beforeResult = await executeBefore(table, 'update', body, oldData);
+    const beforeResult = await executeBefore(table, 'update', body, oldData, req.user?.language);
     if (!beforeResult.allowed) {
       res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: beforeResult.errors.join('; ') } });
       return;
@@ -345,7 +345,7 @@ router.delete('/:table/:id', requireAuth, async (req, res) => {
     const deletedData = deletedRows[0];
 
     if (deletedData) {
-      const beforeResult = await executeBefore(table, 'delete', deletedData);
+      const beforeResult = await executeBefore(table, 'delete', deletedData, undefined, req.user?.language);
       if (!beforeResult.allowed) {
         res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: beforeResult.errors.join('; ') } });
         return;

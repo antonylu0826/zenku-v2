@@ -28,15 +28,41 @@ When a value starts with \`$\`, the backend resolves it to the user's locale at 
 ${isNonEnglish ? `The current user language is **${userLanguage}** (not English).
 When you create schema or views:
 1. Use $key format for field labels and view names.
-2. After calling manage_schema / manage_ui, call the set_translations tool to register translations for both \`${userLanguage}\` and \`en\` locales.
-   Example after creating a "tasks" table with a "title" field:
-   set_translations([
-     { key: "$field.tasks.title", locale: "${userLanguage}", content: "標題" },
-     { key: "$field.tasks.title", locale: "en", content: "Title" },
-     { key: "$view.task_management", locale: "${userLanguage}", content: "任務管理" },
-     { key: "$view.task_management", locale: "en", content: "Task Management" }
-   ])
-3. Select option labels should also use $key if there are 2+ locales in use.` : `The current user language is English.
+2. For select fields: set options to stable English values AND set option_labels to $key mappings.
+3. After calling manage_schema / manage_ui, call the set_translations tool to register translations for both \`${userLanguage}\` and \`en\` locales.
+
+Full example — creating a "tasks" table with a status select field:
+
+manage_schema: { key: "status", type: "TEXT" }
+
+manage_ui form field:
+{
+  "key": "status", "type": "select",
+  "label": "$field.tasks.status",
+  "options": ["To Do", "In Progress", "Done"],
+  "option_labels": {
+    "To Do":       "$opt.tasks.status.todo",
+    "In Progress": "$opt.tasks.status.in_progress",
+    "Done":        "$opt.tasks.status.done"
+  }
+}
+
+set_translations([
+  { key: "$field.tasks.title",              locale: "${userLanguage}", content: "標題" },
+  { key: "$field.tasks.title",              locale: "en",    content: "Title" },
+  { key: "$field.tasks.status",             locale: "${userLanguage}", content: "狀態" },
+  { key: "$field.tasks.status",             locale: "en",    content: "Status" },
+  { key: "$opt.tasks.status.todo",          locale: "${userLanguage}", content: "待辦" },
+  { key: "$opt.tasks.status.todo",          locale: "en",    content: "To Do" },
+  { key: "$opt.tasks.status.in_progress",   locale: "${userLanguage}", content: "進行中" },
+  { key: "$opt.tasks.status.in_progress",   locale: "en",    content: "In Progress" },
+  { key: "$opt.tasks.status.done",          locale: "${userLanguage}", content: "已完成" },
+  { key: "$opt.tasks.status.done",          locale: "en",    content: "Done" },
+  { key: "$view.task_management",           locale: "${userLanguage}", content: "任務管理" },
+  { key: "$view.task_management",           locale: "en",    content: "Task Management" }
+])
+
+REMINDER: Filter conditions always use the raw option values ("To Do"), never the $key or translated label.` : `The current user language is English.
 You may use plain text labels (no $key needed) for new content.
 Use $key format only if the user explicitly asks for multi-language support.`}`;
 }

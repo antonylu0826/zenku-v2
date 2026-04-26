@@ -55,7 +55,7 @@ export function MultiSelectField({ field, value, onChange }: Props) {
       // Use static options
       const opts = (field.options ?? []).map(opt => ({
         value: String(opt),
-        label: String(opt),
+        label: field.option_labels?.[String(opt)] ?? String(opt),
       }));
       setOptions(opts);
       setLoading(false);

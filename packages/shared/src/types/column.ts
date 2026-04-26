@@ -22,6 +22,8 @@ export interface ColumnDef {
 
   /** Static select options (for select-type columns, used to render filter dropdowns) */
   options?: string[];
+  /** Display labels for select options — mirrors FieldDef.option_labels */
+  option_labels?: Record<string, string>;
 
   /** Conditional appearance rules (dynamically apply styles per row based on data) */
   appearance?: AppearanceRule[];

@@ -2,6 +2,7 @@ import { getDb, dbNow } from '../db';
 import { getRulesForTable } from '../db/rules';
 import { writeWebhookLog } from '../db/webhook';
 import { evaluateFormula } from '@zenku/shared';
+import { t as i18nT } from '../i18n';
 
 // ===== Types =====
 
@@ -145,6 +146,7 @@ export async function executeBefore(
   action: TriggerAction,
   data: Record<string, unknown>,
   oldData?: Record<string, unknown>,
+  locale = 'en',
 ): Promise<BeforeResult> {
   const triggerType = `before_${action}`;
   const rules = await getRulesForTable(table, triggerType);
@@ -159,9 +161,11 @@ export async function executeBefore(
     const actions = JSON.parse(rule.actions) as RuleAction[];
     for (const act of actions) {
       switch (act.type) {
-        case 'validate':
-          errors.push(act.message ?? `ERROR_RULE_VALIDATION_FAILED:${rule.name}`);
+        case 'validate': {
+          const raw = act.message ?? `ERROR_RULE_VALIDATION_FAILED:${rule.name}`;
+          errors.push(raw.startsWith('$') ? i18nT(raw, locale) : raw);
           break;
+        }
         case 'set_field':
           if (act.field && act.value !== undefined) {
             currentData[act.field] = evaluateExpression(act.value, currentData);
@@ -208,9 +212,11 @@ export async function executeManual(
   for (const act of actions) {
     try {
       switch (act.type) {
-        case 'validate':
-          errors.push(act.message ?? `ERROR_RULE_VALIDATION_FAILED:${rule.name}`);
+        case 'validate': {
+          const rawMsg = act.message ?? `ERROR_RULE_VALIDATION_FAILED:${rule.name}`;
+          errors.push(rawMsg.startsWith('$') ? i18nT(rawMsg, 'en') : rawMsg);
           break;
+        }
 
         case 'set_field':
           if (act.field && act.value !== undefined && data.id !== undefined) {
