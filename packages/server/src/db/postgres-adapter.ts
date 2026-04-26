@@ -447,6 +447,14 @@ export class PostgresAdapter implements DbAdapter {
         zenku_role  TEXT NOT NULL,
         created_at  TEXT DEFAULT NOW()::TEXT
       );
+
+      CREATE TABLE IF NOT EXISTS _zenku_translations (
+        key        TEXT NOT NULL,
+        locale     TEXT NOT NULL,
+        content    TEXT NOT NULL,
+        updated_at TEXT DEFAULT NOW()::TEXT,
+        PRIMARY KEY (key, locale)
+      );
     `);
 
     // Migrations — PostgreSQL supports ADD COLUMN IF NOT EXISTS (v9.6+)

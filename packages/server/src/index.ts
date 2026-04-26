@@ -6,6 +6,7 @@ import cors from 'cors';
 dotenv.config({ path: path.resolve(process.cwd(), '../../.env') });
 
 import { getDb, initDb } from './db';
+import { initI18n } from './i18n';
 import { writeJournal } from './db/journal';
 import authRouter from './routes/auth';
 import adminRouter from './routes/admin';
@@ -101,6 +102,7 @@ if (process.env.NODE_ENV === 'production') {
 
 async function start(): Promise<void> {
   await initDb();
+  await initI18n();
   app.listen(PORT, () => {
     console.log(`[Zenku Engine] Server running on port ${PORT}`);
   });

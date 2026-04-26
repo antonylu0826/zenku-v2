@@ -153,7 +153,8 @@
       "api_keys": "API Keys",
       "bundle": "App Management",
       "appearance": "Conditional Appearance",
-      "oidc": "SSO / OIDC"
+      "oidc": "SSO / OIDC",
+      "translations": "Translation Center"
     },
     "panel": {
       "title": "Settings"
@@ -764,5 +765,18 @@
       "expand_all": "Expand All",
       "collapse_all": "Collapse All"
     }
+  },
+  "translations": {
+    "title": "Translation Center",
+    "desc": "Manage user-defined content translations ($key → display text per locale).",
+    "add_entry": "Add new translation entry",
+    "search_placeholder": "Search keys...",
+    "content_placeholder": "Display text",
+    "no_entries": "No translation entries found.",
+    "error_invalid_key": "Key must start with $ and content must not be empty.",
+    "toast_saved": "Translation saved",
+    "toast_save_failed": "Failed to save translation",
+    "toast_deleted": "Translation deleted",
+    "toast_delete_failed": "Failed to delete translation"
   }
 }

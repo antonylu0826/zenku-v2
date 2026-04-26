@@ -2,12 +2,15 @@ import { getDb, dbNow } from './db';
 import { getAllSchemas, getUserTables } from './db/schema';
 import { getAllViews } from './db/views';
 import { getAllRules } from './db/rules';
+import { getAllTranslations, upsertTranslations } from './db/translations';
+import { reloadI18n } from './i18n';
 import type { ColumnInfo, FieldType } from './db/adapter';
 import type { ViewDefinition } from '@zenku/shared';
 
 // ─── Bundle format ────────────────────────────────────────────────────────────
 
-export const BUNDLE_VERSION = '1' as const;
+export const BUNDLE_VERSION = '2' as const;
+export const SUPPORTED_BUNDLE_VERSIONS = ['1', '2'] as const;
 
 export interface BundleManifest {
   name: string;
@@ -27,6 +30,8 @@ export interface ZenkuBundle {
     table_name: string; trigger_type: string; condition: string | null;
     actions: string; priority: number; enabled: number;
   }>;
+  /** translations[locale][key] = content — only present in v2 bundles */
+  translations?: Record<string, Record<string, string>>;
 }
 
 // ─── Diff types ───────────────────────────────────────────────────────────────
@@ -56,11 +61,19 @@ export interface BundleDiff {
 // ─── Generate ─────────────────────────────────────────────────────────────────
 
 export async function generateBundle(manifest: BundleManifest): Promise<ZenkuBundle> {
-  const [schema, views, rules] = await Promise.all([
+  const [schema, views, rules, translationRows] = await Promise.all([
     getAllSchemas(),
     getAllViews(),
     getAllRules(),
+    getAllTranslations(),
   ]);
+
+  // Group translations: { locale: { key: content } }
+  const translations: Record<string, Record<string, string>> = {};
+  for (const row of translationRows) {
+    if (!translations[row.locale]) translations[row.locale] = {};
+    translations[row.locale][row.key] = row.content;
+  }
 
   return {
     zenku_bundle_version: BUNDLE_VERSION,
@@ -84,6 +97,7 @@ export async function generateBundle(manifest: BundleManifest): Promise<ZenkuBun
       priority: r.priority,
       enabled: r.enabled,
     })),
+    translations,
   };
 }
 
@@ -92,7 +106,7 @@ export async function generateBundle(manifest: BundleManifest): Promise<ZenkuBun
 export function validateBundle(data: unknown): { valid: true; bundle: ZenkuBundle } | { valid: false; error: string } {
   if (!data || typeof data !== 'object') return { valid: false, error: 'Bundle must be a JSON object' };
   const b = data as Record<string, unknown>;
-  if (b.zenku_bundle_version !== BUNDLE_VERSION) {
+  if (!SUPPORTED_BUNDLE_VERSIONS.includes(b.zenku_bundle_version as typeof SUPPORTED_BUNDLE_VERSIONS[number])) {
     return { valid: false, error: `Unsupported bundle version: ${b.zenku_bundle_version}` };
   }
   if (!b.manifest || typeof b.manifest !== 'object') return { valid: false, error: 'Missing manifest' };
@@ -321,6 +335,25 @@ export async function applyBundle(
       result.rules_upserted.push(r.id);
     } catch (err) {
       result.errors.push(`Failed to upsert rule "${r.id}": ${String(err)}`);
+    }
+  }
+
+  // ── 5. Upsert translations (v2 bundles only) ──────────────────────────────
+
+  if (bundle.translations && typeof bundle.translations === 'object') {
+    const entries: { key: string; locale: string; content: string }[] = [];
+    for (const [locale, keys] of Object.entries(bundle.translations)) {
+      for (const [key, content] of Object.entries(keys)) {
+        entries.push({ key, locale, content });
+      }
+    }
+    if (entries.length > 0) {
+      try {
+        await upsertTranslations(entries);
+        await reloadI18n();
+      } catch (err) {
+        result.errors.push(`Failed to import translations: ${String(err)}`);
+      }
     }
   }
 

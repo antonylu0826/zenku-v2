@@ -23,6 +23,7 @@ import { buildDestructiveSchemaInstructions } from './prompts/destructive-schema
 import { buildConditionalAppearanceInstructions } from './prompts/conditional-appearance-instructions';
 import { buildViewActionsInstructions } from './prompts/view-actions-instructions';
 import { buildFieldTypeInstructions } from './prompts/field-type-instructions';
+import { buildI18nInstructions } from './prompts/i18n-instructions';
 import type { ToolDefinition } from './ai';
 import type { LLMMessage, ToolResult, AIProvider as AIProviderName } from './types';
 
@@ -43,6 +44,7 @@ Available Tools:
 - assess_impact: Assess impact of destructive schema changes (must call before modification).
 - get_table_schema: Retrieve names of all tables or detailed column definitions for a specific table.
 - get_integration_guide: Returns the full integration guide for connecting Zenku with n8n or other automation tools (API endpoints, webhook payload format, write-back options, common errors).
+- set_translations: Register or update translation entries ($key → display text per locale). Call after creating schema/views when user language is not English.
 
 Language: ALL responses to the user must be in the [${userLanguage}] language.
 
@@ -91,7 +93,9 @@ ${buildConditionalAppearanceInstructions()}
 
 ${buildViewActionsInstructions()}
 
-${buildFieldTypeInstructions()}`;
+${buildFieldTypeInstructions()}
+
+${buildI18nInstructions(userLanguage)}`;
 }
 
 export async function buildDynamicContext(): Promise<string> {

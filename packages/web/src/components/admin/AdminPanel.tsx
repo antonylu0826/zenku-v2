@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Users, MessageSquare, BarChart2, ShieldCheck,
-  LayoutTemplate, Key, Package, X, LogIn,
+  LayoutTemplate, Key, Package, X, LogIn, Languages,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { UserManagement } from './UserManagement';
@@ -13,6 +13,7 @@ import { ViewManagement } from './ViewManagement';
 import { ApiKeyManagement } from './ApiKeyManagement';
 import { BundleManagement } from './BundleManagement';
 import { OidcManagement } from './OidcManagement';
+import { TranslationCenter } from './TranslationCenter';
 
 // ─── Tab definitions ──────────────────────────────────────────────────────────
 
@@ -24,7 +25,8 @@ export type AdminTab =
   | 'views'
   | 'api-keys'
   | 'bundle'
-  | 'oidc';
+  | 'oidc'
+  | 'translations';
 
 interface NavItem {
   id: AdminTab;
@@ -33,14 +35,15 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'users',      icon: Users,         labelKey: 'admin.menu.user_mgmt'    },
-  { id: 'chat',       icon: MessageSquare, labelKey: 'admin.menu.chat_history'  },
-  { id: 'usage',      icon: BarChart2,     labelKey: 'admin.menu.usage_stats'   },
-  { id: 'rules',      icon: ShieldCheck,   labelKey: 'admin.menu.rules_mgmt'    },
-  { id: 'views',      icon: LayoutTemplate,labelKey: 'admin.menu.view_mgmt'     },
-  { id: 'api-keys',   icon: Key,           labelKey: 'admin.menu.api_keys'      },
-  { id: 'bundle',     icon: Package,       labelKey: 'admin.menu.bundle'        },
-  { id: 'oidc',       icon: LogIn,         labelKey: 'admin.menu.oidc'          },
+  { id: 'users',        icon: Users,         labelKey: 'admin.menu.user_mgmt'      },
+  { id: 'chat',         icon: MessageSquare, labelKey: 'admin.menu.chat_history'    },
+  { id: 'usage',        icon: BarChart2,     labelKey: 'admin.menu.usage_stats'     },
+  { id: 'rules',        icon: ShieldCheck,   labelKey: 'admin.menu.rules_mgmt'      },
+  { id: 'views',        icon: LayoutTemplate,labelKey: 'admin.menu.view_mgmt'       },
+  { id: 'api-keys',     icon: Key,           labelKey: 'admin.menu.api_keys'        },
+  { id: 'bundle',       icon: Package,       labelKey: 'admin.menu.bundle'          },
+  { id: 'oidc',         icon: LogIn,         labelKey: 'admin.menu.oidc'            },
+  { id: 'translations', icon: Languages,     labelKey: 'admin.menu.translations'    },
 ];
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -100,14 +103,15 @@ export function AdminPanel({ initialTab = 'users', onClose }: Props) {
 
       {/* ── Content area ── */}
       <main className="flex flex-1 flex-col overflow-hidden">
-        {activeTab === 'users'      && <UserManagement />}
-        {activeTab === 'chat'       && <ChatHistory />}
-        {activeTab === 'usage'      && <UsageStats />}
-        {activeTab === 'rules'      && <RulesManagement />}
-        {activeTab === 'views'      && <ViewManagement />}
-        {activeTab === 'api-keys'   && <ApiKeyManagement />}
-        {activeTab === 'bundle'     && <BundleManagement />}
-        {activeTab === 'oidc'       && <OidcManagement />}
+        {activeTab === 'users'        && <UserManagement />}
+        {activeTab === 'chat'         && <ChatHistory />}
+        {activeTab === 'usage'        && <UsageStats />}
+        {activeTab === 'rules'        && <RulesManagement />}
+        {activeTab === 'views'        && <ViewManagement />}
+        {activeTab === 'api-keys'     && <ApiKeyManagement />}
+        {activeTab === 'bundle'       && <BundleManagement />}
+        {activeTab === 'oidc'         && <OidcManagement />}
+        {activeTab === 'translations' && <TranslationCenter />}
       </main>
     </div>
   );

@@ -4,13 +4,18 @@ import { getDb, dbNow } from '../db';
 import { getAllViews } from '../db/views';
 import { requireAdmin, requireAuth } from '../middleware/auth';
 import { executeBefore, executeAfter, executeManual } from '../engine/rule-engine';
+import { resolveI18n } from '../i18n';
 import { p } from '../utils';
 
 const router = Router();
 
-router.get('/views', requireAuth, async (_req, res) => {
+router.get('/views', requireAuth, async (req, res) => {
+  const locale = req.user?.language ?? 'en';
   const views = await getAllViews();
-  res.json(views.map(v => ({ ...v, definition: JSON.parse(v.definition) })));
+  res.json(views.map(v => {
+    const def = resolveI18n(JSON.parse(v.definition), locale);
+    return { ...v, definition: def };
+  }));
 });
 
 router.post('/views/:viewId/actions/:actionId/execute', requireAuth, async (req, res) => {
@@ -146,9 +151,13 @@ router.post('/views/:viewId/actions/:actionId/execute', requireAuth, async (req,
 
 // ── Admin View Configuration ──────────────────────────────────────────────────
 
-router.get('/admin/views', requireAdmin, async (_req, res) => {
+router.get('/admin/views', requireAdmin, async (req, res) => {
+  const locale = req.user?.language ?? 'en';
   const views = await getAllViews();
-  res.json(views.map(v => ({ ...v, definition: JSON.parse(v.definition) })));
+  res.json(views.map(v => {
+    const def = resolveI18n(JSON.parse(v.definition), locale);
+    return { ...v, definition: def };
+  }));
 });
 
 router.patch('/admin/views/:id/field-prop', requireAdmin, async (req, res) => {

@@ -159,7 +159,8 @@
       "api_keys": "API 金鑰",
       "bundle": "應用管理",
       "appearance": "條件外觀",
-      "oidc": "SSO / OIDC"
+      "oidc": "SSO / OIDC",
+      "translations": "翻譯中心"
     },
     "panel": {
       "title": "設定"
@@ -770,5 +771,18 @@
       "expand_all": "全部展開",
       "collapse_all": "全部收合"
     }
+  },
+  "translations": {
+    "title": "翻譯中心",
+    "desc": "管理使用者自定義內容的翻譯（$key → 各語系顯示文字）。",
+    "add_entry": "新增翻譯條目",
+    "search_placeholder": "搜尋鍵值...",
+    "content_placeholder": "顯示文字",
+    "no_entries": "尚無翻譯條目。",
+    "error_invalid_key": "鍵值必須以 $ 開頭且內容不可空白。",
+    "toast_saved": "翻譯已儲存",
+    "toast_save_failed": "儲存翻譯失敗",
+    "toast_deleted": "翻譯已刪除",
+    "toast_delete_failed": "刪除翻譯失敗"
   }
 }

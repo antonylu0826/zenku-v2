@@ -6,6 +6,8 @@ import { getUserTables } from '../db/schema';
 import { createApiKey, listApiKeys, revokeApiKey, deleteApiKey } from '../db/auth';
 import { listOidcProviders, createOidcProvider, updateOidcProvider, deleteOidcProvider, listRoleMappings, createRoleMapping, deleteRoleMapping } from '../db/oidc';
 import { getSetting, setSetting } from '../db/settings';
+import { getAllTranslations, upsertTranslation, deleteTranslation } from '../db/translations';
+import { reloadI18n } from '../i18n';
 import { requireAdmin, requireAuth } from '../middleware/auth';
 import { getAvailableProviders, fetchOllamaModels } from '../ai';
 import { p } from '../utils';
@@ -519,6 +521,36 @@ router.delete('/admin/oidc-role-mappings/:id', requireAdmin, async (req, res) =>
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const ok = await deleteRoleMapping(id);
   if (!ok) { res.status(404).json({ error: 'ERROR_NOT_FOUND' }); return; }
+  res.json({ success: true });
+});
+
+// ── Translation Management ────────────────────────────────────────────────────
+
+router.get('/admin/translations', requireAdmin, async (_req, res) => {
+  const rows = await getAllTranslations();
+  res.json(rows);
+});
+
+router.put('/admin/translations', requireAdmin, async (req, res) => {
+  const { key, locale, content } = req.body as { key?: string; locale?: string; content?: string };
+  if (!key || !locale || content === undefined) {
+    res.status(400).json({ error: 'ERROR_MISSING_FIELDS' }); return;
+  }
+  if (!key.startsWith('$')) {
+    res.status(400).json({ error: 'Translation key must start with $' }); return;
+  }
+  await upsertTranslation(key, locale, content);
+  await reloadI18n();
+  res.json({ success: true });
+});
+
+router.delete('/admin/translations', requireAdmin, async (req, res) => {
+  const { key, locale } = req.body as { key?: string; locale?: string };
+  if (!key || !locale) {
+    res.status(400).json({ error: 'ERROR_MISSING_FIELDS' }); return;
+  }
+  await deleteTranslation(key, locale);
+  await reloadI18n();
   res.json({ success: true });
 });
 

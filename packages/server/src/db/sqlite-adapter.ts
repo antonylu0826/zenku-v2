@@ -356,6 +356,14 @@ export class SqliteAdapter implements DbAdapter {
         zenku_role  TEXT NOT NULL,
         created_at  TEXT DEFAULT (datetime('now'))
       );
+
+      CREATE TABLE IF NOT EXISTS _zenku_translations (
+        key        TEXT NOT NULL,
+        locale     TEXT NOT NULL,
+        content    TEXT NOT NULL,
+        updated_at TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (key, locale)
+      );
     `);
 
     // Migrations for existing databases

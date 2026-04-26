@@ -668,6 +668,14 @@ export class MssqlAdapter implements DbAdapter {
       created_at  NVARCHAR(MAX) DEFAULT CONVERT(NVARCHAR(MAX), GETDATE(), 126)
     `);
 
+    await createIfAbsent('_zenku_translations', `
+      [key]      NVARCHAR(255) NOT NULL,
+      locale     NVARCHAR(50)  NOT NULL,
+      content    NVARCHAR(MAX) NOT NULL,
+      updated_at NVARCHAR(MAX) DEFAULT CONVERT(NVARCHAR(MAX), GETDATE(), 126),
+      PRIMARY KEY ([key], locale)
+    `);
+
     await indexIfAbsent('idx_user_identities_unique',
       `CREATE UNIQUE INDEX idx_user_identities_unique ON _zenku_user_identities(provider_id, external_id)`);
 
