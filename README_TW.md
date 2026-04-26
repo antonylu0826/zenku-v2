@@ -13,80 +13,82 @@
 ## 🌟 核心亮點 (Key Features)
 
 * **對話即開發 (Chat-to-App)**：只要透過聊天下達指令，即可完成「建立資料表 → 產生 CRUD 介面 → 資料查詢與圖表」的完整系統開發迴圈。
-* **資料驅動動態 UI (Data-Driven UI)**：前端沒有寫死的頁面。所有的表單、列表、看板、儀表板皆依靠後端的 `View Definition JSON` 動態裝載與即時渲染。
-* **條件式即時渲染 (Conditional Appearance)**：支援客戶端即時判斷條件的渲染引擎。在欄位輸入的瞬間即可觸發其他欄位的隱藏、顏色改變、防呆唯讀等動態效果。
-* **進階資料模型**：完整支援主檔與明細 (Master-Detail) 架構、外鍵 (Foreign Key) 關聯以及自動遠端資料搜尋。
-* **事件驅動規則引擎 (Logic Engine)**：支援生命週期鉤子 (`before_insert`, `after_update`)，可自動撰寫扣抵庫存、驗證資料或觸發外部 Webhook (如 n8n) 的業務邏輯腳本。
-* **AI 守門員與時光機**：
-  * **Test Agent (防護護欄)**：執行刪除等破壞性操作前，AI 會強制模擬影響範圍並提出警告。
-  * **Undo 時光機**：所有的架構變更都會被記錄至 `_zenku_journal` 中，具備完美的還原防呆能力。
+* **企業級多資料庫支援**：內建抽象資料適配層，完美支援 **SQLite**、**PostgreSQL** 與 **Microsoft SQL Server (MSSQL)**。
+* **全能視圖系統 (Multi-View)**：除了標準表格，更支援 **看板 (Kanban)**、**行事曆 (Calendar)**、**甘特圖 (Gantt)**、**時間軸 (Timeline)**、**樹狀結構 (Tree)** 與 **畫廊 (Gallery)**。
+* **進階控制項 (Advanced Controls)**：支援 **Markdown** 編輯器、**JSON** 編輯器、**自動編號 (Auto-Number)**、星級評分、顏色選擇器及貨幣格式化。
+* **條件式即時渲染 (Conditional Appearance)**：支援客戶端即時判斷條件。在輸入瞬間即可觸發其他欄位的隱藏、顏色改變、防呆唯讀等動態效果。
+* **事件驅動規則引擎 (Logic Engine)**：支援生命週期鉤子 (`before_insert`, `after_update`)，可自動撰寫扣抵庫存、驗證資料或觸發外部 Webhook (如 n8n) 的業務邏輯。
+* **MCP 生態整合 (Model Context Protocol)**：支援 MCP 標準，讓外部 AI 工具（如 Claude Desktop）能直接與 Zenku 通訊，達成跨平台的數據操控與分析。
+* **AI 安全護欄與還原**：
+  * **Test Agent**：破壞性操作前會自動進行影響評估並預警。
+  * **Undo 時光機**：完整記錄所有架構變更，支援一鍵還原至任意歷史狀態。
 
 ## 🏗️ 系統架構 (Architecture)
 
-本專案採用 Monorepo (`npm workspaces`) 架構，拆分為三大核心：
+本專案採用 Monorepo (`npm workspaces`) 架構：
 
 ### 1. `@zenku/server` (後端大腦)
-* **技術棧**：Node.js + Express + `node:sqlite`
-* 作為控制大腦的 Orchestrator，掌管多個 LLM 工具執行代理 (Agents)，包含：
-  * `schema-agent` (負責 DDL 與建表)
-  * `ui-agent` (負責編寫與派發視圖 JSON)
-  * `query-agent` (負責資料萃取)
-  * `logic-agent` (負責業務邏輯防護)
-* 內建產品級 AI 觀測系統，可精準追蹤 Token 成本、延遲與歷次 Tool Call JSON。
+* **核心技術**：Node.js + Express + TypeScript
+* **資料庫層**：具備強大的 Adapter 模式，可靈活切換不同生產級資料庫。
+* **Orchestrator**：協調多個專業 LLM 工具代理，包含：
+  * `schema-agent` (DDL 與建表)
+  * `ui-agent` (視圖定義與佈局)
+  * `query-agent` (自然語言轉 SQL)
+  * `logic-agent` (自動化規則與防護)
 
 ### 2. `@zenku/web` (前端解譯器)
-* **技術棧**：React 19 + Vite + Tailwind CSS + shadcn/ui
-* 由高度抽象的「通用畫布元件」(`TableView`, `FormView`, `MasterDetailView`) 組成。
-* 動態整合 `@tanstack/react-table`、`recharts` 與 `@dnd-kit`，讓 AI 能憑空捏造出各種圖表與看板。
+* **核心技術**：React 19 + Vite + Tailwind CSS + shadcn/ui
+* **動態渲染**：由 `TableView`, `FormView`, `GanttView` 等高度抽象的元件構成，完全依據 JSON 定義即時產生成品。
 
 ### 3. `@zenku/shared` (共用生態)
-* 嚴謹維護的主從架構 TypeScript Schema、UI 條件解析器 (Appearance Validator) 與計算邏輯引擎 (Formula)。
+* 嚴謹維護的 TypeScript 定義、公式計算引擎 (Formula) 與條件語意解析器。
+
 ## 🚀 快速入門 (Quick Start)
 
 ### 1. 開發者啟動步驟
 
-在開始之前，請確保您的環境已安裝 **Node.js v18+**。
-
-1. **取得專案並安裝依賴**：
+1. **安裝依賴**：
    ```bash
    git clone https://github.com/antonylu0826/zenku-v2.git
    cd zenku
    npm install
    ```
 
-2. **配置 AI 模型**：
-   將 `.env.example` 複製為 `.env`，並填入您的 API Key（推薦使用 Anthropic Claude 3.5 Sonnet 或 OpenAI GPT-4o）：
+2. **配置環境**：
+   將 `.env.example` 複製為 `.env`，填入您的 API Key 與資料庫連接資訊：
    ```bash
-   cp .env.example .env
+   # 範例：切換為 MSSQL
+   DB_TYPE=mssql
+   DB_HOST=localhost
+   DB_USER=sa
+   DB_PASSWORD=YourPassword
    ```
 
 3. **啟動系統**：
    ```bash
    npm run dev
    ```
-   啟動後，開啟瀏覽器造訪 `http://localhost:5173`。
+   造訪 `http://localhost:5173` 開始體驗。
+
+### 2. Docker 一鍵部署
+```bash
+docker-compose up -d
+```
 
 ---
 
-### 2. 五分鐘建立您的第一個 App
+### 3. 五分鐘建立您的第一個 App
 
-進到 Zenku 介面後，您可以直接在下方的對話框輸入自然語言指令：
-
-*   **第一步：建立資料表**  
-    輸入：`「幫我建立一個員工管理系統，需要包含姓名、職位、入職日期跟薪資欄位。」`
-    *   *AI 會自動產生資料庫 Schema 並渲染出對應的表格介面。*
-
-*   **第二步：自定義 UI 邏輯**  
-    輸入：`「在員工表單中，如果薪資大於 10 萬，請將背景標示為金色，並將職位設為必填。」`
-    *   *系統會即時更新 View Definition，觸發條件渲染 (Conditional Appearance)。*
-
-*   **第三步：建立關聯與統計**  
-    輸入：`「幫我增加一個部門表，並讓員工可以關聯到部門。最後幫我畫一個各部門人數的圓餅圖。」`
-    *   *AI 會處理外鍵關聯並自動生成儀表板元件。*
+*   **建立專案管理系統**：  
+    `「幫我建立一個專案追蹤系統，包含名稱、進度、開始與結束日期，並為我生成一個甘特圖視圖。」`
+*   **設定自動化防呆**：  
+    `「在訂單表單中，如果庫存量小於需求量，請阻止儲存並顯示『庫存不足』警告。」`
+*   **跨系統整合**：  
+    `「當新訂單建立後，請透過 Webhook 發送通知到我的 n8n 流程。」`
 
 ---
 
-希望 Zenku 能幫助您釋放創意，將複雜的開發過程轉化為簡單有趣的對話。**祝您開發愉快，玩得開心！** 🚀
+希望 Zenku 能幫助您釋放創意，將複雜的開發過程轉化為簡單有趣的對話。**祝您開發愉快！** 🚀
 
 ## 📄 授權 (License)
 
