@@ -25,7 +25,11 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
-app.use(express.json());
+// UPLOAD_MAX_MB controls the JSON body size limit (for base64-encoded file attachments).
+// Set this to at least 1.4× the largest file you want to support (base64 overhead ~33%).
+// Default: 10 MB → supports client-side attachments up to ~7 MB.
+const uploadLimitMb = Number(process.env.UPLOAD_MAX_MB) || 10;
+app.use(express.json({ limit: `${uploadLimitMb}mb` }));
 
 app.use('/api', authRouter);
 app.use('/api', adminRouter);

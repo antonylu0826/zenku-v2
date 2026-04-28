@@ -62,3 +62,34 @@ Zenku natively supports the **Model Context Protocol (MCP)**.
     *   **SQLite**: Mounts the `zenku.db` file volume.
     *   **Postgres / MSSQL**: Connects to external instances via environment variables.
 *   **Static Assets**: The frontend (compiled by Vite) is hosted statically by the backend Express server or through an Nginx reverse proxy.
+
+---
+
+## 6. System Limits & Tuning
+
+### 6.1 AI Chat Attachment Size Limit
+
+The AI Chat panel accepts images and documents as conversation attachments. Files are base64-encoded and included in the JSON body, so there are **two separate limits** that must be kept in sync:
+
+| Layer | Location | Default | Description |
+|---|---|---|---|
+| **Client-side pre-check** | `packages/web/src/components/ChatPanel.tsx` → `MAX_ATTACH_MB` | **4 MB** | Checked immediately in the browser after file selection. Files exceeding the limit show a toast error and are rejected before any network request. |
+| **Server-side JSON body limit** | `packages/server/src/index.ts` → `express.json({ limit })` | **10 MB** (env var `UPLOAD_MAX_MB`) | Enforced by Express when the request arrives. Exceeded requests return HTTP 413. Base64 encoding inflates file size by ~33%, so the server limit should be at least 1.5× the client limit. |
+
+#### How to increase the limits
+
+1. **Set the environment variable** (in `.env` or Docker environment):
+   ```env
+   UPLOAD_MAX_MB=20   # e.g. allow larger attachments
+   ```
+
+2. **Update the client-side constant** if you want to allow larger files through the browser check:
+   ```typescript
+   // packages/web/src/components/ChatPanel.tsx
+   const MAX_ATTACH_MB = 12;  // headroom for base64 overhead over a 20 MB server limit
+   ```
+
+> **Nginx users**: If you use an Nginx reverse proxy, also update `client_max_body_size` — otherwise Nginx will return 413 before Express ever sees the request:
+> ```nginx
+> client_max_body_size 25m;  # slightly above UPLOAD_MAX_MB
+> ```

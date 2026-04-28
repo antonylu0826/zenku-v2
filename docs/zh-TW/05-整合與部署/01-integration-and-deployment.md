@@ -62,3 +62,34 @@ Zenku 原生支援 **Model Context Protocol (MCP)**。
     *   **SQLite**：掛載 `zenku.db` 檔案卷。
     *   **Postgres / MSSQL**：透過環境變數連結外部實體。
 *   **靜態資源**：前端 Vite 編譯後由後端 Express 靜態託管，或透過 Nginx 反向代理。
+
+---
+
+## 6. 系統限制與調整 (Limits & Tuning)
+
+### 6.1 AI Chat 附件大小限制
+
+Zenku 的 AI Chat 支援上傳圖片與文件作為對話附件。附件會以 base64 方式編碼後放在 JSON body 送出，因此存在**兩層限制**，需要同步調整：
+
+| 層級 | 位置 | 預設值 | 說明 |
+|---|---|---|---|
+| **Client 端前置驗證** | `packages/web/src/components/ChatPanel.tsx` → `MAX_ATTACH_MB` | **4 MB** | 檔案選取後立即在瀏覽器端判斷；超過會顯示 toast 錯誤並阻止上傳。 |
+| **Server 端 JSON body limit** | `packages/server/src/index.ts` → `express.json({ limit })` | **10 MB** (環境變數 `UPLOAD_MAX_MB`) | 由 Express 在接收請求時判斷；超過會回傳 HTTP 413。base64 編碼後體積約增加 33%，所以 Server 端限制應設為 Client 限制的 1.5 倍以上。 |
+
+#### 調整步驟
+
+1. **修改 `.env`（或 Docker 環境變數）**
+   ```env
+   UPLOAD_MAX_MB=20   # 例：允許更大的附件
+   ```
+
+2. **同步調整 Client 端常數**（若想放寬 Client 前置驗證）
+   ```typescript
+   // packages/web/src/components/ChatPanel.tsx
+   const MAX_ATTACH_MB = 12;  // 配合 Server 端 20 MB，保留 base64 膨脹空間
+   ```
+
+> **注意**：若使用 Nginx 反向代理，還需同步調整 Nginx 的 `client_max_body_size`，否則 Nginx 會在 Express 之前攔截大請求並回傳 413。
+> ```nginx
+> client_max_body_size 25m;  # 略大於 UPLOAD_MAX_MB 即可
+> ```
