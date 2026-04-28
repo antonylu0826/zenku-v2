@@ -118,14 +118,13 @@ function TextareaInput({ field, value, onChange, disabled }: FieldInputInnerProp
 
 function BooleanInput({ field, value, onChange, disabled }: FieldInputInnerProps) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center space-x-2 h-10">
       <Checkbox
         id={field.key}
         checked={Boolean(value)}
         onCheckedChange={checked => onChange(checked === true)}
         disabled={disabled}
       />
-      <Label htmlFor={field.key} className="cursor-pointer font-normal">Yes</Label>
     </div>
   );
 }
@@ -219,8 +218,13 @@ export function TextReadonly({ value, textStyle, bgClass, bgStyle }: FieldReadon
 }
 
 function BooleanReadonly({ value, textStyle, bgClass, bgStyle }: FieldReadonlyProps) {
+  const { t } = useTranslation();
   if (value === null || value === undefined) return <EmptyValue />;
-  return <p className={cn('py-1 text-sm', bgClass)} style={{ ...textStyle, ...bgStyle }}>{Boolean(value) ? 'Yes' : 'No'}</p>;
+  return (
+    <p className={cn('py-1 text-sm font-medium', bgClass)} style={{ ...textStyle, ...bgStyle }}>
+      {Boolean(value) ? t('common.boolean_yes') : t('common.boolean_no')}
+    </p>
+  );
 }
 
 function CurrencyReadonly({ value, textStyle, bgClass, bgStyle }: FieldReadonlyProps) {

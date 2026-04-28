@@ -28,7 +28,9 @@
     "select_date": "選擇日期",
     "select_datetime": "選擇日期時間",
     "select_time": "選擇時間",
-    "select_options": "請選擇選項..."
+    "select_options": "請選擇選項...",
+    "boolean_yes": "是",
+    "boolean_no": "否"
   },
   "chat": {
     "welcome": "你好！我是 Zenku。告訴我你想要管理什麼資料，我來幫你建立應用。\n\n例如：「我要管理客戶資料，有姓名、電話、email」",
