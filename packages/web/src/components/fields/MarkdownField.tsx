@@ -187,7 +187,7 @@ export function MarkdownInput({ field, value, onChange, disabled }: FieldInputIn
   const editor = useEditor({
     editable: !disabled,
     extensions: [
-      StarterKit.configure({ codeBlock: false }),
+      StarterKit.configure({ codeBlock: false, link: false }),
       Markdown.configure({ html: false, transformPastedText: true }),
       Table.configure({ resizable: false }),
       TableRow,
