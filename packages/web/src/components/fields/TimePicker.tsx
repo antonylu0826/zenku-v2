@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { cn } from '@/lib/utils';
 
 interface TimePickerProps {
   value: string; // HH:mm
