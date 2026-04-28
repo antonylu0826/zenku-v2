@@ -1,3 +1,7 @@
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Button } from '../ui/button';
+import { TimePicker } from './TimePicker';
+import { cn } from '@/lib/utils';
 import { Clock } from 'lucide-react';
 import type { FieldDef } from '../../types';
 
@@ -8,8 +12,8 @@ interface Props {
   readonly?: boolean;
 }
 
-export function TimeField({ field, value, onChange, readonly }: Props) {
-  const time = String(value ?? '');
+export function TimeField({ value, onChange, readonly }: Props) {
+  const time = String(value ?? '00:00');
 
   if (readonly) {
     return (
@@ -21,16 +25,26 @@ export function TimeField({ field, value, onChange, readonly }: Props) {
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <Clock className="h-4 w-4 text-muted-foreground" />
-      <input
-        id={field.key}
-        type="time"
-        value={time}
-        onChange={e => onChange(e.target.value)}
-        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-      />
-    </div>
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className={cn(
+            "w-full justify-between text-left font-normal h-10 px-3",
+            !value && "text-muted-foreground"
+          )}
+        >
+          {time || "選擇時間"}
+          <Clock className="h-4 w-4 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent 
+        className="w-auto p-0" 
+        align="start"
+      >
+        <TimePicker value={time} onChange={onChange} />
+      </PopoverContent>
+    </Popover>
   );
 }
 
