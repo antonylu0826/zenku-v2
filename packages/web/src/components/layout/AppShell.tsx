@@ -2,15 +2,25 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useParams } from 'react-router-dom';
 import { Group, type PanelSize, Panel, Separator, usePanelRef } from 'react-resizable-panels';
-import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, ChevronRight, Menu, MessageSquare } from 'lucide-react';
+import {
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
+  ChevronRight,
+  Menu,
+  MessageSquare,
+} from 'lucide-react';
 import { Button } from '../ui/button';
 import { ThemeToggle } from './ThemeToggle';
 import { Card } from '../ui/card';
+import i18next from 'i18next';
 import { Sheet, SheetContent, SheetTitle } from '../ui/sheet';
 import { Sidebar } from '../Sidebar';
 import { ChatPanel } from '../ChatPanel';
 import { useViews } from '../../contexts/ViewsContext';
 import { useIsMobile } from '../../lib/use-mobile';
+import { cn } from '../../lib/cn';
 
 export function AppShell() {
   const { views, fetchViews } = useViews();
@@ -99,12 +109,10 @@ export function AppShell() {
     );
   }
 
-  const showingFullLayout = hasViews || enterSystem;
-
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       <AppBar
-        viewName={showingFullLayout ? currentView?.name : undefined}
+        viewName={currentView?.name}
         isMobile={false}
         sidebarCollapsed={sidebarCollapsed}
         chatCollapsed={chatCollapsed}
@@ -113,29 +121,29 @@ export function AppShell() {
       />
       <Group orientation="horizontal" className="h-full w-full overflow-hidden">
         <Panel
-          defaultSize="10%"
-          minSize="10%"
+          defaultSize="14%"
+          minSize="12%"
           maxSize="28%"
           collapsible
           collapsedSize="0%"
           panelRef={sidebarPanelRef}
           onResize={handleSidebarResize}
         >
-          <div className="h-full border-r">
+          <div className="h-full border-r border-sidebar-border">
             <Sidebar collapsed={sidebarCollapsed} />
           </div>
         </Panel>
-        <Separator className="w-1 bg-border/60 transition hover:bg-border data-[resize-handle-active]:bg-border" />
+        <Separator className="w-1 bg-border/50 transition hover:bg-border data-[resize-handle-active]:bg-border" />
 
         <Panel defaultSize="56%" minSize="30%">
           <div className="h-full overflow-hidden bg-background">
             <Outlet />
           </div>
         </Panel>
-        <Separator className="w-1 bg-border/60 transition hover:bg-border data-[resize-handle-active]:bg-border" />
+        <Separator className="w-1 bg-border/50 transition hover:bg-border data-[resize-handle-active]:bg-border" />
 
         <Panel
-          defaultSize={hasViews ? "0%" : "28%"}
+          defaultSize={hasViews ? '0%' : '28%'}
           minSize="22%"
           maxSize="45%"
           collapsible
@@ -148,6 +156,34 @@ export function AppShell() {
           </div>
         </Panel>
       </Group>
+    </div>
+  );
+}
+
+const LANGUAGES = [
+  { code: 'zh-TW', label: '中文' },
+  { code: 'en', label: 'EN' },
+];
+
+function LangToggle() {
+  const { i18n } = useTranslation();
+  return (
+    <div className="flex gap-1">
+      {LANGUAGES.map(({ code, label }) => (
+        <button
+          key={code}
+          type="button"
+          onClick={() => { void i18next.changeLanguage(code); }}
+          className={cn(
+            'rounded px-2 py-1 text-xs font-medium transition',
+            i18n.language === code
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          {label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -187,8 +223,12 @@ function AppBar({
   const { t } = useTranslation();
 
   return (
-    <header className="flex h-11 shrink-0 items-center border-b bg-card px-2 gap-1">
-      <div className="flex items-center gap-1">
+    <header
+      className={cn(
+        'sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between gap-2 border-b bg-background/80 px-3 backdrop-blur-md lg:px-4',
+      )}
+    >
+      <div className="flex min-w-0 items-center gap-1">
         {showPanelToggles && (
           <Button
             variant="ghost"
@@ -196,29 +236,33 @@ function AppBar({
             onClick={onToggleSidebar}
             aria-label={sidebarCollapsed ? t('common.expand_sidebar') : t('common.collapse_sidebar')}
           >
-            {isMobile
-              ? <Menu className="h-4 w-4 text-muted-foreground" />
-              : sidebarCollapsed
-                ? <PanelLeftOpen className="h-4 w-4 text-muted-foreground" />
-                : <PanelLeftClose className="h-4 w-4 text-muted-foreground" />}
+            {isMobile ? (
+              <Menu className="h-4 w-4 text-muted-foreground" />
+            ) : sidebarCollapsed ? (
+              <PanelLeftOpen className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <PanelLeftClose className="h-4 w-4 text-muted-foreground" />
+            )}
           </Button>
         )}
+
         <div className="flex items-center gap-1.5 px-1">
           <div className="flex h-6 w-6 items-center justify-center rounded bg-primary text-xs font-bold text-primary-foreground">
             Z
           </div>
           <span className="text-sm font-semibold">Zenku</span>
         </div>
+
+        {viewName && (
+          <div className="flex min-w-0 items-center gap-1 px-1 text-sm text-muted-foreground">
+            <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate font-medium text-foreground">{viewName}</span>
+          </div>
+        )}
       </div>
 
-      {viewName && (
-        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-          <ChevronRight className="h-3.5 w-3.5" />
-          <span className="font-medium text-foreground">{viewName}</span>
-        </div>
-      )}
-
-      <div className="ml-auto flex items-center gap-1">
+      <div className="flex shrink-0 items-center gap-2">
+        {!showPanelToggles && <LangToggle />}
         <ThemeToggle />
         {showPanelToggles && (
           <Button
@@ -227,11 +271,13 @@ function AppBar({
             onClick={onToggleChat}
             aria-label={chatCollapsed ? t('common.expand_chat') : t('common.collapse_chat')}
           >
-            {isMobile
-              ? <MessageSquare className="h-4 w-4 text-muted-foreground" />
-              : chatCollapsed
-                ? <PanelRightOpen className="h-4 w-4 text-muted-foreground" />
-                : <PanelRightClose className="h-4 w-4 text-muted-foreground" />}
+            {isMobile ? (
+              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            ) : chatCollapsed ? (
+              <PanelRightOpen className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <PanelRightClose className="h-4 w-4 text-muted-foreground" />
+            )}
           </Button>
         )}
       </div>
