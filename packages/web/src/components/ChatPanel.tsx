@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Send, Loader2, Wrench, CheckCircle, XCircle, Plus, Archive, ChevronDown, Pencil, Check, X, Paperclip } from 'lucide-react';
+import { Send, Loader2, Wrench, CheckCircle, XCircle, Plus, Archive, ChevronDown, Pencil, Check, X, Paperclip, Sparkles } from 'lucide-react';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import {
   sendChat, getAIProviders, getOllamaModels, getSessions, getSessionMessages, updateSessionTitle, archiveSession,
@@ -8,6 +8,7 @@ import {
   type AIProviderInfo, type SessionSummary, type SessionMessage,
 } from '../api';
 import type { ChatMessage, SSEChunk, ToolEvent } from '../types';
+import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -47,6 +48,16 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<{ file: File; preview?: string }[]>([]);
   const attachInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const adjustTextareaHeight = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  }, []);
+
+  const MAX_ATTACH_MB = 4;
 
   // Use a ref to store the current welcome message to avoid initialization issues
   useEffect(() => {
@@ -211,6 +222,7 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
     setMessages(prev => [...prev, userMsg, assistantMsg]);
     setInput('');
     setAttachments([]);
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
     setLoading(true);
 
     const history = messages
@@ -292,64 +304,70 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <div className={cn('flex h-full flex-col bg-background', className)}>
+    <div className={cn('flex h-full flex-col bg-card', className)}>
       {/* Session header */}
-      <div className="flex shrink-0 items-center gap-1.5 border-b px-3 py-2">
-        {/* New session */}
-        <Button
-          variant="ghost"
-          size="icon"
-          title={t('chat.new_session')}
-          onClick={startNewSession}
-          className="h-7 w-7 shrink-0"
-        >
-          <Plus size={14} />
-        </Button>
+      <div className="flex h-12 shrink-0 items-center gap-1 border-b px-3">
+        <Sparkles className="size-4 shrink-0 text-muted-foreground" />
 
-        {/* Session selector / title */}
-        <Popover open={sessionsOpen} onOpenChange={setSessionsOpen}>
-          <PopoverTrigger asChild>
-            <button
-            className="flex min-w-0 flex-1 items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-accent"
-            title={t('chat.switch_session')}
-          >
-            {sessionsLoading || switchingSession ? (
-                <Loader2 size={12} className="animate-spin text-muted-foreground" />
-              ) : (
-                <>
-                  <span className="truncate text-muted-foreground">
-                    {currentSession?.title ?? (currentSessionId ? t('chat.untitled') : t('chat.new_session'))}
-                  </span>
-                  <ChevronDown size={12} className="shrink-0 text-muted-foreground" />
-                </>
-              )}
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-72 p-0" align="start">
-            <div className="max-h-64 overflow-y-auto">
-              {sessions.length === 0 ? (
-                <div className="px-3 py-4 text-center text-xs text-muted-foreground">{t('chat.no_history')}</div>
-              ) : (
-                sessions.map(s => (
-                  <button
-                    key={s.id}
-                    onClick={() => void loadSession(s.id)}
-                    className={cn(
-                      'flex w-full flex-col px-3 py-2.5 text-left hover:bg-accent',
-                      s.id === currentSessionId && 'bg-accent'
-                    )}
-                  >
-                    <span className="truncate text-xs font-medium">{s.title ?? t('chat.untitled')}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(s.updated_at).toLocaleString(i18n.language, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      {' · '}{t('chat.message_count', { count: s.message_count })}
+        {/* Session selector / title (hidden while editing so input can fill the row) */}
+        {!editingTitle && (
+          <Popover open={sessionsOpen} onOpenChange={setSessionsOpen}>
+            <PopoverTrigger asChild>
+              <button
+                className="flex min-w-0 flex-1 items-center gap-1 rounded-md px-2 py-1 text-sm hover:bg-accent"
+                title={t('chat.switch_session')}
+              >
+                {sessionsLoading || switchingSession ? (
+                  <Loader2 size={12} className="animate-spin text-muted-foreground" />
+                ) : (
+                  <>
+                    <span className="truncate text-muted-foreground">
+                      {currentSession?.title ?? (currentSessionId ? t('chat.untitled') : t('chat.new_session'))}
                     </span>
-                  </button>
-                ))
-              )}
-            </div>
-          </PopoverContent>
-        </Popover>
+                    <ChevronDown size={12} className="shrink-0 text-muted-foreground" />
+                  </>
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-0" align="start">
+              <div className="max-h-64 overflow-y-auto">
+                {sessions.length === 0 ? (
+                  <div className="px-3 py-4 text-center text-xs text-muted-foreground">{t('chat.no_history')}</div>
+                ) : (
+                  sessions.map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => void loadSession(s.id)}
+                      className={cn(
+                        'flex w-full flex-col px-3 py-2.5 text-left hover:bg-accent',
+                        s.id === currentSessionId && 'bg-accent'
+                      )}
+                    >
+                      <span className="truncate text-xs font-medium">{s.title ?? t('chat.untitled')}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(s.updated_at).toLocaleString(i18n.language, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        {' · '}{t('chat.message_count', { count: s.message_count })}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
+
+        {/* New session (always visible when not editing) */}
+        {!editingTitle && (
+          <Button
+            variant="ghost"
+            size="icon"
+            title={t('chat.new_session')}
+            onClick={startNewSession}
+            className="h-7 w-7 shrink-0"
+          >
+            <Plus size={14} />
+          </Button>
+        )}
 
         {/* Title edit (only when session exists) */}
         {currentSessionId && !editingTitle && (
@@ -406,7 +424,106 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
       </div>
 
       {/* Input area */}
-      <div className="border-t px-4 py-3">
+      <div className="border-t bg-background px-3 py-3">
+        {/* Attachment previews */}
+        {attachments.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {attachments.map((a, i) => (
+              <div key={i} className="flex items-center gap-1 rounded-full border bg-muted px-2.5 py-0.5 text-xs">
+                {a.file.type.startsWith('image/') && a.preview
+                  ? <img src={a.preview} alt="" className="h-4 w-4 rounded object-cover" />
+                  : <Paperclip size={11} />}
+                <span className="max-w-[120px] truncate">{a.file.name}</span>
+                <button onClick={() => setAttachments(prev => prev.filter((_, j) => j !== i))} className="ml-0.5 text-muted-foreground hover:text-foreground">
+                  <X size={11} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-end gap-1.5 rounded-lg border bg-card p-1.5 focus-within:ring-1 focus-within:ring-ring">
+          <input
+            ref={attachInputRef}
+            id="chat-file-input"
+            type="file"
+            multiple
+            accept="image/*,application/pdf,text/*"
+            className="hidden"
+            onChange={e => {
+              const files = Array.from(e.target.files ?? []);
+              e.target.value = '';
+              const newItems = files
+                .filter(f => {
+                  if (f.size > MAX_ATTACH_MB * 1024 * 1024) {
+                    toast.error(t('chat.attachment_too_large', { max: MAX_ATTACH_MB, defaultValue: `File exceeds ${MAX_ATTACH_MB} MB limit` }));
+                    return false;
+                  }
+                  return true;
+                })
+                .map(f => {
+                  const item: { file: File; preview?: string } = { file: f };
+                  if (f.type.startsWith('image/')) {
+                    item.preview = URL.createObjectURL(f);
+                  }
+                  return item;
+                });
+              setAttachments(prev => [...prev, ...newItems]);
+            }}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-7 shrink-0"
+            title={t('chat.attach_file')}
+            onClick={() => attachInputRef.current?.click()}
+            disabled={loading}
+          >
+            <Paperclip size={15} />
+          </Button>
+          <Textarea
+            ref={textareaRef}
+            id="chat-input"
+            className="max-h-[200px] min-h-[36px] flex-1 resize-none overflow-hidden border-0 bg-transparent px-1 py-1.5 text-sm shadow-none focus-visible:ring-0"
+            rows={1}
+            value={input}
+            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
+              setInput(e.target.value);
+              adjustTextareaHeight();
+            }}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                void handleSend();
+              }
+            }}
+            onPaste={e => {
+              const images = Array.from(e.clipboardData.items)
+                .filter(item => item.type.startsWith('image/'))
+                .map(item => item.getAsFile())
+                .filter((f): f is File => f !== null);
+              if (images.length === 0) return;
+              e.preventDefault();
+              const newItems = images.map(f => ({
+                file: f,
+                preview: URL.createObjectURL(f),
+              }));
+              setAttachments(prev => [...prev, ...newItems]);
+            }}
+            placeholder={t('chat.placeholder_input')}
+            disabled={loading}
+          />
+          <Button
+            onClick={() => void handleSend()}
+            disabled={loading || (!input.trim() && attachments.length === 0)}
+            size="icon"
+            className="size-7 shrink-0"
+          >
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+          </Button>
+        </div>
+
         {providers.length > 1 && (
           <ProviderSelector
             providers={providers}
@@ -437,93 +554,6 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
             ollamaModels={ollamaModels}
           />
         )}
-
-        {/* Attachment previews */}
-        {attachments.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-1.5">
-            {attachments.map((a, i) => (
-              <div key={i} className="flex items-center gap-1 rounded-full border bg-muted px-2.5 py-0.5 text-xs">
-                {a.file.type.startsWith('image/') && a.preview
-                  ? <img src={a.preview} alt="" className="h-4 w-4 rounded object-cover" />
-                  : <Paperclip size={11} />}
-                <span className="max-w-[120px] truncate">{a.file.name}</span>
-                <button onClick={() => setAttachments(prev => prev.filter((_, j) => j !== i))} className="ml-0.5 text-muted-foreground hover:text-foreground">
-                  <X size={11} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="flex gap-2">
-          <input
-            ref={attachInputRef}
-            id="chat-file-input"
-            type="file"
-            multiple
-            accept="image/*,application/pdf,text/*"
-            className="hidden"
-            onChange={e => {
-              const files = Array.from(e.target.files ?? []);
-              e.target.value = '';
-              const newItems = files.map(f => {
-                const item: { file: File; preview?: string } = { file: f };
-                if (f.type.startsWith('image/')) {
-                  item.preview = URL.createObjectURL(f);
-                }
-                return item;
-              });
-              setAttachments(prev => [...prev, ...newItems]);
-            }}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="shrink-0 self-end"
-            title={t('chat.attach_file')}
-            onClick={() => attachInputRef.current?.click()}
-            disabled={loading}
-          >
-            <Paperclip size={15} />
-          </Button>
-          <Textarea
-            id="chat-input"
-            className="min-h-[74px] flex-1 resize-none"
-            rows={2}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                void handleSend();
-              }
-            }}
-            onPaste={e => {
-              const images = Array.from(e.clipboardData.items)
-                .filter(item => item.type.startsWith('image/'))
-                .map(item => item.getAsFile())
-                .filter((f): f is File => f !== null);
-              if (images.length === 0) return;
-              e.preventDefault();
-              const newItems = images.map(f => ({
-                file: f,
-                preview: URL.createObjectURL(f),
-              }));
-              setAttachments(prev => [...prev, ...newItems]);
-            }}
-            placeholder={t('chat.placeholder_input')}
-            disabled={loading}
-          />
-          <Button
-            onClick={() => void handleSend()}
-            disabled={loading || (!input.trim() && attachments.length === 0)}
-            size="icon"
-            className="self-end"
-          >
-            {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-          </Button>
-        </div>
       </div>
     </div>
   );
@@ -532,45 +562,48 @@ export function ChatPanel({ onViewsChanged, className }: Props) {
 // ── Message bubble ─────────────────────────────────────────────────────────────
 
 function MessageBubble({ message }: { message: ChatMessage }) {
-  const isUser = message.role === 'user';
+  if (message.role === 'user') {
+    return (
+      <div className="flex justify-end">
+        <div className="max-w-[85%] rounded-lg bg-primary px-3 py-2 text-sm leading-relaxed text-primary-foreground">
+          {message.attachments && message.attachments.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {message.attachments.map((a, i) =>
+                a.mime_type.startsWith('image/') && a.previewUrl
+                  ? <img key={i} src={a.previewUrl} alt={a.filename} className="h-20 max-w-[160px] rounded object-cover" />
+                  : <div key={i} className="flex items-center gap-1 rounded bg-primary-foreground/20 px-2 py-1 text-xs">
+                      <Paperclip size={11} />{a.filename}
+                    </div>
+              )}
+            </div>
+          )}
+          {message.content && <p className="whitespace-pre-wrap">{message.content}</p>}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div className={`max-w-[85%] ${isUser ? 'order-1' : 'order-2'}`}>
-        {isUser ? (
-          <div className="rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground">
-            {message.attachments && message.attachments.length > 0 && (
-              <div className="mb-2 flex flex-wrap gap-1.5">
-                {message.attachments.map((a, i) => (
-                  a.mime_type.startsWith('image/') && a.previewUrl
-                    ? <img key={i} src={a.previewUrl} alt={a.filename} className="h-20 max-w-[160px] rounded-lg object-cover" />
-                    : <div key={i} className="flex items-center gap-1 rounded bg-primary-foreground/20 px-2 py-1 text-xs">
-                        <Paperclip size={11} />{a.filename}
-                      </div>
-                ))}
-              </div>
-            )}
-            {message.content && <p className="whitespace-pre-wrap">{message.content}</p>}
+    <div className="flex gap-2">
+      <div className="flex size-7 shrink-0 items-center justify-center rounded-md border bg-muted text-muted-foreground">
+        <Sparkles className="size-3.5" />
+      </div>
+      <div className="min-w-0 flex-1 space-y-2">
+        {message.toolEvents && message.toolEvents.length > 0 && (
+          <div className="space-y-1">
+            {message.toolEvents.map((event, i) => (
+              <ToolEventBadge key={i} event={event} />
+            ))}
           </div>
-        ) : (
-          <div>
-            {message.toolEvents && message.toolEvents.length > 0 && (
-              <div className="mb-2 space-y-1">
-                {message.toolEvents.map((event, i) => (
-                  <ToolEventBadge key={i} event={event} />
-                ))}
-              </div>
-            )}
-            {message.content && (
-              <div className="rounded-2xl rounded-tl-sm bg-muted px-4 py-2.5 text-sm text-foreground">
-                <MarkdownRenderer content={message.content} />
-              </div>
-            )}
-            {!message.content && (!message.toolEvents || message.toolEvents.length === 0) && (
-              <div className="rounded-2xl rounded-tl-sm bg-muted px-4 py-2.5">
-                <Loader2 size={14} className="animate-spin text-muted-foreground" />
-              </div>
-            )}
+        )}
+        {message.content && (
+          <div className="rounded-lg bg-muted/40 px-3 py-2 text-sm leading-relaxed text-foreground">
+            <MarkdownRenderer content={message.content} />
+          </div>
+        )}
+        {!message.content && (!message.toolEvents || message.toolEvents.length === 0) && (
+          <div className="rounded-lg bg-muted/40 px-3 py-2">
+            <Loader2 size={14} className="animate-spin text-muted-foreground" />
           </div>
         )}
       </div>
@@ -608,9 +641,9 @@ function ProviderSelector({
     : providers.find(p => p.name === selectedProvider)?.models ?? [];
 
   return (
-    <div className="mb-2 flex items-center gap-2">
+    <div className="mt-2 flex items-center gap-2 px-1 text-[11px] text-muted-foreground">
       <Select value={selectedProvider} onValueChange={onProviderChange}>
-        <SelectTrigger className="h-7 w-auto min-w-[90px] px-2 py-0 text-xs">
+        <SelectTrigger className="h-6 w-auto gap-1 border-0 bg-transparent px-1 py-0 text-[11px] text-muted-foreground shadow-none hover:text-foreground focus:ring-0">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -621,8 +654,9 @@ function ProviderSelector({
           ))}
         </SelectContent>
       </Select>
+      <span>·</span>
       <Select value={selectedModel} onValueChange={onModelChange}>
-        <SelectTrigger className="h-7 w-auto min-w-[140px] px-2 py-0 text-xs">
+        <SelectTrigger className="h-6 w-auto gap-1 border-0 bg-transparent px-1 py-0 text-[11px] text-muted-foreground shadow-none hover:text-foreground focus:ring-0">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -640,30 +674,44 @@ function ProviderSelector({
 // ── Tool event badges ──────────────────────────────────────────────────────────
 
 function ToolEventBadge({ event }: { event: ToolEvent }) {
+  const { t } = useTranslation();
+
   if (event.type === 'tool_start') {
-    const { t } = useTranslation();
     const label = t(`chat.tool_labels.${event.tool}`, { defaultValue: event.tool });
     return (
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Wrench size={11} className="animate-pulse" />
-        <span>{t('chat.tool_process', { label })}</span>
+      <div className="flex items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-xs">
+        <Wrench className="size-3.5 shrink-0 animate-pulse text-muted-foreground" />
+        <span className="font-mono font-medium">{event.tool}</span>
+        <span className="truncate text-muted-foreground">· {label}</span>
+        <Badge variant="secondary" className="ml-auto gap-1 px-1.5 py-0 text-[10px]">
+          <Loader2 className="size-3 animate-spin" />
+          {t('chat.tool_running', { defaultValue: 'running' })}
+        </Badge>
       </div>
     );
   }
 
   if (event.type === 'tool_result') {
-    const { t } = useTranslation();
     const ok = event.result?.success;
     const label = t(`chat.tool_labels.${event.tool}`, { defaultValue: event.tool });
     return (
-      <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
-        {ok
-          ? <CheckCircle size={11} className="mt-0.5 shrink-0 text-green-500" />
-          : <XCircle size={11} className="mt-0.5 shrink-0 text-destructive" />
-        }
-        <span className={ok ? '' : 'text-destructive'}>
-          {ok ? t('chat.tool_done', { label }) : event.result?.message}
+      <div className="flex items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-xs">
+        <Wrench className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="font-mono font-medium">{event.tool}</span>
+        <span className={cn('truncate', ok ? 'text-muted-foreground' : 'text-destructive')}>
+          · {ok ? label : event.result?.message ?? label}
         </span>
+        {ok ? (
+          <Badge variant="secondary" className="ml-auto gap-1 px-1.5 py-0 text-[10px]">
+            <CheckCircle className="size-3" />
+            {t('chat.tool_done_short', { defaultValue: 'done' })}
+          </Badge>
+        ) : (
+          <Badge variant="destructive" className="ml-auto gap-1 px-1.5 py-0 text-[10px]">
+            <XCircle className="size-3" />
+            {t('chat.tool_failed_short', { defaultValue: 'failed' })}
+          </Badge>
+        )}
       </div>
     );
   }
