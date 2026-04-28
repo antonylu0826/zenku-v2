@@ -24,7 +24,10 @@
     "refresh": "Refresh",
     "no_data": "No data",
     "prev_page": "Previous",
-    "next_page": "Next"
+    "next_page": "Next",
+    "select_date": "Select date",
+    "select_datetime": "Select date and time",
+    "select_time": "Select time"
   },
   "chat": {
     "welcome": "Hello! I am Zenku. Tell me what data you want to manage, and I will help you build the app.\n\nExample: 'I want to manage customer data with name, phone, and email.'",

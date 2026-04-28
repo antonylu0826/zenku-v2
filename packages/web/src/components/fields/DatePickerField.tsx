@@ -16,7 +16,7 @@ interface Props {
 }
 
 export function DatePickerField({ value, onChange, placeholder, disabled, includeTime = false }: Props) {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const calLocale = i18n.language === 'zh-TW' ? zhTW : undefined;
   const dateValue = value ? new Date(String(value)) : undefined;
   const isValidDate = dateValue && !isNaN(dateValue.getTime());
@@ -25,7 +25,7 @@ export function DatePickerField({ value, onChange, placeholder, disabled, includ
   const minutes = isValidDate ? String(dateValue.getMinutes()).padStart(2, '0') : '00';
 
   const displayFormat = includeTime ? 'yyyy/MM/dd HH:mm' : 'yyyy/MM/dd';
-  const displayValue = isValidDate ? format(dateValue, displayFormat) : (placeholder ?? (includeTime ? 'Select date and time' : 'Select date'));
+  const displayValue = isValidDate ? format(dateValue, displayFormat) : (placeholder ?? (includeTime ? t('common.select_datetime') : t('common.select_date')));
 
   const handleDateSelect = (date: Date | undefined) => {
     if (date) {

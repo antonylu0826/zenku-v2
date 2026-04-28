@@ -23,7 +23,10 @@ function getAuthHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+import { useTranslation } from 'react-i18next';
+
 export function MultiSelectField({ field, value, onChange }: Props) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [options, setOptions] = useState<Option[]>([]);
   const [loading, setLoading] = useState(false);
@@ -71,12 +74,14 @@ export function MultiSelectField({ field, value, onChange }: Props) {
     opt.label.toLowerCase().includes(search.toLowerCase())
   );
 
-  const displayLabel = selected.length === 0 ? (field.placeholder || 'Select options...') : `${selected.length} selected`;
+  const displayLabel = selected.length === 0 
+    ? (field.placeholder || t('common.select_options')) 
+    : t('common.selected_count_simple', { count: selected.length, defaultValue: `${selected.length} selected` });
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" className="w-full justify-start text-left font-normal">
+        <Button variant="outline" className="w-full justify-start text-left font-normal h-10 px-3">
           {selected.length === 0 ? (
             <span className="text-muted-foreground">{displayLabel}</span>
           ) : (
@@ -101,7 +106,7 @@ export function MultiSelectField({ field, value, onChange }: Props) {
             <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               ref={inputRef}
-              placeholder="Search..."
+              placeholder={t('relation.search_placeholder')}
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="pl-8 h-8 text-sm"
@@ -109,9 +114,9 @@ export function MultiSelectField({ field, value, onChange }: Props) {
           </div>
           <div className="space-y-1 max-h-64 overflow-auto">
             {loading ? (
-              <div className="px-2 py-1 text-sm text-muted-foreground">Loading...</div>
+              <div className="px-2 py-1 text-sm text-muted-foreground">{t('common.loading')}</div>
             ) : filtered.length === 0 ? (
-              <div className="px-2 py-1 text-sm text-muted-foreground">No results</div>
+              <div className="px-2 py-1 text-sm text-muted-foreground">{t('relation.no_results')}</div>
             ) : (
               filtered.map(opt => (
                 <button

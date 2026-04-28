@@ -5,6 +5,8 @@ import { cn } from '@/lib/utils';
 import { Clock } from 'lucide-react';
 import type { FieldDef } from '../../types';
 
+import { useTranslation } from 'react-i18next';
+
 interface Props {
   field: FieldDef;
   value: unknown;
@@ -13,7 +15,8 @@ interface Props {
 }
 
 export function TimeField({ value, onChange, readonly }: Props) {
-  const time = String(value ?? '00:00');
+  const { t } = useTranslation();
+  const time = value ? String(value) : '';
 
   if (readonly) {
     return (
@@ -34,7 +37,7 @@ export function TimeField({ value, onChange, readonly }: Props) {
             !value && "text-muted-foreground"
           )}
         >
-          {time || "選擇時間"}
+          {time || t('common.select_time')}
           <Clock className="h-4 w-4 opacity-50" />
         </Button>
       </PopoverTrigger>
