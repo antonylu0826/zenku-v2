@@ -79,6 +79,13 @@ Zenku uses a Monorepo (`npm workspaces`) structure:
    ```
    Visit `http://localhost:5173` to start.
 
+> **Windows troubleshooting**: if `npm run dev` reports `Failed to resolve entry for package "lucide-react"` (or similar for `es-toolkit`), the package's `dist/` was partially extracted on first install. Fix with:
+> ```bash
+> npm cache clean --force
+> rm -rf node_modules
+> npm install
+> ```
+
 ### 2. One-Click Docker Deployment
 ```bash
 docker-compose up -d

@@ -79,6 +79,13 @@ graph TD
    ```
    造訪 `http://localhost:5173` 開始體驗。
 
+> **Windows 疑難排解**：若 `npm run dev` 報 `Failed to resolve entry for package "lucide-react"` (或 `es-toolkit` 同樣症狀),代表該套件的 `dist/` 在首次安裝時部分抽取失敗。解法:
+> ```bash
+> npm cache clean --force
+> rm -rf node_modules
+> npm install
+> ```
+
 ### 2. Docker 一鍵部署
 ```bash
 docker-compose up -d
