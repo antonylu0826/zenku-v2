@@ -210,7 +210,7 @@ export function KanbanView({ view }: Props) {
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
-      <div className="flex h-full items-start gap-3 overflow-auto p-4">
+      <div className="flex h-full items-start gap-3 overflow-auto p-4 md:p-6">
         {allGroups.map(group => (
           <KanbanColumn
             key={group}
@@ -266,16 +266,23 @@ function KanbanColumn({ group, rows, titleField, descField, onEdit, onAddRow, co
     <div
       ref={setNodeRef}
       style={bgStyle}
-      className={cn('w-64 shrink-0 rounded-lg border transition-colors',
-        !columnColor && 'bg-muted/40', isOver && 'border-primary/50')}
+      className={cn(
+        'flex w-72 shrink-0 flex-col rounded-lg border transition-colors',
+        !columnColor && 'bg-muted/40',
+        isOver && 'border-primary/50',
+      )}
     >
-      <div className="flex items-center justify-between px-3 py-2.5">
-        <span className="text-sm font-medium">{group}</span>
-        <Badge variant="secondary" className="text-xs">{rows.length}</Badge>
+      <div className="flex items-center justify-between gap-2 border-b border-border/40 px-3 py-2.5">
+        <span className="truncate text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {group}
+        </span>
+        <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-medium tabular-nums">
+          {rows.length}
+        </Badge>
       </div>
 
       <SortableContext items={rows.map(r => rowId(r))} strategy={verticalListSortingStrategy}>
-        <div className="space-y-2 p-2">
+        <div className="flex-1 space-y-2 p-2">
           {rows.map(row => (
             <KanbanCard key={rowId(row)} row={row} titleField={titleField} descField={descField} onEdit={onEdit} />
           ))}
@@ -283,9 +290,9 @@ function KanbanColumn({ group, rows, titleField, descField, onEdit, onAddRow, co
       </SortableContext>
 
       {onAddRow && (
-        <div className="p-2">
-          <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground" onClick={onAddRow}>
-            <Plus className="mr-2 h-4 w-4" />
+        <div className="p-2 pt-0">
+          <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground hover:bg-background" onClick={onAddRow}>
+            <Plus className="mr-2 h-3.5 w-3.5" />
             {t('common.add')}
           </Button>
         </div>
@@ -315,7 +322,7 @@ function KanbanCard({ row, titleField, descField, isDragging = false, onEdit }: 
       {...attributes}
       onClick={() => { if (justDragged.current) { justDragged.current = false; return; } onEdit?.(row); }}
       className={cn(
-        'cursor-grab rounded-md border bg-card p-3 shadow-sm transition-opacity active:cursor-grabbing',
+        'cursor-grab rounded-md border bg-card p-3 shadow-sm transition-all hover:shadow-md hover:-translate-y-px active:cursor-grabbing',
         sorting && !isDragging ? 'opacity-30' : '',
         isDragging ? 'rotate-1 shadow-lg' : '',
       )}

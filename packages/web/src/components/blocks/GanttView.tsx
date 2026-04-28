@@ -147,25 +147,25 @@ export function GanttView({ view }: Props) {
   return (
     <div className="flex h-full flex-col">
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-3 border-b px-6 py-3">
+      <div className="flex items-center justify-between gap-2 border-b px-4 py-2.5">
         <div className="flex items-center gap-1">
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => shiftMonths(-1)}>
-            <ChevronLeft className="h-4 w-4" />
+          <Button variant="ghost" size="icon" className="size-8" onClick={() => shiftMonths(-1)}>
+            <ChevronLeft className="size-4" />
           </Button>
-          <span className="min-w-[180px] text-center text-sm font-medium">
+          <span className="min-w-[180px] text-center text-sm font-semibold tracking-tight tabular-nums">
             {format(rangeStart, 'MMM yyyy')} – {format(rangeEnd, 'MMM yyyy')}
           </span>
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => shiftMonths(1)}>
-            <ChevronRight className="h-4 w-4" />
+          <Button variant="ghost" size="icon" className="size-8" onClick={() => shiftMonths(1)}>
+            <ChevronRight className="size-4" />
           </Button>
-          <Button variant="ghost" size="sm" className="ml-1" onClick={jumpToday}>
-            <CalendarDays className="mr-1.5 h-4 w-4" />
+          <Button variant="outline" size="sm" className="ml-2" onClick={jumpToday}>
+            <CalendarDays className="mr-1.5 size-3.5" />
             {t('gantt.view.today')}
           </Button>
         </div>
         {canCreate && (
-          <Button onClick={() => setShowCreate(true)}>
-            <Plus className="h-4 w-4" />
+          <Button size="sm" onClick={() => setShowCreate(true)}>
+            <Plus className="size-3.5" />
             {t('table.view.create_button')}
           </Button>
         )}
@@ -264,7 +264,7 @@ export function GanttView({ view }: Props) {
                 return (
                   <div
                     key={String(row.id)}
-                    className="flex h-11 items-center border-b hover:bg-muted/20"
+                    className="flex h-11 items-center border-b transition-colors hover:bg-muted/40"
                   >
                     {/* Sticky task name */}
                     <div

@@ -55,9 +55,11 @@ export function FormOnlyView({ view }: Props) {
 
   return (
     <div className="flex h-full flex-col">
-      <h2 className="border-b px-6 py-4 text-lg font-semibold">{view.name}</h2>
+      <header className="flex h-12 shrink-0 items-center border-b px-4">
+        <h2 className="text-base font-semibold tracking-tight">{view.name}</h2>
+      </header>
 
-      <div className="flex-1 overflow-auto px-6 py-4">
+      <div className="flex-1 overflow-auto p-4 md:p-6">
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />

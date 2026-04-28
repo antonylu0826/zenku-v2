@@ -12,6 +12,7 @@ import { evaluateAppearanceCondition } from '@zenku/shared';
 import type { Filter as FilterCondition } from '@zenku/shared';
 import { FilterPanel } from './FilterPanel';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
+import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
 import { DynamicIcon } from '../ui/dynamic-icon';
@@ -423,7 +424,7 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
   return (
     <div className="flex h-full flex-col">
       {selectedIds.length > 0 && (
-        <div className="flex items-center gap-3 border-b bg-muted/50 px-6 py-2 text-sm">
+        <div className="flex items-center gap-3 border-b bg-muted/40 px-4 py-2 text-sm">
           <span className="text-muted-foreground" dangerouslySetInnerHTML={{ __html: t('table.view.selected_count', { count: selectedIds.length }) }} />
           {canDelete && (
             <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
@@ -433,43 +434,43 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
           <Button variant="ghost" size="sm" onClick={() => setRowSelection({})}>{t('table.view.deselect')}</Button>
         </div>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b px-6 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2.5">
         <div className="flex items-center gap-2">
           <div className="relative w-64">
-            <Search className="pointer-events-none absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={searchInput}
               onChange={event => setSearchInput(event.target.value)}
               placeholder={t('table.view.search_placeholder')}
-              className="pl-8 pr-8"
+              className="h-9 pl-8 pr-8"
             />
             {searchInput && (
               <button
                 type="button"
                 onClick={() => setSearchInput('')}
-                className="absolute right-2.5 top-3 text-muted-foreground hover:text-foreground"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
-                <X className="h-4 w-4" />
+                <X className="size-3.5" />
               </button>
             )}
           </div>
           <Button
             variant={showFilterPanel || advFilters.length > 0 ? 'default' : 'outline'}
+            size="sm"
             onClick={() => setShowFilterPanel(v => !v)}
-            className="relative"
           >
-            <Filter className="mr-1.5 h-4 w-4" />
+            <Filter className="mr-1.5 h-3.5 w-3.5" />
             {t('table.filter.button_label')}
             {advFilters.length > 0 && (
-              <span className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary-foreground text-[10px] font-bold text-primary">
+              <Badge variant="secondary" className="ml-1.5 h-4 px-1.5 text-[10px]">
                 {advFilters.length}
-              </span>
+              </Badge>
             )}
           </Button>
         </div>
         <div className="flex items-center gap-2">
           <Select value={String(pagination.pageSize)} onValueChange={v => setPagination({ ...pagination, pageSize: Number(v), pageIndex: 0 })}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="h-9 w-32">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -480,14 +481,14 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
           </Select>
           <ColumnVisibilityButton table={table} />
           {canExport ? (
-            <Button variant="outline" onClick={handleExport}>
-              <Download className="mr-1.5 h-4 w-4" />
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <Download className="mr-1.5 h-3.5 w-3.5" />
               {t('table.view.export_csv')}
             </Button>
           ) : null}
           {canCreate ? (
-            <Button onClick={() => isMasterDetail ? navigate(`/view/${view.id}/new`) : setShowCreate(true)}>
-              <Plus className="h-4 w-4" />
+            <Button size="sm" onClick={() => isMasterDetail ? navigate(`/view/${view.id}/new`) : setShowCreate(true)}>
+              <Plus className="h-3.5 w-3.5" />
               {t('table.view.create_button')}
             </Button>
           ) : null}
@@ -505,7 +506,7 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
         />
       )}
 
-      <div className="flex-1 overflow-auto px-6 py-3">
+      <div className="flex-1 overflow-auto px-4 py-3">
         <div className="rounded-md border">
         <Table style={{ minWidth: table.getCenterTotalSize() }}>
           <TableHeader className="sticky top-0 z-10 bg-muted/70 backdrop-blur">
@@ -550,7 +551,7 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
                     if (canEdit) { setEditingRow(data); return; }
                     setViewingRow(data);
                   }}
-                  className="cursor-pointer"
+                  className="cursor-pointer transition-colors hover:bg-muted/40"
                 >
                   {row.getVisibleCells().map(cell => (
                     <TableCell key={cell.id} style={{ width: cell.column.getSize() }}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
@@ -681,8 +682,8 @@ function ColumnVisibilityButton({ table }: { table: ReturnType<typeof useReactTa
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline">
-          <Eye className="mr-1.5 h-4 w-4" />
+        <Button variant="outline" size="sm">
+          <Eye className="mr-1.5 h-3.5 w-3.5" />
           {t('table.view.column_visibility_button')}
         </Button>
       </PopoverTrigger>

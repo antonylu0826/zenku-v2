@@ -210,7 +210,7 @@ export function FormView({ fields, initialValues = {}, mode = 'create', columns 
       </div>
 
       {!isViewMode && onSubmit && (
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="flex justify-end gap-2 border-t pt-4">
           {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>
               {t('common.cancel')}
@@ -222,7 +222,7 @@ export function FormView({ fields, initialValues = {}, mode = 'create', columns 
             </Button>
           )}
           <Button type="submit" disabled={submitting}>
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {submitting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
             {submitting ? t('common.saving') : t('common.save')}
           </Button>
         </div>

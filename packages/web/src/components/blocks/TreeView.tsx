@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Pencil, Plus, Search } from 'lucide-react';
+import { ChevronRight, ChevronsDownUp, ChevronsUpDown, Pencil, Plus, Search } from 'lucide-react';
 import { createRow, getTableData, updateRow } from '../../api';
 import type { ViewDefinition } from '../../types';
 import { Button } from '../ui/button';
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { DynamicIcon } from '../ui/dynamic-icon';
 import { Input } from '../ui/input';
 import { toast } from 'sonner';
+import { cn } from '../../lib/cn';
 import { FormView } from './FormView';
 
 type RowData = Record<string, unknown>;
@@ -156,34 +157,34 @@ export function TreeView({ view }: Props) {
   return (
     <div className="flex h-full flex-col">
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-3 border-b px-6 py-3">
+      <div className="flex items-center justify-between gap-2 border-b px-4 py-2.5">
         <div className="flex items-center gap-2">
           <div className="relative w-64">
-            <Search className="pointer-events-none absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
               placeholder={t('table.view.search_placeholder')}
-              className="pl-8"
+              className="h-9 pl-8"
             />
           </div>
-          <Button variant="ghost" size="icon" title={t('tree.view.expand_all')} onClick={handleExpandAll}>
-            <ChevronsUpDown className="h-4 w-4" />
+          <Button variant="ghost" size="icon" className="size-9" title={t('tree.view.expand_all')} onClick={handleExpandAll}>
+            <ChevronsUpDown className="size-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" title={t('tree.view.collapse_all')} onClick={handleCollapseAll}>
-            <ChevronsDownUp className="h-4 w-4" />
+          <Button variant="ghost" size="icon" className="size-9" title={t('tree.view.collapse_all')} onClick={handleCollapseAll}>
+            <ChevronsDownUp className="size-3.5" />
           </Button>
         </div>
         {canCreate && (
-          <Button onClick={() => setCreatingParentId(null)}>
-            <Plus className="h-4 w-4" />
+          <Button size="sm" onClick={() => setCreatingParentId(null)}>
+            <Plus className="size-3.5" />
             {t('tree.view.add_root')}
           </Button>
         )}
       </div>
 
       {/* Tree content */}
-      <div className="flex-1 overflow-auto px-2 py-2">
+      <div className="flex-1 overflow-auto p-2">
         {loading ? (
           <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
             {t('common.loading')}
@@ -277,21 +278,19 @@ function TreeNodeRow({
   return (
     <>
       <div
-        className="flex items-center gap-1 rounded-md hover:bg-accent py-0.5 pr-1 group select-none"
+        className="group flex select-none items-center gap-1 rounded-md py-0.5 pr-1 transition-colors hover:bg-accent"
         style={{ paddingLeft: `${depth * 20 + 4}px` }}
       >
         {/* Expand toggle */}
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
+          className="size-6 shrink-0 text-muted-foreground hover:text-foreground"
           disabled={!hasChildren}
           onClick={() => onToggle(id)}
         >
           {hasChildren
-            ? isExpanded
-              ? <ChevronDown className="h-3.5 w-3.5" />
-              : <ChevronRight className="h-3.5 w-3.5" />
+            ? <ChevronRight className={cn('size-3.5 transition-transform', isExpanded && 'rotate-90')} />
             : null
           }
         </Button>

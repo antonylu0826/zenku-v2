@@ -130,7 +130,7 @@ export function FilterPanel({ columns, filters, onChange }: Props) {
 
   if (filters.length === 0) {
     return (
-      <div className="flex items-center gap-3 border-b bg-muted/30 px-6 py-2">
+      <div className="flex items-center gap-3 border-b bg-muted/30 px-4 py-2">
         <span className="text-xs text-muted-foreground">{t('table.filter.no_filters')}</span>
         <Button variant="ghost" size="sm" onClick={addFilter} disabled={filterableColumns.length === 0}>
           <Plus className="mr-1 h-3.5 w-3.5" />{t('table.filter.add_condition')}
@@ -140,7 +140,7 @@ export function FilterPanel({ columns, filters, onChange }: Props) {
   }
 
   return (
-    <div className="border-b bg-muted/30 px-6 py-3 space-y-2">
+    <div className="border-b bg-muted/30 px-4 py-3 space-y-2">
       {filters.map((f, i) => {
         const col = filterableColumns.find(c => c.key === f.field) ?? filterableColumns[0];
         const operators = col ? getOperators(col.type, operatorsByType) : operatorsByType['text'];

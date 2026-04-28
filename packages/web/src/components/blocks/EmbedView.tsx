@@ -19,23 +19,27 @@ export function EmbedView({ view }: Props) {
 
   if (embed.url) {
     return (
-      <iframe
-        src={embed.url}
-        className="h-full w-full border-0"
-        title={view.name}
-        allow="clipboard-read; clipboard-write"
-        referrerPolicy="no-referrer"
-      />
+      <div className="h-full w-full bg-muted/30 p-2 md:p-4">
+        <iframe
+          src={embed.url}
+          className="h-full w-full rounded-md border bg-background shadow-sm"
+          title={view.name}
+          allow="clipboard-read; clipboard-write"
+          referrerPolicy="no-referrer"
+        />
+      </div>
     );
   }
 
   // HTML mode — sandboxed srcdoc
   return (
-    <iframe
-      srcDoc={embed.html}
-      className="h-full w-full border-0"
-      title={view.name}
-      sandbox="allow-scripts allow-forms allow-popups allow-same-origin"
-    />
+    <div className="h-full w-full bg-muted/30 p-2 md:p-4">
+      <iframe
+        srcDoc={embed.html}
+        className="h-full w-full rounded-md border bg-background shadow-sm"
+        title={view.name}
+        sandbox="allow-scripts allow-forms allow-popups allow-same-origin"
+      />
+    </div>
   );
 }

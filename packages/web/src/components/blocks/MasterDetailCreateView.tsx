@@ -101,7 +101,7 @@ export function MasterDetailCreateView({ view }: Props) {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex shrink-0 items-center gap-3 border-b px-6 py-3">
+      <div className="flex shrink-0 items-center gap-2 border-b px-4 py-2.5">
         <Button
           variant="ghost"
           size="sm"
@@ -109,18 +109,19 @@ export function MasterDetailCreateView({ view }: Props) {
           className="gap-1.5 text-muted-foreground"
           disabled={saving}
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="size-3.5" />
           {t('common.back_to_list')}
         </Button>
+        <span className="text-muted-foreground/60">/</span>
         <span className="text-sm font-medium">{t('master_detail.add_title', { name: view.name })}</span>
       </div>
 
       <div className="flex-1 divide-y overflow-auto">
         {/* Master form */}
-        <div className="px-6 py-5">
-          <h3 className="mb-4 text-sm font-semibold text-muted-foreground">{t('master_detail.main_record')}</h3>
+        <div className="px-4 py-5 md:px-6">
+          <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('master_detail.main_record')}</h3>
           {(() => {
-            const cols = view.form.columns ?? 2;
+            const cols = view.form.columns ?? 4;
             return (
               <div className={cn(
                 'grid gap-x-6 gap-y-4',
@@ -166,15 +167,15 @@ export function MasterDetailCreateView({ view }: Props) {
       </div>
 
       {/* Footer */}
-      <div className="shrink-0 border-t bg-card px-6 py-4">
-        <div className="flex items-center justify-between">
+      <div className="shrink-0 border-t bg-card px-4 py-3 md:px-6">
+        <div className="flex items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">{t('master_detail.save_all_hint')}</p>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate(`/view/${view.id}`)} disabled={saving}>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/view/${view.id}`)} disabled={saving}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={handleSaveAll} disabled={saving}>
-              {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+            <Button size="sm" onClick={handleSaveAll} disabled={saving}>
+              {saving ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
               {saving ? t('common.saving') : t('master_detail.save_all')}
             </Button>
           </div>
@@ -209,9 +210,9 @@ function DraftDetailSection({
   };
 
   return (
-    <div className="px-6 py-5">
+    <div className="px-4 py-5 md:px-6">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-muted-foreground">{detailView.tab_label}</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{detailView.tab_label}</h3>
         <Button size="sm" variant="outline" onClick={() => setShowAdd(true)}>
           <Plus className="mr-1 h-3.5 w-3.5" />
           {t('master_detail.add_detail')}

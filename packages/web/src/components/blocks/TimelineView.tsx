@@ -94,12 +94,12 @@ export function TimelineView({ view }: Props) {
         {rows.length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{t('common.no_data')}</div>
         ) : (
-          <div className="mx-auto max-w-(--breakpoint-sm) px-6 pt-4 pb-12 md:pt-6 md:pb-20">
+          <div className="mx-auto max-w-3xl px-4 pb-12 pt-4 md:pb-20 md:pt-6 md:px-6">
             {groups.map(({ year, rows: groupRows }) => (
-              <div key={year} className="mb-12 last:mb-0">
+              <div key={year} className="mb-10 last:mb-0">
                 {/* Year Header */}
-                <div className="mb-8 flex items-center gap-3">
-                  <span className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{year}</span>
+                <div className="mb-6 flex items-center gap-3">
+                  <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{year}</span>
                   <div className="flex-1 border-t border-dashed border-border" />
                 </div>
 
@@ -111,34 +111,34 @@ export function TimelineView({ view }: Props) {
                     const customIcon = icon_field ? String(row[icon_field] ?? '') : '';
 
                     return (
-                      <div key={String(row.id ?? idx)} className="relative mb-12 last:mb-0">
+                      <div key={String(row.id ?? idx)} className="relative mb-10 last:mb-0">
                         {/* Timeline Dot */}
-                        <div className="absolute -left-[41px] top-3 h-3 w-3 rounded-full border-2 border-primary bg-background" />
+                        <div className="absolute -left-[41px] top-3 size-3 rounded-full border-2 border-primary bg-background" />
 
                         {/* Content Area */}
-                        <div 
-                          className="space-y-4 cursor-pointer group"
+                        <div
+                          className="group cursor-pointer space-y-3"
                           onClick={() => setEditingRow(row)}
                         >
                           <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                            <div className="flex size-9 shrink-0 items-center justify-center rounded-full border bg-muted text-muted-foreground transition-colors group-hover:border-primary/40 group-hover:bg-primary/10 group-hover:text-primary">
                               {customIcon ? (
-                                <DynamicIcon name={customIcon} className="h-5 w-5" />
+                                <DynamicIcon name={customIcon} className="size-4" />
                               ) : (
-                                <Calendar className="h-5 w-5" />
+                                <Calendar className="size-4" />
                               )}
                             </div>
-                            <span className="font-medium text-base text-foreground">{monthDay}</span>
+                            <span className="text-sm font-medium tabular-nums text-muted-foreground">{monthDay}</span>
                           </div>
 
                           <div className="space-y-1">
-                            <h3 className="font-semibold text-xl tracking-tight text-foreground group-hover:text-primary transition-colors">
+                            <h3 className="text-lg font-semibold tracking-tight text-foreground transition-colors group-hover:text-primary">
                               {title || '—'}
                             </h3>
                           </div>
 
                           {desc && (
-                            <p className="text-pretty text-muted-foreground text-sm sm:text-base leading-relaxed line-clamp-3">
+                            <p className="line-clamp-3 text-pretty text-sm leading-relaxed text-muted-foreground">
                               {desc}
                             </p>
                           )}

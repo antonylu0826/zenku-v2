@@ -349,25 +349,25 @@ export function CalendarView({ view }: Props) {
     <>
       <div className="flex h-full flex-col">
         {/* Toolbar */}
-        <div className="flex shrink-0 items-center justify-between border-b px-6 py-3">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b px-4 py-2.5">
           <div className="flex items-center gap-1">
             <Button variant="outline" size="sm" onClick={() => setFocusDate(new Date())}>{t('calendar.today')}</Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => go(-1)}>
-              <ChevronLeft className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="size-7" onClick={() => go(-1)}>
+              <ChevronLeft className="size-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => go(1)}>
-              <ChevronRight className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="size-7" onClick={() => go(1)}>
+              <ChevronRight className="size-4" />
             </Button>
-            <span className="ml-1 min-w-[160px] text-sm font-semibold">{periodLabel}</span>
+            <span className="ml-1 min-w-[160px] text-sm font-semibold tracking-tight">{periodLabel}</span>
             {loading && <span className="ml-2 text-xs text-muted-foreground">{t('common.loading')}</span>}
           </div>
-          <div className="flex rounded-md border">
+          <div className="flex h-9 items-center rounded-md border bg-background p-0.5">
             {(['month', 'week', 'day'] as ViewMode[]).map(mode => (
               <Button
                 key={mode}
                 variant={viewMode === mode ? 'secondary' : 'ghost'}
                 size="sm"
-                className="rounded-none first:rounded-l-md last:rounded-r-md border-0 h-8"
+                className="h-8 px-3"
                 onClick={() => setViewMode(mode)}
               >
                 {t(`calendar.mode_${mode}`)}

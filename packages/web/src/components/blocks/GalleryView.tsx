@@ -116,21 +116,21 @@ export function GalleryView({ view }: Props) {
   return (
     <div className="flex h-full flex-col">
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-3 border-b px-6 py-3">
-        <div className="flex items-center gap-2 flex-1">
+      <div className="flex items-center justify-between gap-2 border-b px-4 py-2.5">
+        <div className="flex flex-1 items-center gap-2">
           <div className="relative w-64">
-            <Search className="pointer-events-none absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
               placeholder={t('table.view.search_placeholder')}
-              className="pl-8"
+              className="h-9 pl-8"
             />
           </div>
         </div>
         {canCreate && (
-          <Button onClick={() => setShowCreate(true)}>
-            <Plus className="h-4 w-4" />
+          <Button size="sm" onClick={() => setShowCreate(true)}>
+            <Plus className="h-3.5 w-3.5" />
             {t('table.view.create_button')}
           </Button>
         )}
@@ -143,7 +143,7 @@ export function GalleryView({ view }: Props) {
         ) : rows.length === 0 ? (
           <div className="flex h-full items-center justify-center text-muted-foreground">{t('common.no_data')}</div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 p-6">
+          <div className="grid grid-cols-2 gap-4 p-4 md:p-6 sm:grid-cols-3 lg:grid-cols-4">
             {rows.map(row => {
               const image = parseImageValue(row[gallery.image_field]);
               const title = String(row[gallery.title_field] || '');
@@ -152,29 +152,29 @@ export function GalleryView({ view }: Props) {
               return (
                 <div
                   key={String(row.id)}
-                  className="group rounded-lg border bg-card overflow-hidden cursor-pointer hover:shadow-md transition"
+                  className="group cursor-pointer overflow-hidden rounded-lg border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
                   onClick={() => setEditingRow(row)}
                 >
-                  <div className="aspect-square bg-muted overflow-hidden flex items-center justify-center">
+                  <div className="flex aspect-square items-center justify-center overflow-hidden bg-muted">
                     {image?.type === 'id' ? (
                       <AuthImage
                         id={image.value}
                         alt={title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition"
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                     ) : image?.type === 'url' ? (
                       <img
                         src={image.value}
                         alt={title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition"
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                     ) : (
-                      <div className="w-full h-full bg-muted-foreground/10" />
+                      <div className="h-full w-full bg-muted-foreground/10" />
                     )}
                   </div>
                   <div className="p-3">
-                    <p className="font-medium truncate text-sm">{title || '-'}</p>
-                    {subtitle && <p className="text-xs text-muted-foreground line-clamp-1 mt-1">{subtitle}</p>}
+                    <p className="truncate text-sm font-medium">{title || '-'}</p>
+                    {subtitle && <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{subtitle}</p>}
                   </div>
                 </div>
               );
@@ -185,7 +185,7 @@ export function GalleryView({ view }: Props) {
 
       {/* Pagination */}
       {!loading && totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 border-t px-6 py-3">
+        <div className="flex items-center justify-center gap-2 border-t px-4 py-2.5">
           <Button
             variant="outline"
             size="icon"
