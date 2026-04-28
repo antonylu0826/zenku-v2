@@ -98,7 +98,7 @@ function Step1({ onDone }: Step1Props) {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, password, language: i18n.language }),
       });
       const data = await res.json() as { token: string; user: AuthUser; error?: string; params?: Record<string, unknown> };
       if (!res.ok) {

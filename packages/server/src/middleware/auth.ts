@@ -70,8 +70,10 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
 
 // ===== Route handlers =====
 
+const SUPPORTED_LANGUAGES = new Set(['en', 'zh-TW']);
+
 export async function registerHandler(req: Request, res: Response): Promise<void> {
-  const { email, name, password } = req.body as { email?: string; name?: string; password?: string };
+  const { email, name, password, language: reqLanguage } = req.body as { email?: string; name?: string; password?: string; language?: string };
   if (!email || !name || !password) {
     res.status(400).json({ error: 'ERROR_MISSING_FIELDS' });
     return;
@@ -97,7 +99,7 @@ export async function registerHandler(req: Request, res: Response): Promise<void
     return;
   }
   const role = isFirst ? 'admin' : 'user';
-  const language = 'en';
+  const language = (reqLanguage && SUPPORTED_LANGUAGES.has(reqLanguage)) ? reqLanguage : 'en';
   const id = crypto.randomUUID();
   const hash = await bcrypt.hash(password, 12);
 
