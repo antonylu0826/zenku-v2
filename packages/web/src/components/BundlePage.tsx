@@ -318,9 +318,9 @@ export function BundlePage() {
   const { t } = useTranslation();
   return (
     <div className="h-full overflow-auto">
-      <div className="mx-auto max-w-2xl space-y-6 p-6">
+      <div className="mx-auto max-w-3xl space-y-6 p-4 md:p-6">
         <div>
-          <h1 className="text-xl font-semibold">{t('bundle.page_title')}</h1>
+          <h1 className="text-xl font-semibold tracking-tight">{t('bundle.page_title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('bundle.page_desc')}</p>
         </div>
         <ExportSection />

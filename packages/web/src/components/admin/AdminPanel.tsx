@@ -62,15 +62,15 @@ export function AdminPanel({ initialTab = 'users', onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex bg-background">
       {/* ── Left sidebar ── */}
-      <aside className="flex w-56 shrink-0 flex-col border-r bg-card">
+      <aside className="flex w-56 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
         {/* Sidebar header */}
-        <div className="flex items-center justify-between border-b px-4 py-3.5">
-          <span className="text-sm font-semibold text-foreground">
+        <div className="flex h-12 items-center justify-between border-b px-4">
+          <span className="text-sm font-semibold tracking-tight">
             {t('admin.panel.title', { defaultValue: 'Settings' })}
           </span>
           <button
             onClick={onClose}
-            className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             aria-label={t('common.close')}
           >
             <X size={16} />
@@ -78,7 +78,7 @@ export function AdminPanel({ initialTab = 'users', onClose }: Props) {
         </div>
 
         {/* Nav items */}
-        <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
+        <nav className="flex-1 space-y-0.5 overflow-y-auto p-2">
           {NAV_ITEMS.map(item => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -87,10 +87,10 @@ export function AdminPanel({ initialTab = 'users', onClose }: Props) {
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 className={cn(
-                  'flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors text-left',
+                  'flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-sm font-medium transition-colors',
                   isActive
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                    : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                 )}
               >
                 <Icon size={15} className="shrink-0" />

@@ -362,15 +362,15 @@ export function SetupWizard({ onAuth }: Props) {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-muted/30 px-4 py-8">
       <div className="absolute right-4 top-4">
         <LangToggle />
       </div>
       <div className="w-full max-w-md">
         <Logo />
         <StepIndicator current={step} total={2} />
-        <div className="rounded-xl border bg-card p-6 shadow-sm">
-          <h2 className="mb-1 text-lg font-semibold">{titles[step]}</h2>
+        <div className="rounded-lg border bg-card p-6 shadow-sm md:p-8">
+          <h2 className="mb-4 text-base font-semibold tracking-tight">{titles[step]}</h2>
           {step === 1 && <Step1 onDone={handleStep1Done} />}
           {step === 2 && authState && (
             <Step2 token={authState.token} onDone={handleFinish} />
