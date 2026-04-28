@@ -1,0 +1,98 @@
+/*
+ * Zenku theme — shadcn-neutral preset (Phase 1).
+ * HSL approximations of next-shadcn-admin-dashboard's oklch neutral palette,
+ * authored for Tailwind v3's hsl(var(--token)) contract.
+ */
+
+:root {
+  /* Surface */
+  --background: 0 0% 100%;
+  --foreground: 0 0% 9%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 9%;
+
+  /* Brand */
+  --primary: 0 0% 20%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 20%;
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 45%;
+  --accent: 0 0% 96%;
+  --accent-foreground: 0 0% 20%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 98%;
+
+  /* Lines */
+  --border: 0 0% 90%;
+  --input: 0 0% 90%;
+  --ring: 0 0% 71%;
+
+  /* Radius */
+  --radius: 0.625rem;
+  --radius-sm: calc(var(--radius) - 0.25rem);
+  --radius-md: calc(var(--radius) - 0.125rem);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 0.25rem);
+
+  /* Charts — neutral grayscale slots */
+  --chart-1: 0 0% 87%;
+  --chart-2: 0 0% 56%;
+  --chart-3: 0 0% 44%;
+  --chart-4: 0 0% 37%;
+  --chart-5: 0 0% 27%;
+
+  /* Sidebar */
+  --sidebar: 0 0% 98%;
+  --sidebar-foreground: 0 0% 9%;
+  --sidebar-primary: 0 0% 20%;
+  --sidebar-primary-foreground: 0 0% 98%;
+  --sidebar-accent: 0 0% 94%;
+  --sidebar-accent-foreground: 0 0% 9%;
+  --sidebar-border: 0 0% 92%;
+  --sidebar-ring: 0 0% 71%;
+
+  /* Typography */
+  --font-sans: 'Geist Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+}
+
+.dark {
+  --background: 0 0% 9%;
+  --foreground: 0 0% 98%;
+  --card: 0 0% 14%;
+  --card-foreground: 0 0% 98%;
+  --popover: 0 0% 14%;
+  --popover-foreground: 0 0% 98%;
+
+  --primary: 0 0% 92%;
+  --primary-foreground: 0 0% 20%;
+  --secondary: 0 0% 19%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 0 0% 19%;
+  --muted-foreground: 0 0% 65%;
+  --accent: 0 0% 24%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 70% 55%;
+  --destructive-foreground: 0 0% 98%;
+
+  --border: 0 0% 24%;
+  --input: 0 0% 24%;
+  --ring: 0 0% 56%;
+
+  --chart-1: 0 0% 49%;
+  --chart-2: 0 0% 60%;
+  --chart-3: 0 0% 70%;
+  --chart-4: 0 0% 80%;
+  --chart-5: 0 0% 87%;
+
+  --sidebar: 0 0% 11%;
+  --sidebar-foreground: 0 0% 98%;
+  --sidebar-primary: 0 0% 88%;
+  --sidebar-primary-foreground: 0 0% 20%;
+  --sidebar-accent: 0 0% 19%;
+  --sidebar-accent-foreground: 0 0% 98%;
+  --sidebar-border: 0 0% 24%;
+  --sidebar-ring: 0 0% 56%;
+}
