@@ -69,7 +69,7 @@ const ImagePasteExtension = Extension.create({
 // ─── Prose content styles ─────────────────────────────────────────────────────
 
 const PROSE_CLASS = [
-  'px-4 py-3 text-sm outline-none',
+  'px-4 py-3 text-sm [&_.ProseMirror]:outline-none [&_.ProseMirror]:border-0 [&_.ProseMirror]:shadow-none',
   '[&_p]:mb-2 [&_p:last-child]:mb-0',
   '[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2',
   '[&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mt-3 [&_h2]:mb-2',
