@@ -129,6 +129,7 @@ function BooleanInput({ field, value, onChange, disabled }: FieldInputInnerProps
   );
 }
 
+
 function SelectInput({ field, value, onChange, disabled }: FieldInputInnerProps) {
   const { t } = useTranslation();
   if (field.source) return <DynamicSelectField field={field} value={value} onChange={onChange} />;
