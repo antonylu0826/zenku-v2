@@ -28,6 +28,13 @@
     "select_date": "選擇日期",
     "select_datetime": "選擇日期時間",
     "select_time": "選擇時間",
+    "hour": "小時",
+    "minute": "分鐘",
+    "upload_file": "上傳檔案",
+    "upload_image": "上傳圖片",
+    "max_size_mb": "最大 {{mb}} MB",
+    "file_too_large": "檔案超過 {{mb}} MB：{{names}}",
+    "upload_failed": "上傳失敗：{{error}}",
     "select_options": "請選擇選項...",
     "boolean_yes": "是",
     "boolean_no": "否"

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Paperclip, X, Download, Loader2, FileText } from 'lucide-react';
 import { Button } from '../ui/button';
 import type { FieldDef } from '../../types';
@@ -122,6 +123,7 @@ export function FileReadonlyList({ value }: { value: unknown }) {
 // ── Edit mode component ───────────────────────────────────────────────────────
 
 export function FileInput({ field, value, onChange, disabled }: Props) {
+  const { t } = useTranslation();
   const [newFiles, setNewFiles] = useState<FileUploadResult[]>([]);
   const [existingFiles, setExistingFiles] = useState<FileUploadResult[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -148,7 +150,7 @@ export function FileInput({ field, value, onChange, disabled }: Props) {
 
     const tooLarge = picked.filter(f => f.size > maxMb * 1024 * 1024);
     if (tooLarge.length > 0) {
-      alert(`File exceeds ${maxMb} MB: ${tooLarge.map(f => f.name).join(', ')}`);
+      alert(t('common.file_too_large', { mb: maxMb, names: tooLarge.map(f => f.name).join(', ') }));
       return;
     }
 
@@ -160,7 +162,7 @@ export function FileInput({ field, value, onChange, disabled }: Props) {
       const allIds = [...existingIds, ...updated.map(f => f.id)];
       onChange(allIds.length > 0 ? JSON.stringify(allIds) : '');
     } catch (err) {
-      alert(`Upload failed: ${String(err)}`);
+      alert(t('common.upload_failed', { error: String(err) }));
     } finally {
       setUploading(false);
     }
@@ -209,10 +211,10 @@ export function FileInput({ field, value, onChange, disabled }: Props) {
             className="gap-1.5"
           >
             {uploading ? <Loader2 size={13} className="animate-spin" /> : <Paperclip size={13} />}
-            {field.type === 'image' ? 'Upload image' : 'Upload file'}
+            {field.type === 'image' ? t('common.upload_image') : t('common.upload_file')}
           </Button>
           {allFiles.length === 0 && !uploading && (
-            <p className="mt-1 text-xs text-muted-foreground">Max {maxMb} MB</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t('common.max_size_mb', { mb: maxMb })}</p>
           )}
         </div>
       )}

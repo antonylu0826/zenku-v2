@@ -74,7 +74,7 @@ export function DatePickerField({ value, onChange, placeholder, disabled, includ
           {includeTime && (
             <div className="mt-3 flex gap-2 border-t pt-3">
               <div className="flex-1">
-                <label className="block text-xs font-medium mb-1">Hour</label>
+                <label className="block text-xs font-medium mb-1">{t('common.hour')}</label>
                 <input
                   type="number"
                   min="0"
@@ -85,7 +85,7 @@ export function DatePickerField({ value, onChange, placeholder, disabled, includ
                 />
               </div>
               <div className="flex-1">
-                <label className="block text-xs font-medium mb-1">Minute</label>
+                <label className="block text-xs font-medium mb-1">{t('common.minute')}</label>
                 <input
                   type="number"
                   min="0"

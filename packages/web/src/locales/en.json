@@ -28,6 +28,13 @@
     "select_date": "Select date",
     "select_datetime": "Select date and time",
     "select_time": "Select time",
+    "hour": "Hour",
+    "minute": "Minute",
+    "upload_file": "Upload file",
+    "upload_image": "Upload image",
+    "max_size_mb": "Max {{mb}} MB",
+    "file_too_large": "File exceeds {{mb}} MB: {{names}}",
+    "upload_failed": "Upload failed: {{error}}",
     "select_options": "Select options...",
     "boolean_yes": "Yes",
     "boolean_no": "No"

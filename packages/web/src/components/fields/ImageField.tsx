@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Loader2, Plus, X, ZoomIn } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../ui/dialog';
@@ -44,6 +45,7 @@ interface Props {
 }
 
 export function ImageField({ field, value, onChange, readonly, disabled }: Props) {
+  const { t } = useTranslation();
   const [files, setFiles] = useState<FileUploadResult[]>([]);
   const [uploading, setUploading] = useState(false);
   const [lightboxId, setLightboxId] = useState<string | null>(null);
@@ -66,7 +68,7 @@ export function ImageField({ field, value, onChange, readonly, disabled }: Props
 
     const tooLarge = picked.filter(f => f.size > maxMb * 1024 * 1024);
     if (tooLarge.length > 0) {
-      alert(`File exceeds ${maxMb} MB: ${tooLarge.map(f => f.name).join(', ')}`);
+      alert(t('common.file_too_large', { mb: maxMb, names: tooLarge.map(f => f.name).join(', ') }));
       return;
     }
 
@@ -76,7 +78,7 @@ export function ImageField({ field, value, onChange, readonly, disabled }: Props
       const allIds = field.multiple === false ? uploaded.map(f => f.id) : [...ids, ...uploaded.map(f => f.id)];
       onChange(allIds.length > 0 ? JSON.stringify(allIds) : '');
     } catch (err) {
-      alert(`Upload failed: ${String(err)}`);
+      alert(t('common.upload_failed', { error: String(err) }));
     } finally {
       setUploading(false);
     }
@@ -147,10 +149,10 @@ export function ImageField({ field, value, onChange, readonly, disabled }: Props
             className="gap-1.5"
           >
             {uploading ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
-            Upload image
+            {t('common.upload_image')}
           </Button>
           {ids.length === 0 && !uploading && (
-            <p className="mt-1 text-xs text-muted-foreground">Max {maxMb} MB</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t('common.max_size_mb', { mb: maxMb })}</p>
           )}
         </div>
       )}
