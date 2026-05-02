@@ -21,6 +21,7 @@ import { ChatPanel } from '../ChatPanel';
 import { useViews } from '../../contexts/ViewsContext';
 import { useIsMobile } from '../../lib/use-mobile';
 import { cn } from '../../lib/cn';
+import { SUPPORTED_LANGUAGES } from '../../locales/languages';
 
 export function AppShell() {
   const { views, fetchViews } = useViews();
@@ -160,10 +161,7 @@ export function AppShell() {
   );
 }
 
-const LANGUAGES = [
-  { code: 'zh-TW', label: '中文' },
-  { code: 'en', label: 'EN' },
-];
+const LANGUAGES = SUPPORTED_LANGUAGES;
 
 function LangToggle() {
   const { i18n } = useTranslation();

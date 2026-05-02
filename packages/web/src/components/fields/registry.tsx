@@ -5,7 +5,6 @@ import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Checkbox } from '../ui/checkbox';
-import { Label } from '../ui/label';
 import { RelationField } from './RelationField';
 import { DynamicSelectField } from './DynamicSelectField';
 import { DatePickerField } from './DatePickerField';

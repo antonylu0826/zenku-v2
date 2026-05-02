@@ -38,8 +38,7 @@ export function DashboardView({ view }: Props) {
       }
       for (const c of v.columns ?? []) {
         if (c.key && c.label) map[c.key] = c.label;
-        if ((c as Record<string, unknown>).option_labels)
-          Object.assign(map, (c as Record<string, unknown>).option_labels);
+        if (c.option_labels) Object.assign(map, c.option_labels);
       }
     }
     return map;

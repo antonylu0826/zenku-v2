@@ -8,6 +8,7 @@ import { Label } from '../ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { toast } from 'sonner';
+import { SUPPORTED_LANGUAGES } from '../../locales/languages';
 
 interface Props {
   open: boolean;
@@ -125,8 +126,9 @@ export function ProfileDialog({ open, onClose }: Props) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="zh-TW">繁體中文</SelectItem>
-                  <SelectItem value="en">English</SelectItem>
+                  {SUPPORTED_LANGUAGES.map(l => (
+                    <SelectItem key={l.code} value={l.code}>{l.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

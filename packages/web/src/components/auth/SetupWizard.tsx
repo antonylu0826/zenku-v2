@@ -2,11 +2,9 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
 import type { AuthUser } from '../../contexts/AuthContext';
+import { SUPPORTED_LANGUAGES } from '../../locales/languages';
 
-const LANGUAGES = [
-  { code: 'zh-TW', label: '中文' },
-  { code: 'en',    label: 'EN' },
-];
+const LANGUAGES = SUPPORTED_LANGUAGES;
 
 function LangToggle() {
   const { i18n: i } = useTranslation();
