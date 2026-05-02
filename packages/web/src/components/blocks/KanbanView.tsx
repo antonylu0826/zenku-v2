@@ -11,6 +11,10 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
+
+function formatOptionLabel(value: string): string {
+  return value.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
 import { createRow, getTableData, updateRow } from '../../api';
 import type { ViewDefinition } from '../../types';
 import { Badge } from '../ui/badge';
@@ -215,6 +219,7 @@ export function KanbanView({ view }: Props) {
           <KanbanColumn
             key={group}
             group={group}
+            groupLabel={formField?.option_labels?.[group] ?? formatOptionLabel(group)}
             rows={localGroups[group] ?? []}
             titleField={titleField}
             descField={descField}
@@ -254,8 +259,8 @@ export function KanbanView({ view }: Props) {
 
 // ─── Column ────────────────────────────────────────────────────────────────────
 
-function KanbanColumn({ group, rows, titleField, descField, onEdit, onAddRow, columnColor }: {
-  group: string; rows: RowData[]; titleField: string; descField?: string;
+function KanbanColumn({ group, groupLabel, rows, titleField, descField, onEdit, onAddRow, columnColor }: {
+  group: string; groupLabel: string; rows: RowData[]; titleField: string; descField?: string;
   onEdit?: (row: RowData) => void; onAddRow?: () => void; columnColor?: string;
 }) {
   const { t } = useTranslation();
@@ -273,8 +278,8 @@ function KanbanColumn({ group, rows, titleField, descField, onEdit, onAddRow, co
       )}
     >
       <div className="flex items-center justify-between gap-2 border-b border-border/40 px-3 py-2.5">
-        <span className="truncate text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          {group}
+        <span className="truncate text-xs font-semibold tracking-wide text-muted-foreground">
+          {groupLabel}
         </span>
         <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-medium tabular-nums">
           {rows.length}

@@ -126,7 +126,17 @@ export function AuthProvider({ children, fallback }: Props) {
 
   const handleAuth = (user: AuthUser, token: string) => {
     localStorage.setItem('zenku-token', token);
-    if (user.language) {
+    // If the user explicitly chose a language on the login page, honour it and
+    // persist it to their profile so it sticks on the next login too.
+    const loginLang = i18n.language;
+    if (loginLang && loginLang !== user.language) {
+      fetch('/api/users/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: user.name, language: loginLang }),
+      }).catch(() => {});
+      user = { ...user, language: loginLang };
+    } else if (user.language) {
       i18n.changeLanguage(user.language);
     }
     setState(prev => ({ ...prev, status: 'authenticated', user, token, hasUsers: true }));

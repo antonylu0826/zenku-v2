@@ -37,12 +37,12 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 0.25rem);
 
-  /* Charts — neutral grayscale slots */
-  --chart-1: 0 0% 87%;
-  --chart-2: 0 0% 56%;
-  --chart-3: 0 0% 44%;
-  --chart-4: 0 0% 37%;
-  --chart-5: 0 0% 27%;
+  /* Charts — distinct muted hues */
+  --chart-1: 215 55% 55%;
+  --chart-2: 158 42% 45%;
+  --chart-3: 38  72% 52%;
+  --chart-4: 276 38% 55%;
+  --chart-5: 12  50% 52%;
 
   /* Sidebar */
   --sidebar: 0 0% 98%;
@@ -81,11 +81,11 @@
   --input: 0 0% 24%;
   --ring: 0 0% 56%;
 
-  --chart-1: 0 0% 49%;
-  --chart-2: 0 0% 60%;
-  --chart-3: 0 0% 70%;
-  --chart-4: 0 0% 80%;
-  --chart-5: 0 0% 87%;
+  --chart-1: 215 60% 62%;
+  --chart-2: 158 48% 52%;
+  --chart-3: 38  78% 58%;
+  --chart-4: 276 42% 62%;
+  --chart-5: 12  55% 58%;
 
   --sidebar: 0 0% 11%;
   --sidebar-foreground: 0 0% 98%;

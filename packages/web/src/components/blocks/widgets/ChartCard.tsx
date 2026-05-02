@@ -70,7 +70,7 @@ export function BarChartWidget({ title, data, config, labelMap }: ChartProps) {
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey={xKey} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+            <XAxis dataKey={xKey} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} tickFormatter={(v: string) => labelMap[String(v)] ?? String(v)} />
             <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
             <ChartTooltip content={<ChartTooltipContent />} />
             <Bar dataKey={yKey} radius={[4, 4, 0, 0]}>

@@ -32,8 +32,15 @@ export function DashboardView({ view }: Props) {
   const fieldLabelMap = useMemo(() => {
     const map: Record<string, string> = {};
     for (const v of views) {
-      for (const f of v.form?.fields ?? []) if (f.key && f.label) map[f.key] = f.label;
-      for (const c of v.columns ?? []) if (c.key && c.label) map[c.key] = c.label;
+      for (const f of v.form?.fields ?? []) {
+        if (f.key && f.label) map[f.key] = f.label;
+        if (f.option_labels) Object.assign(map, f.option_labels);
+      }
+      for (const c of v.columns ?? []) {
+        if (c.key && c.label) map[c.key] = c.label;
+        if ((c as Record<string, unknown>).option_labels)
+          Object.assign(map, (c as Record<string, unknown>).option_labels);
+      }
     }
     return map;
   }, [views]);

@@ -17,13 +17,14 @@ import { buildDestructiveSchemaInstructions } from '../prompts/destructive-schem
 import { buildConditionalAppearanceInstructions } from '../prompts/conditional-appearance-instructions';
 import { buildViewActionsInstructions } from '../prompts/view-actions-instructions';
 import { buildFieldTypeInstructions } from '../prompts/field-type-instructions';
+import { buildI18nInstructions } from '../prompts/i18n-instructions';
 import type { ToolDefinition } from '../ai';
 
 const router = Router();
 
 const READ_TOOLS  = new Set(['query_data', 'get_table_schema', 'get_integration_guide']);
 const WRITE_TOOLS = new Set(['write_data']);
-const ADMIN_TOOLS = new Set(['manage_schema', 'manage_ui', 'manage_rules', 'assess_impact', 'undo_action']);
+const ADMIN_TOOLS = new Set(['manage_schema', 'manage_ui', 'manage_rules', 'assess_impact', 'undo_action', 'set_translations']);
 
 function getToolsForScopes(scopes: string[]): ToolDefinition[] {
   const expanded = new Set(expandScopes(scopes));
@@ -49,7 +50,7 @@ function sanitizeSchemaForMcp(schema: any): any {
   return s;
 }
 
-async function buildMcpInstructions(): Promise<string> {
+async function buildMcpInstructions(language = 'en'): Promise<string> {
   const dynamicContext = await buildDynamicContext();
   return `You are connected to a Zenku instance — a low-code application runtime.
 
@@ -77,6 +78,8 @@ ${buildDestructiveSchemaInstructions()}
 
 ${buildFieldTypeInstructions()}
 
+${buildI18nInstructions(language)}
+
 ${dynamicContext}`;
 }
 
@@ -84,7 +87,11 @@ router.post('/', requireApiKey('mcp:read'), async (req, res) => {
   const scopes  = req.apiKeyScopes ?? [];
   const tools   = getToolsForScopes(scopes);
   const allowedNames = new Set(tools.map(t => t.name));
-  const instructions = await buildMcpInstructions();
+  // Language: prefer ?lang= query param, fall back to Accept-Language header, default en
+  const lang = typeof req.query.lang === 'string'
+    ? req.query.lang
+    : (req.headers['accept-language'] ?? '').split(',')[0].split(';')[0].trim() || 'en';
+  const instructions = await buildMcpInstructions(lang);
 
   const server = new Server(
     { name: 'zenku', version: '1.0.0' },
