@@ -181,6 +181,7 @@ export function TimelineView({ view }: Props) {
           </DialogHeader>
           {editingRow && (
             <FormView
+              tableName={view.table_name}
               fields={view.form.fields}
               columns={formColumns}
               initialValues={editingRow}

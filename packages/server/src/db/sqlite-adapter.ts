@@ -188,7 +188,7 @@ export class SqliteAdapter implements DbAdapter {
         name TEXT NOT NULL,
         description TEXT,
         table_name TEXT NOT NULL,
-        trigger_type TEXT NOT NULL,
+        trigger_types TEXT NOT NULL,
         condition TEXT,
         actions TEXT NOT NULL,
         priority INTEGER DEFAULT 0,
@@ -371,6 +371,10 @@ export class SqliteAdapter implements DbAdapter {
     try { this.db.exec(`ALTER TABLE _zenku_users ADD COLUMN language TEXT NOT NULL DEFAULT 'en'`); } catch { /* exists */ }
     try { this.db.exec(`ALTER TABLE _zenku_chat_sessions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0`); } catch { /* exists */ }
     try { this.db.exec(`ALTER TABLE _zenku_user_identities ADD COLUMN refresh_token TEXT`); } catch { /* exists */ }
+    // Migrate trigger_type -> trigger_types (JSON array format)
+    try { this.db.exec(`ALTER TABLE _zenku_rules ADD COLUMN trigger_types TEXT NOT NULL DEFAULT ''`); } catch { /* exists */ }
+    try { this.db.exec(`UPDATE _zenku_rules SET trigger_types = '["' || trigger_type || '"]' WHERE trigger_types = ''`); } catch { /* no old column */ }
+    try { this.db.exec(`ALTER TABLE _zenku_rules DROP COLUMN trigger_type`); } catch { /* already dropped or never existed */ }
   }
 
   async close(): Promise<void> {

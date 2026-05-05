@@ -243,6 +243,7 @@ export function MasterDetailView({ view, recordId }: Props) {
             </div>
           ) : record ? (
             <FormView
+              tableName={view.table_name}
               key={JSON.stringify(record)}
               fields={view.form.fields}
               initialValues={record}

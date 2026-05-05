@@ -324,6 +324,7 @@ export function GanttView({ view }: Props) {
           {editingRow && (
             <div className="-mx-6 flex-1 min-h-0 overflow-y-auto px-6">
               <FormView
+                tableName={view.table_name}
                 fields={view.form.fields}
                 columns={formColumns}
                 initialValues={editingRow}
@@ -345,6 +346,7 @@ export function GanttView({ view }: Props) {
             </DialogHeader>
             <div className="-mx-6 flex-1 min-h-0 overflow-y-auto px-6">
               <FormView
+                tableName={view.table_name}
                 fields={view.form.fields}
                 columns={formColumns}
                 onSubmit={handleCreate}

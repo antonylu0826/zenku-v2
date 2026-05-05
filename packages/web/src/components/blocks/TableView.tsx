@@ -590,7 +590,7 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
             <DialogDescription>{t('table.view.create_dialog_desc')}</DialogDescription>
           </DialogHeader>
           <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
-            <FormView fields={view.form.fields} columns={formColumns} masterRecord={masterRecord} onSubmit={handleCreate} onCancel={() => setShowCreate(false)} />
+            <FormView fields={view.form.fields} columns={formColumns} masterRecord={masterRecord} tableName={view.table_name} onSubmit={handleCreate} onCancel={() => setShowCreate(false)} />
           </div>
         </DialogContent>
       </Dialog>
@@ -604,6 +604,7 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
           {editingRow ? (
             <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
               <FormView
+                tableName={view.table_name}
                 fields={view.form.fields}
                 columns={formColumns}
                 initialValues={editingRow}

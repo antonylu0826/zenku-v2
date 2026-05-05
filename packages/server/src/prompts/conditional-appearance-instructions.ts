@@ -20,5 +20,6 @@ Constraints:
 - appearance[] only works in form.fields (not columns).
 - The "field" in "when" must be a key that exists in the same form, or use "$master.field_key" for master-detail.
 - For permanent hiding, use hidden_in_form: true instead of appearance[].
-- To remove a conditional appearance rule, call update_view and omit the appearance property from that field.`;
+- To remove a conditional appearance rule, call update_view and omit the appearance property from that field.
+- appearance[] only controls visual presentation — it does NOT modify field values. To auto-fill values based on another field, use an on_change rule (manage_rules).`;
 }

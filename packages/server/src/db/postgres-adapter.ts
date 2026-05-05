@@ -280,7 +280,7 @@ export class PostgresAdapter implements DbAdapter {
         name         TEXT NOT NULL,
         description  TEXT,
         table_name   TEXT NOT NULL,
-        trigger_type TEXT NOT NULL,
+        trigger_types TEXT NOT NULL,
         condition    TEXT,
         actions      TEXT NOT NULL,
         priority     INTEGER DEFAULT 0,
@@ -462,6 +462,10 @@ export class PostgresAdapter implements DbAdapter {
     await this.sql!.unsafe(`ALTER TABLE _zenku_users ADD COLUMN IF NOT EXISTS language TEXT NOT NULL DEFAULT 'en'`);
     await this.sql!.unsafe(`ALTER TABLE _zenku_chat_sessions ADD COLUMN IF NOT EXISTS archived INTEGER NOT NULL DEFAULT 0`);
     await this.sql!.unsafe(`ALTER TABLE _zenku_user_identities ADD COLUMN IF NOT EXISTS refresh_token TEXT`);
+    // Migrate trigger_type -> trigger_types (JSON array format)
+    await this.sql!.unsafe(`ALTER TABLE _zenku_rules ADD COLUMN IF NOT EXISTS trigger_types TEXT NOT NULL DEFAULT ''`);
+    try { await this.sql!.unsafe(`UPDATE _zenku_rules SET trigger_types = '["' || trigger_type || '"]' WHERE trigger_types = ''`); } catch { /* old column may not exist */ }
+    try { await this.sql!.unsafe(`ALTER TABLE _zenku_rules DROP COLUMN IF EXISTS trigger_type`); } catch { /* already dropped */ }
   }
 
   async close(): Promise<void> {

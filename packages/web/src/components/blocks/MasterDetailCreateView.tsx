@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Plus, Trash2, ArrowLeft, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createRow } from '../../api';
+import { useOnChangeEvaluation } from '../../hooks/useOnChangeEvaluation';
 import type { DetailViewDef, FieldDef, ViewDefinition } from '../../types';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/cn';
@@ -36,13 +37,24 @@ export function MasterDetailCreateView({ view }: Props) {
   });
   const [masterErrors, setMasterErrors] = useState<Record<string, string | null>>({});
 
-  const updateMaster = (field: FieldDef, value: unknown) => {
-    setMasterValues(prev => ({ ...prev, [field.key]: value }));
+  const { triggerOnChange } = useOnChangeEvaluation({
+    tableName: view.table_name,
+    setValues: setMasterValues,
+    setErrors: setMasterErrors,
+  });
+
+  const updateMaster = useCallback((field: FieldDef, value: unknown) => {
+    setMasterValues(prev => {
+      const next = { ...prev, [field.key]: value };
+      triggerOnChange(field, next);
+      return next;
+    });
+
     if (field.required && !field.computed && field.type !== 'auto_number') {
       const empty = value === null || value === undefined || String(value ?? '').trim() === '';
       setMasterErrors(prev => ({ ...prev, [field.key]: empty ? t('master_detail.required_error', { label: field.label }) : null }));
     }
-  };
+  }, [triggerOnChange, t]);
 
   // Draft rows per detail_view
   const [draftRows, setDraftRows] = useState<Record<string, RowData[]>>(() => {
@@ -263,7 +275,7 @@ function DraftDetailSection({
             <DialogDescription>{t('master_detail.new_detail_desc')}</DialogDescription>
           </DialogHeader>
           <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
-            <FormView fields={formFields} masterRecord={masterRecord} onSubmit={handleAdd} onCancel={() => setShowAdd(false)} />
+            <FormView fields={formFields} masterRecord={masterRecord} tableName={detailView.table_name} onSubmit={handleAdd} onCancel={() => setShowAdd(false)} />
           </div>
         </DialogContent>
       </Dialog>

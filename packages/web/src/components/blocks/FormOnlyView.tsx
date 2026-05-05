@@ -67,6 +67,7 @@ export function FormOnlyView({ view }: Props) {
           </div>
         ) : record ? (
           <FormView
+            tableName={view.table_name}
             fields={view.form.fields}
             columns={formColumns}
             initialValues={record}

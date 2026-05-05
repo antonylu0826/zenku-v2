@@ -9,7 +9,7 @@ interface RuleDef {
   name: string;
   description?: string;
   table_name: string;
-  trigger_type: string;
+  trigger_types: string | string[];
   condition?: { field: string; operator: string; value?: unknown };
   actions: {
     type: string; field?: string; value?: string; message?: string;
@@ -40,25 +40,29 @@ export async function runLogicAgent(input: LogicInput, userRequest: string): Pro
 async function createRule(rule: RuleDef, userRequest: string): Promise<AgentResult> {
   const db = getDb();
   const id = rule.id ?? `rule_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const triggerTypesJson = Array.isArray(rule.trigger_types)
+    ? JSON.stringify(rule.trigger_types)
+    : JSON.stringify([rule.trigger_types]);
   await db.execute(`
-    INSERT INTO _zenku_rules (id, name, description, table_name, trigger_type, condition, actions, priority, enabled)
+    INSERT INTO _zenku_rules (id, name, description, table_name, trigger_types, condition, actions, priority, enabled)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `, [
-    id, rule.name, rule.description ?? null, rule.table_name, rule.trigger_type,
+    id, rule.name, rule.description ?? null, rule.table_name, triggerTypesJson,
     rule.condition ? JSON.stringify(rule.condition) : null,
     JSON.stringify(rule.actions), rule.priority ?? 0, rule.enabled !== false ? 1 : 0,
   ]);
   await logChange('logic-agent', 'create_rule', { id, rule }, userRequest);
+  const triggerLabel = Array.isArray(rule.trigger_types) ? rule.trigger_types.join(',') : rule.trigger_types;
   await writeJournal({
     agent: 'logic', type: 'rule_change',
-    description: `Created rule "${rule.name}" (${rule.trigger_type} on ${rule.table_name})`,
+    description: `Created rule "${rule.name}" (${triggerLabel} on ${rule.table_name})`,
     diff: { before: null, after: { id, ...rule } },
     user_request: userRequest, reversible: true,
     reverse_operations: [{ type: 'sql', sql: `DELETE FROM _zenku_rules WHERE id = ${JSON.stringify(id)}` }],
   });
   return {
     success: true,
-    message: `Created rule "${rule.name}" (${rule.trigger_type} on ${rule.table_name})`,
+    message: `Created rule "${rule.name}" (${triggerLabel} on ${rule.table_name})`,
     data: { id },
   };
 }
@@ -67,12 +71,15 @@ async function updateRule(ruleId: string, rule: RuleDef, userRequest: string): P
   const db = getDb();
   const { rows } = await db.query('SELECT id FROM _zenku_rules WHERE id = ?', [ruleId]);
   if (!rows[0]) return { success: false, message: `Rule not found: ${ruleId}` };
+  const triggerTypesJson = Array.isArray(rule.trigger_types)
+    ? JSON.stringify(rule.trigger_types)
+    : JSON.stringify([rule.trigger_types]);
   await db.execute(`
-    UPDATE _zenku_rules SET name=?, description=?, table_name=?, trigger_type=?,
+    UPDATE _zenku_rules SET name=?, description=?, table_name=?, trigger_types=?,
       condition=?, actions=?, priority=?, enabled=?, updated_at=?
     WHERE id=?
   `, [
-    rule.name, rule.description ?? null, rule.table_name, rule.trigger_type,
+    rule.name, rule.description ?? null, rule.table_name, triggerTypesJson,
     rule.condition ? JSON.stringify(rule.condition) : null,
     JSON.stringify(rule.actions), rule.priority ?? 0, rule.enabled !== false ? 1 : 0, dbNow(), ruleId,
   ]);
@@ -88,8 +95,8 @@ async function deleteRule(ruleId: string, userRequest: string): Promise<AgentRes
   const existing = rows[0];
   if (!existing) return { success: false, message: `Rule not found: ${ruleId}` };
 
-  const restoreSQL = `INSERT OR IGNORE INTO _zenku_rules (id, name, description, table_name, trigger_type, condition, actions, priority, enabled, created_at, updated_at) VALUES (${
-    [existing.id, existing.name, existing.description, existing.table_name, existing.trigger_type,
+  const restoreSQL = `INSERT OR IGNORE INTO _zenku_rules (id, name, description, table_name, trigger_types, condition, actions, priority, enabled, created_at, updated_at) VALUES (${
+    [existing.id, existing.name, existing.description, existing.table_name, existing.trigger_types,
      existing.condition, existing.actions, existing.priority, existing.enabled, existing.created_at, existing.updated_at]
       .map(v => v === null || v === undefined ? 'NULL' : JSON.stringify(v)).join(', ')
   })`;

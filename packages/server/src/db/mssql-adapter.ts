@@ -486,17 +486,17 @@ export class MssqlAdapter implements DbAdapter {
     `);
 
     await createIfAbsent('_zenku_rules', `
-      id           NVARCHAR(255) PRIMARY KEY,
-      name         NVARCHAR(MAX) NOT NULL,
-      description  NVARCHAR(MAX),
-      table_name   NVARCHAR(255) NOT NULL,
-      trigger_type NVARCHAR(MAX) NOT NULL,
-      condition    NVARCHAR(MAX),
-      actions      NVARCHAR(MAX) NOT NULL,
-      priority     INT DEFAULT 0,
-      enabled      INT DEFAULT 1,
-      created_at   NVARCHAR(MAX) DEFAULT CONVERT(NVARCHAR(MAX), GETDATE(), 126),
-      updated_at   NVARCHAR(MAX) DEFAULT CONVERT(NVARCHAR(MAX), GETDATE(), 126)
+      id            NVARCHAR(255) PRIMARY KEY,
+      name          NVARCHAR(MAX) NOT NULL,
+      description   NVARCHAR(MAX),
+      table_name    NVARCHAR(255) NOT NULL,
+      trigger_types NVARCHAR(MAX) NOT NULL,
+      condition     NVARCHAR(MAX),
+      actions       NVARCHAR(MAX) NOT NULL,
+      priority      INT DEFAULT 0,
+      enabled       INT DEFAULT 1,
+      created_at    NVARCHAR(MAX) DEFAULT CONVERT(NVARCHAR(MAX), GETDATE(), 126),
+      updated_at    NVARCHAR(MAX) DEFAULT CONVERT(NVARCHAR(MAX), GETDATE(), 126)
     `);
 
     await createIfAbsent('_zenku_journal', `
@@ -684,6 +684,14 @@ export class MssqlAdapter implements DbAdapter {
     await addColIfAbsent('_zenku_users', 'language', "NVARCHAR(MAX) NOT NULL DEFAULT 'en'");
     await addColIfAbsent('_zenku_chat_sessions', 'archived', 'INT NOT NULL DEFAULT 0');
     await addColIfAbsent('_zenku_user_identities', 'refresh_token', 'NVARCHAR(MAX)');
+    // Migrate trigger_type -> trigger_types (JSON array format)
+    await addColIfAbsent('_zenku_rules', 'trigger_types', "NVARCHAR(MAX) NOT NULL DEFAULT ''");
+    try {
+      await (await this.req()).query(`UPDATE _zenku_rules SET trigger_types = '["' + trigger_type + '"]' WHERE trigger_types = ''`);
+    } catch { /* old column may not exist */ }
+    try {
+      await this.dropColumn('_zenku_rules', 'trigger_type');
+    } catch { /* already dropped or never existed */ }
   }
 
   async close(): Promise<void> {

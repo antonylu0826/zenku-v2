@@ -200,7 +200,7 @@ export function CalendarView({ view }: Props) {
   const calendar = view.calendar;
 
   // Use the primary (non-calendar) view name for dialog titles to avoid
-  // showing the view-type suffix (e.g., "客戶訂單行事曆" → "客戶訂單")
+  // showing the view-type suffix (e.g., "Customer Order Calendar" -> "Customer Order")
   const entityName = useMemo(() => {
     const primary = views.find(v => v.table_name === view.table_name && v.type !== 'calendar');
     return primary?.name ?? view.name;
@@ -387,7 +387,7 @@ export function CalendarView({ view }: Props) {
             <DialogTitle>{t('table.view.edit_dialog_title', { name: entityName })}</DialogTitle>
             <DialogDescription>{t('table.view.edit_dialog_desc')}</DialogDescription>
           </DialogHeader>
-          {editingRow && <FormView fields={view.form.fields} columns={formColumns} initialValues={editingRow} onSubmit={handleUpdate} onCancel={() => setEditingRow(null)} />}
+          {editingRow && <FormView tableName={view.table_name} fields={view.form.fields} columns={formColumns} initialValues={editingRow} onSubmit={handleUpdate} onCancel={() => setEditingRow(null)} />}
         </DialogContent>
       </Dialog>
 
@@ -397,7 +397,7 @@ export function CalendarView({ view }: Props) {
             <DialogTitle>{t('table.view.create_dialog_title', { name: entityName })}</DialogTitle>
             <DialogDescription>{t('table.view.create_dialog_desc')}</DialogDescription>
           </DialogHeader>
-          <FormView fields={view.form.fields} columns={formColumns} onSubmit={handleCreate} onCancel={() => { setShowCreate(false); setCreatingDate(null); }} />
+          <FormView tableName={view.table_name} fields={view.form.fields} columns={formColumns} onSubmit={handleCreate} onCancel={() => { setShowCreate(false); setCreatingDate(null); }} />
         </DialogContent>
       </Dialog>
     </>

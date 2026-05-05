@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2, Pencil } from 'lucide-react';
 import type { FieldDef, FieldType } from '../../types';
@@ -10,6 +10,7 @@ import { FormItem, FormMessage } from '../ui/form';
 import { Label } from '../ui/label';
 import { FieldInput, FIELD_REGISTRY } from '../fields';
 import { cn } from '../../lib/cn';
+import { useOnChangeEvaluation } from '../../hooks/useOnChangeEvaluation';
 
 export type FormMode = 'create' | 'edit' | 'view';
 
@@ -23,6 +24,8 @@ interface Props {
   onCancel?: () => void;
   /** Parent master record for cross-scope appearance rules */
   masterRecord?: Record<string, unknown>;
+  /** Table name — enables on_change rule evaluation when provided */
+  tableName?: string;
 }
 
 function isFullWidth(field: FieldDef): boolean {
@@ -31,7 +34,7 @@ function isFullWidth(field: FieldDef): boolean {
 
 type ErrorMap = Record<string, string | null>;
 
-export function FormView({ fields, initialValues = {}, mode = 'create', columns = 1, onSubmit, onCancel, masterRecord }: Props) {
+export function FormView({ fields, initialValues = {}, mode = 'create', columns = 1, onSubmit, onCancel, masterRecord, tableName }: Props) {
   const { t } = useTranslation();
   // Initialize values for all non-statically-hidden fields (including conditionally hidden fields, to keep tracking their values)
   const allFormFields = useMemo(() => fields.filter(f => !f.hidden_in_form), [fields]);
@@ -50,6 +53,12 @@ export function FormView({ fields, initialValues = {}, mode = 'create', columns 
   const [errors, setErrors] = useState<ErrorMap>({});
   const [submitting, setSubmitting] = useState(false);
   const [currentMode, setCurrentMode] = useState<FormMode>(mode);
+
+  const { triggerOnChange } = useOnChangeEvaluation({
+    tableName,
+    setValues,
+    setErrors,
+  });
 
   const isViewMode = currentMode === 'view';
 
@@ -135,12 +144,16 @@ export function FormView({ fields, initialValues = {}, mode = 'create', columns 
     }
   };
 
-  const updateValue = (field: FieldDef, value: unknown) => {
-    setValues(prev => ({ ...prev, [field.key]: value }));
+  const updateValue = useCallback((field: FieldDef, value: unknown) => {
+    setValues(prev => {
+      const next = { ...prev, [field.key]: value };
+      triggerOnChange(field, next);
+      return next;
+    });
     if (!field.computed) {
       setErrors(prev => ({ ...prev, [field.key]: validateField(field, value) }));
     }
-  };
+  }, [triggerOnChange]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const gridClass = cn(
     'grid gap-x-6 gap-y-4',

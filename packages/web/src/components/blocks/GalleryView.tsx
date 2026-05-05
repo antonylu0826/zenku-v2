@@ -219,6 +219,7 @@ export function GalleryView({ view }: Props) {
           </DialogHeader>
           {editingRow && (
             <FormView
+              tableName={view.table_name}
               fields={view.form.fields}
               columns={formColumns}
               initialValues={editingRow}
@@ -238,6 +239,7 @@ export function GalleryView({ view }: Props) {
               <DialogDescription>{t('table.view.create_dialog_desc')}</DialogDescription>
             </DialogHeader>
             <FormView
+              tableName={view.table_name}
               fields={view.form.fields}
               columns={formColumns}
               onSubmit={handleCreate}

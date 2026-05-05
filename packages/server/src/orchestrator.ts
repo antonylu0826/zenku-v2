@@ -115,7 +115,11 @@ export async function buildDynamicContext(): Promise<string> {
     : '(No interfaces yet)';
 
   const rulesStr = rules.length > 0
-    ? rules.map(r => `- ${r.name} (${r.trigger_type} on ${r.table_name})${r.enabled ? '' : ' (Disabled)'}`).join('\n')
+    ? rules.map(r => {
+        let types: string;
+        try { const p = JSON.parse(r.trigger_types); types = Array.isArray(p) ? p.join(',') : r.trigger_types; } catch { types = r.trigger_types; }
+        return `- ${r.name} (${types} on ${r.table_name})${r.enabled ? '' : ' (Disabled)'}`;
+      }).join('\n')
     : '(No rules defined)';
 
   return `Current Database (Tables):

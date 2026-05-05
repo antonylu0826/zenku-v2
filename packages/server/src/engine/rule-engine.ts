@@ -1,5 +1,5 @@
 import { getDb, dbNow } from '../db';
-import { getRulesForTable } from '../db/rules';
+import { getRulesForTable, parseTriggerTypes } from '../db/rules';
 import { writeWebhookLog } from '../db/webhook';
 import { evaluateFormula } from '@zenku/shared';
 import { t as i18nT } from '../i18n';
@@ -30,6 +30,11 @@ export interface RuleAction {
 export interface BeforeResult {
   allowed: boolean;
   data: Record<string, unknown>;
+  errors: string[];
+}
+
+export interface OnChangeResult {
+  updates: Record<string, unknown>;
   errors: string[];
 }
 
@@ -116,6 +121,15 @@ async function evaluateCondition(
 
 // ===== Expression evaluation =====
 
+async function resolveValue(
+  table: string,
+  expr: string,
+  data: Record<string, unknown>,
+): Promise<unknown> {
+  if (expr.includes('.')) return resolveFieldPath(table, expr, data);
+  return evaluateExpression(expr, data);
+}
+
 function evaluateExpression(expr: string, data: Record<string, unknown>): unknown {
   if (/[+\-*/()]/.test(expr)) {
     try {
@@ -168,7 +182,7 @@ export async function executeBefore(
         }
         case 'set_field':
           if (act.field && act.value !== undefined) {
-            currentData[act.field] = evaluateExpression(act.value, currentData);
+            currentData[act.field] = await resolveValue(table, act.value, currentData);
           }
           break;
       }
@@ -176,6 +190,54 @@ export async function executeBefore(
   }
 
   return { allowed: errors.length === 0, data: currentData, errors };
+}
+
+// ===== On-change trigger (form-time, no DB write) =====
+
+/** Allowed action types in on_change context (no DB writes). */
+const ON_CHANGE_ALLOWED_ACTIONS = new Set(['set_field', 'validate']);
+
+export async function executeOnChange(
+  table: string,
+  changedField: string,
+  formData: Record<string, unknown>,
+): Promise<OnChangeResult> {
+  const rules = await getRulesForTable(table, 'on_change');
+
+  const updates: Record<string, unknown> = {};
+  const errors: string[] = [];
+  let currentData = { ...formData };
+
+  for (const rule of rules) {
+    const condition = rule.condition ? JSON.parse(rule.condition) as RuleCondition : null;
+    // on_change: condition.field must match the changed field (if condition exists)
+    if (condition && condition.field !== changedField) continue;
+    if (!(await evaluateCondition(condition, table, currentData))) continue;
+
+    const actions = JSON.parse(rule.actions) as RuleAction[];
+    for (const act of actions) {
+      if (!ON_CHANGE_ALLOWED_ACTIONS.has(act.type)) {
+        console.warn(`[RuleEngine/on_change] Skipping unsupported action type "${act.type}" in rule "${rule.name}"`);
+        continue;
+      }
+      switch (act.type) {
+        case 'validate': {
+          const raw = act.message ?? `ERROR_RULE_VALIDATION_FAILED:${rule.name}`;
+          errors.push(raw);
+          break;
+        }
+        case 'set_field':
+          if (act.field && act.value !== undefined) {
+            const newVal = await resolveValue(table, act.value, currentData);
+            updates[act.field] = newVal;
+            currentData[act.field] = newVal;
+          }
+          break;
+      }
+    }
+  }
+
+  return { updates, errors };
 }
 
 // ===== Manual trigger =====
@@ -192,14 +254,16 @@ export async function executeManual(
 ): Promise<ManualResult> {
   const db = getDb();
   const { rows } = await db.query<{
-    id: string; name: string; table_name: string; trigger_type: string;
+    id: string; name: string; table_name: string; trigger_types: string;
     condition: string | null; actions: string; enabled: number;
   }>(
-    'SELECT * FROM _zenku_rules WHERE id = ? AND trigger_type = ? AND enabled = 1',
-    [ruleId, 'manual']
+    'SELECT * FROM _zenku_rules WHERE id = ? AND enabled = 1',
+    [ruleId]
   );
   const rule = rows[0];
-  if (!rule) return { success: false, errors: ['ERROR_RULE_NOT_FOUND_OR_DISABLED'] };
+  if (!rule || !parseTriggerTypes(rule.trigger_types).includes('manual')) {
+    return { success: false, errors: ['ERROR_RULE_NOT_FOUND_OR_DISABLED'] };
+  }
 
   const condition = rule.condition ? JSON.parse(rule.condition) as RuleCondition : null;
   if (!(await evaluateCondition(condition, table, data))) {
@@ -220,7 +284,7 @@ export async function executeManual(
 
         case 'set_field':
           if (act.field && act.value !== undefined && data.id !== undefined) {
-            const newVal = evaluateExpression(act.value, data);
+            const newVal = await resolveValue(table, act.value, data);
             await db.execute(
               `UPDATE "${table}" SET "${act.field}" = ?, updated_at = ? WHERE id = ?`,
               [newVal as string | number | null, dbNow(), data.id as string | number]
@@ -332,7 +396,7 @@ export async function executeAfter(
       switch (act.type) {
         case 'set_field':
           if (act.field && act.value !== undefined && data.id !== undefined) {
-            const newVal = evaluateExpression(act.value, data);
+            const newVal = await resolveValue(table, act.value, data);
             await db.execute(
               `UPDATE "${table}" SET "${act.field}" = ? WHERE id = ?`,
               [newVal as string | number | null, data.id as string | number]

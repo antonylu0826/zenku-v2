@@ -27,7 +27,12 @@ export interface ZenkuBundle {
   views: Array<{ id: string; name: string; table_name: string; definition: string }>;
   rules: Array<{
     id: string; name: string; description: string | null;
-    table_name: string; trigger_type: string; condition: string | null;
+    table_name: string;
+    /** New format: JSON array string e.g. '["on_change","before_insert"]' */
+    trigger_types?: string;
+    /** Legacy format (bundle v1): kept for backward compatibility */
+    trigger_type?: string;
+    condition: string | null;
     actions: string; priority: number; enabled: number;
   }>;
   /** translations[locale][key] = content — only present in v2 bundles */
@@ -91,7 +96,7 @@ export async function generateBundle(manifest: BundleManifest): Promise<ZenkuBun
       name: r.name,
       description: r.description,
       table_name: r.table_name,
-      trigger_type: r.trigger_type,
+      trigger_types: r.trigger_types,
       condition: r.condition,
       actions: r.actions,
       priority: r.priority,
@@ -320,16 +325,18 @@ export async function applyBundle(
       }
 
       const now = dbNow();
+      // Support both new trigger_types and legacy trigger_type from old bundles
+      const triggerTypesVal = r.trigger_types ?? (r.trigger_type ? JSON.stringify([r.trigger_type]) : '["before_insert"]');
       const { rows } = await db.query('SELECT id FROM _zenku_rules WHERE id = ?', [r.id]);
       if (rows.length > 0) {
         await db.execute(
-          'UPDATE _zenku_rules SET name=?, description=?, table_name=?, trigger_type=?, condition=?, actions=?, priority=?, enabled=?, updated_at=? WHERE id=?',
-          [r.name, r.description, r.table_name, r.trigger_type, r.condition, actions, r.priority, r.enabled, now, r.id]
+          'UPDATE _zenku_rules SET name=?, description=?, table_name=?, trigger_types=?, condition=?, actions=?, priority=?, enabled=?, updated_at=? WHERE id=?',
+          [r.name, r.description, r.table_name, triggerTypesVal, r.condition, actions, r.priority, r.enabled, now, r.id]
         );
       } else {
         await db.execute(
-          'INSERT INTO _zenku_rules (id, name, description, table_name, trigger_type, condition, actions, priority, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [r.id, r.name, r.description, r.table_name, r.trigger_type, r.condition, actions, r.priority, r.enabled]
+          'INSERT INTO _zenku_rules (id, name, description, table_name, trigger_types, condition, actions, priority, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [r.id, r.name, r.description, r.table_name, triggerTypesVal, r.condition, actions, r.priority, r.enabled]
         );
       }
       result.rules_upserted.push(r.id);

@@ -222,6 +222,7 @@ export function TreeView({ view }: Props) {
           {editingRow && (
             <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
               <FormView
+                tableName={view.table_name}
                 fields={view.form.fields}
                 columns={formColumns}
                 initialValues={editingRow}
@@ -242,6 +243,7 @@ export function TreeView({ view }: Props) {
           </DialogHeader>
           <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
             <FormView
+              tableName={view.table_name}
               fields={view.form.fields}
               columns={formColumns}
               onSubmit={handleCreate}

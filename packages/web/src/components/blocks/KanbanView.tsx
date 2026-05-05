@@ -240,7 +240,7 @@ export function KanbanView({ view }: Props) {
             <DialogTitle>{t('table.view.edit_dialog_title', { name: view.name })}</DialogTitle>
             <DialogDescription>{t('table.view.edit_dialog_desc')}</DialogDescription>
           </DialogHeader>
-          {editingRow && <FormView fields={view.form.fields} columns={formColumns} initialValues={editingRow} onSubmit={handleUpdate} onCancel={() => setEditingRow(null)} />}
+          {editingRow && <FormView tableName={view.table_name} fields={view.form.fields} columns={formColumns} initialValues={editingRow} onSubmit={handleUpdate} onCancel={() => setEditingRow(null)} />}
         </DialogContent>
       </Dialog>
 
@@ -250,7 +250,7 @@ export function KanbanView({ view }: Props) {
             <DialogTitle>{t('table.view.create_dialog_title', { name: view.name })}</DialogTitle>
             <DialogDescription>{t('table.view.create_dialog_desc')}</DialogDescription>
           </DialogHeader>
-          <FormView fields={view.form.fields} columns={formColumns} onSubmit={handleCreate} onCancel={() => setShowCreate(false)} />
+          <FormView tableName={view.table_name} fields={view.form.fields} columns={formColumns} onSubmit={handleCreate} onCancel={() => setShowCreate(false)} />
         </DialogContent>
       </Dialog>
     </DndContext>
