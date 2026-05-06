@@ -255,11 +255,8 @@ router.post('/:table', requireAuth, async (req, res) => {
       `SELECT * FROM "${table}" WHERE id = ?`,
       [result.lastInsertId]
     );
+    await executeAfter(table, 'insert', created[0] ?? {});
     res.json(created[0]);
-
-    executeAfter(table, 'insert', created[0] ?? {}).catch(err =>
-      console.error('[RuleEngine] after_insert error:', err)
-    );
   } catch (err) {
     const msg = String(err);
     const notNullSqlite = msg.match(/NOT NULL constraint failed: \w+\.(\w+)/);
@@ -316,11 +313,8 @@ router.put('/:table/:id', requireAuth, async (req, res) => {
     const { rows: updated } = await db.query<Record<string, unknown>>(
       `SELECT * FROM "${table}" WHERE id = ?`, [id]
     );
+    await executeAfter(table, 'update', updated[0] ?? {}, oldData);
     res.json(updated[0]);
-
-    executeAfter(table, 'update', updated[0] ?? {}, oldData).catch(err =>
-      console.error('[RuleEngine] after_update error:', err)
-    );
   } catch (err) {
     const msg = String(err);
     const notNullSqlite = msg.match(/NOT NULL constraint failed: \w+\.(\w+)/);
@@ -402,13 +396,10 @@ router.delete('/:table/:id', requireAuth, async (req, res) => {
       if (useTransaction) await db.execute('ROLLBACK');
       throw err;
     }
-    res.json({ success: true });
-
     if (deletedData) {
-      executeAfter(table, 'delete', deletedData).catch(err =>
-        console.error('[RuleEngine] after_delete error:', err)
-      );
+      await executeAfter(table, 'delete', deletedData);
     }
+    res.json({ success: true });
   } catch (err) {
     console.error('[DataRoute] DELETE error:', err);
     res.status(400).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: String(err) } });

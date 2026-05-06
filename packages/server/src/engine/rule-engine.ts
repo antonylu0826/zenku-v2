@@ -131,6 +131,13 @@ async function resolveValue(
 }
 
 function evaluateExpression(expr: string, data: Record<string, unknown>): unknown {
+  // Strip @annotation suffix (e.g. "field@$master.field" → "field")
+  const atIdx = expr.indexOf('@');
+  if (atIdx !== -1) expr = expr.slice(0, atIdx);
+
+  // Normalize leading unary minus: "-quantity" → "0-quantity"
+  if (expr.startsWith('-')) expr = '0' + expr;
+
   if (/[+\-*/()]/.test(expr)) {
     try {
       const depValues: Record<string, number> = {};
@@ -406,15 +413,34 @@ export async function executeAfter(
 
         case 'create_record':
           if (act.target_table && act.record_data) {
-            const record: Record<string, unknown> = {};
-            for (const [key, expr] of Object.entries(act.record_data)) {
-              record[key] = evaluateExpression(expr, data);
+            if (act.via_table && act.via_foreign_key && data.id !== undefined) {
+              const { rows: viaRows } = await db.query<Record<string, unknown>>(
+                `SELECT * FROM "${act.via_table}" WHERE "${act.via_foreign_key}" = ?`,
+                [data.id as string | number]
+              );
+              for (const viaRow of viaRows) {
+                const ctx: Record<string, unknown> = { ...data, ...viaRow };
+                const record: Record<string, unknown> = {};
+                for (const [key, expr] of Object.entries(act.record_data)) {
+                  record[key] = evaluateExpression(expr, ctx);
+                }
+                const keys = Object.keys(record);
+                await db.execute(
+                  `INSERT INTO "${act.target_table}" (${keys.map(k => `"${k}"`).join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`,
+                  Object.values(record)
+                );
+              }
+            } else {
+              const record: Record<string, unknown> = {};
+              for (const [key, expr] of Object.entries(act.record_data)) {
+                record[key] = evaluateExpression(expr, data);
+              }
+              const keys = Object.keys(record);
+              await db.execute(
+                `INSERT INTO "${act.target_table}" (${keys.map(k => `"${k}"`).join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`,
+                Object.values(record)
+              );
             }
-            const keys = Object.keys(record);
-            await db.execute(
-              `INSERT INTO "${act.target_table}" (${keys.map(k => `"${k}"`).join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`,
-              Object.values(record)
-            );
           }
           break;
 
@@ -472,15 +498,16 @@ export async function executeAfter(
             [data.id as string | number]
           );
           for (const viaRecord of viaRecords) {
+            const mergedContext: Record<string, unknown> = { ...data, ...viaRecord };
             const whereEntries = Object.entries(act.where);
             const whereClause = whereEntries.map(([col]) => `"${col}" = ?`).join(' AND ');
-            const whereValues = whereEntries.map(([, expr]) => evaluateExpression(expr, viaRecord));
+            const whereValues = whereEntries.map(([, expr]) => evaluateExpression(expr, mergedContext));
             const { rows: targetRows } = await db.query<Record<string, unknown>>(
               `SELECT * FROM "${act.target_table}" WHERE ${whereClause} LIMIT 1`,
               whereValues
             );
             const targetRecord = targetRows[0];
-            const context: Record<string, unknown> = { ...viaRecord };
+            const context: Record<string, unknown> = { ...mergedContext };
             if (targetRecord) {
               for (const [k, v] of Object.entries(targetRecord)) context[`__old_${k}`] = v;
             }
