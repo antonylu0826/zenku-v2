@@ -6,21 +6,30 @@
 
 ## 1. 觸發時機 (Trigger Types)
 
-規則引擎掛載於資料生命週期的不同階段，主要分為三類：
+規則引擎掛載於資料生命週期的不同階段，分為四類：
 
-### A. 資料異動前 (Before Hooks)
+> **多觸發點**：`trigger_types` 接受陣列，例如 `["on_change", "before_insert"]`，讓同一條規則同時作用於即時帶入（UX）與儲存時的資料保險。
+
+### A. 表單即時 (Form-time)
+在使用者填表時即時觸發，記錄尚未儲存至資料庫。
+*   `on_change`：某個欄位值在前端變動時觸發。
+    *   **主要用途**：FK 關聯帶入（如選擇採購單 → 自動填入供應商、幣別）。
+    *   **限制**：只允許 `set_field` 與 `validate`，不允許寫入其他資料表。
+    *   **範例**：`trigger_types: ["on_change", "before_insert"]`，condition `po_id changed`，action `set vendor_id = po_id.vendor_id`。
+
+### B. 資料異動前 (Before Hooks)
 用於資料驗證或寫入前的自動修正。
 *   `before_insert`：新紀錄建立前。
 *   `before_update`：紀錄更新前。
 *   `before_delete`：紀錄刪除前（常用於阻擋刪除）。
 
-### B. 資料異動後 (After Hooks)
+### C. 資料異動後 (After Hooks)
 用於連動更新或外部通知。
 *   `after_insert`：新紀錄建立後。
 *   `after_update`：紀錄更新後。
 *   `after_delete`：紀錄刪除後。
 
-### C. 手動觸發 (Manual)
+### D. 手動觸發 (Manual)
 *   `manual`：由前端「自訂動作按鈕 (ViewAction)」主動點擊觸發。
 
 ---
@@ -45,7 +54,7 @@
 
 引擎支援豐富的比較運算子，甚至可以進行「跨表欄位比對」：
 *   **比較**：`eq`, `neq`, `gt`, `lt`, `gte`, `lte`, `contains`。
-*   **狀態變化**：`changed`（欄位值是否變動）、`was_eq`（變更前的值是否為某值）。
+*   **狀態變化**：`changed`（欄位值是否變動，常與 `on_change` 搭配使用）、`was_eq`（變更前的值是否為某值）。
 *   **跨表引用**：支援 `customer_id.tier` 這種語法，直接抓取關聯表（客戶表）中的欄位進行判定。
 
 ---

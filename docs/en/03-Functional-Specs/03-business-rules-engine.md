@@ -6,21 +6,30 @@
 
 ## 1. Trigger Types
 
-The rules engine is hooked into different stages of the data lifecycle, primarily categorized into three types:
+The rules engine is hooked into different stages of the data lifecycle, categorized into four types:
 
-### A. Before Hooks
+> **Multiple triggers**: `trigger_types` accepts an array, e.g. `["on_change", "before_insert"]`, allowing a single rule to provide both live UX fill and a DB-write safety net.
+
+### A. Form-time
+Fires during form interaction — the record has not yet been saved to the database.
+*   `on_change`: Fires when a specific field value changes in the frontend form.
+    *   **Primary use**: FK lookup auto-fill (e.g., select a PO → instantly fill vendor, currency).
+    *   **Restriction**: Only `set_field` and `validate` are permitted; writing to other tables is not allowed.
+    *   **Example**: `trigger_types: ["on_change", "before_insert"]`, condition `po_id changed`, action `set vendor_id = po_id.vendor_id`.
+
+### B. Before Hooks
 Used for data validation or automatic correction before writing to the database.
 *   `before_insert`: Before a new record is created.
 *   `before_update`: Before a record is updated.
 *   `before_delete`: Before a record is deleted (often used to block deletions).
 
-### B. After Hooks
+### C. After Hooks
 Used for cascading updates or external notifications.
 *   `after_insert`: After a new record is created.
 *   `after_update`: After a record is updated.
 *   `after_delete`: After a record is deleted.
 
-### C. Manual Triggers
+### D. Manual Triggers
 *   `manual`: Triggered actively by the frontend via "Custom Action Buttons (ViewAction)."
 
 ---
