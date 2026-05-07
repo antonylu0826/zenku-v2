@@ -3,6 +3,7 @@ import { getDb } from '../db';
 import { getTableSchema } from '../db/schema';
 import { writeJournal } from '../db/journal';
 import { requireAuth } from '../middleware/auth';
+import { requireTablePermission } from '../middleware/permission';
 import { executeBefore, executeAfter } from '../engine/rule-engine';
 import { recalculateComputedFields } from '../engine/formula-handler';
 import { applyAutoNumbers } from '../engine/auto-number-engine';
@@ -33,7 +34,7 @@ function serializeMultiselect(data: Record<string, unknown>, msColumns: string[]
   return result;
 }
 
-router.get('/:table/options', requireAuth, async (req, res) => {
+router.get('/:table/options', requireAuth, requireTablePermission('read'), async (req, res) => {
   const table = p(req.params.table);
   if (table.startsWith('_zenku_')) {
     res.status(403).json({ error: 'ERROR_FORBIDDEN_SYSTEM_TABLE' });
@@ -78,7 +79,7 @@ router.get('/:table/options', requireAuth, async (req, res) => {
   }
 });
 
-router.get('/:table/:id', requireAuth, async (req, res) => {
+router.get('/:table/:id', requireAuth, requireTablePermission('read'), async (req, res) => {
   const table = p(req.params.table), id = p(req.params.id);
   if (!isSafeFieldName(table)) { res.status(400).json({ error: 'ERROR_INVALID_TABLE' }); return; }
   if (table.startsWith('_zenku_')) { res.status(403).json({ error: 'ERROR_FORBIDDEN_SYSTEM_TABLE' }); return; }
@@ -106,7 +107,7 @@ router.get('/:table/:id', requireAuth, async (req, res) => {
   }
 });
 
-router.get('/:table', requireAuth, async (req, res) => {
+router.get('/:table', requireAuth, requireTablePermission('read'), async (req, res) => {
   const table = p(req.params.table);
   if (!isSafeFieldName(table)) { res.status(400).json({ error: 'ERROR_INVALID_TABLE' }); return; }
   if (table.startsWith('_zenku_')) { res.status(403).json({ error: 'ERROR_FORBIDDEN_SYSTEM_TABLE' }); return; }
@@ -215,7 +216,7 @@ router.get('/:table', requireAuth, async (req, res) => {
   }
 });
 
-router.post('/:table', requireAuth, async (req, res) => {
+router.post('/:table', requireAuth, requireTablePermission('create'), async (req, res) => {
   const table = p(req.params.table);
   if (!isSafeFieldName(table)) { res.status(400).json({ error: 'ERROR_INVALID_TABLE' }); return; }
   if (table.startsWith('_zenku_')) { res.status(403).json({ error: 'ERROR_FORBIDDEN_SYSTEM_TABLE' }); return; }
@@ -264,13 +265,15 @@ router.post('/:table', requireAuth, async (req, res) => {
     if (notNullSqlite || notNullPg) {
       const col = notNullSqlite ? notNullSqlite[1] : notNullPg ? notNullPg[1] : 'field';
       res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: `"${col}" is required` } });
+    } else if (msg.includes('FOREIGN KEY constraint failed')) {
+      res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: 'A related record does not exist. Please check all required reference fields.' } });
     } else {
       res.status(400).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: msg } });
     }
   }
 });
 
-router.put('/:table/:id', requireAuth, async (req, res) => {
+router.put('/:table/:id', requireAuth, requireTablePermission('update'), async (req, res) => {
   const table = p(req.params.table), id = p(req.params.id);
   if (!isSafeFieldName(table)) { res.status(400).json({ error: 'ERROR_INVALID_TABLE' }); return; }
   if (table.startsWith('_zenku_')) { res.status(403).json({ error: 'ERROR_FORBIDDEN_SYSTEM_TABLE' }); return; }
@@ -322,13 +325,15 @@ router.put('/:table/:id', requireAuth, async (req, res) => {
     if (notNullSqlite || notNullPg) {
       const col = notNullSqlite ? notNullSqlite[1] : notNullPg ? notNullPg[1] : 'field';
       res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: `"${col}" is required` } });
+    } else if (msg.includes('FOREIGN KEY constraint failed')) {
+      res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: 'A related record does not exist. Please check all required reference fields.' } });
     } else {
       res.status(400).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: msg } });
     }
   }
 });
 
-router.delete('/:table/:id', requireAuth, async (req, res) => {
+router.delete('/:table/:id', requireAuth, requireTablePermission('delete'), async (req, res) => {
   const table = p(req.params.table), id = p(req.params.id);
   if (!isSafeFieldName(table)) { res.status(400).json({ error: 'ERROR_INVALID_TABLE' }); return; }
   if (table.startsWith('_zenku_')) { res.status(403).json({ error: 'ERROR_FORBIDDEN_SYSTEM_TABLE' }); return; }

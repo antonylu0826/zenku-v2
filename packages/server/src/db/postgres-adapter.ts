@@ -455,6 +455,34 @@ export class PostgresAdapter implements DbAdapter {
         updated_at TEXT DEFAULT NOW()::TEXT,
         PRIMARY KEY (key, locale)
       );
+
+      CREATE TABLE IF NOT EXISTS _zenku_permissions (
+        id         TEXT PRIMARY KEY,
+        role       TEXT NOT NULL,
+        table_name TEXT NOT NULL,
+        can_read   INTEGER NOT NULL DEFAULT 0,
+        can_create INTEGER NOT NULL DEFAULT 0,
+        can_update INTEGER NOT NULL DEFAULT 0,
+        can_delete INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT DEFAULT NOW()::TEXT,
+        updated_at TEXT DEFAULT NOW()::TEXT,
+        UNIQUE(role, table_name)
+      );
+
+      CREATE TABLE IF NOT EXISTS _zenku_roles (
+        id          TEXT PRIMARY KEY,
+        name        TEXT NOT NULL UNIQUE,
+        description TEXT,
+        created_at  TEXT DEFAULT NOW()::TEXT,
+        updated_at  TEXT DEFAULT NOW()::TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS _zenku_role_members (
+        id      TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES _zenku_users(id) ON DELETE CASCADE,
+        role_id TEXT NOT NULL REFERENCES _zenku_roles(id) ON DELETE CASCADE,
+        UNIQUE(user_id, role_id)
+      );
     `);
 
     // Migrations — PostgreSQL supports ADD COLUMN IF NOT EXISTS (v9.6+)

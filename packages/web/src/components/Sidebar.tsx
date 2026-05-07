@@ -18,6 +18,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { useViews } from '../contexts/ViewsContext';
+import { useAuth } from '../contexts/AuthContext';
 import { UserMenu } from './auth/UserMenu';
 import type { ViewDefinition, ViewType } from '../types';
 
@@ -42,11 +43,25 @@ const VIEW_ICONS: Record<ViewType, LucideIcon> = {
 export function Sidebar({ collapsed = false }: Props) {
   const { t } = useTranslation();
   const { views } = useViews();
+  const { user } = useAuth();
+
+  const visibleViews = user.role !== 'user'
+    ? views
+    : views.filter(v => {
+        // Use effective_permissions (union of user role + all custom roles)
+        const perms = user.effective_permissions ?? user.permissions ?? [];
+        // Group by table_name: exact rule takes priority over wildcard within same role,
+        // but here we just need to know if ANY permission row allows read for this table
+        const exact = perms.find(p => p.table_name === v.table_name);
+        if (exact) return exact.can_read === 1;
+        const wildcard = perms.find(p => p.table_name === '*');
+        return wildcard?.can_read === 1;
+      });
 
   const ungrouped: ViewDefinition[] = [];
   const groups = new Map<string, ViewDefinition[]>();
 
-  for (const view of views) {
+  for (const view of visibleViews) {
     if (view.group) {
       if (!groups.has(view.group)) groups.set(view.group, []);
       groups.get(view.group)!.push(view);
@@ -58,7 +73,7 @@ export function Sidebar({ collapsed = false }: Props) {
   return (
     <aside className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       <nav className="flex-1 space-y-3 overflow-y-auto p-2 pt-3">
-        {views.length === 0 ? (
+        {visibleViews.length === 0 ? (
           <div className={cn('px-2 py-3 text-xs text-muted-foreground', collapsed && 'text-center')}>
             {collapsed ? t('common.none') : t('common.no_pages')}
           </div>

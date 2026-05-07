@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2, Plus, RefreshCw, KeyRound, Trash2, UserX, UserCheck } from 'lucide-react';
+import { Loader2, Plus, RefreshCw, KeyRound, Trash2, UserX, UserCheck, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { toast } from 'sonner';
 
 interface UserRow {
@@ -20,6 +21,12 @@ interface UserRow {
   disabled: number;
   created_at: string;
   last_login_at: string | null;
+}
+
+interface RoleRow {
+  id: string;
+  name: string;
+  description: string | null;
 }
 
 
@@ -52,17 +59,53 @@ export function UserManagement() {
 
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
+  // Custom roles
+  const [allRoles, setAllRoles] = useState<RoleRow[]>([]);
+  const [userRoles, setUserRoles] = useState<Record<string, RoleRow[]>>({});
+
+  const fetchRoles = async () => {
+    const res = await fetch('/api/admin/roles', { headers });
+    if (res.ok) setAllRoles(await res.json() as RoleRow[]);
+  };
+
+  const fetchUserRoles = async (userId: string) => {
+    const res = await fetch(`/api/admin/users/${userId}/roles`, { headers });
+    if (res.ok) {
+      const roles = await res.json() as RoleRow[];
+      setUserRoles(prev => ({ ...prev, [userId]: roles }));
+    }
+  };
+
+  const assignRole = async (userId: string, roleId: string) => {
+    await fetch(`/api/admin/users/${userId}/roles`, {
+      method: 'POST', headers, body: JSON.stringify({ role_id: roleId }),
+    });
+    void fetchUserRoles(userId);
+  };
+
+  const removeRole = async (userId: string, roleId: string) => {
+    await fetch(`/api/admin/users/${userId}/roles/${roleId}`, { method: 'DELETE', headers });
+    void fetchUserRoles(userId);
+  };
+
   const fetchUsers = async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/admin/users', { headers });
-      if (res.ok) setUsers(await res.json() as UserRow[]);
+      if (res.ok) {
+        const list = await res.json() as UserRow[];
+        setUsers(list);
+        await Promise.all(list.map(u => fetchUserRoles(u.id)));
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { void fetchUsers(); }, []);
+  useEffect(() => {
+    void fetchUsers();
+    void fetchRoles();
+  }, []);
 
   const changeRole = async (userId: string, role: 'admin' | 'builder' | 'user') => {
     setSaving(userId);
@@ -175,6 +218,7 @@ export function UserManagement() {
                     <TableHead>{t('admin.users.col_name')}</TableHead>
                     <TableHead>{t('admin.users.col_email')}</TableHead>
                     <TableHead>{t('admin.users.col_role')}</TableHead>
+                    <TableHead>{t('roles.custom_roles')}</TableHead>
                     <TableHead>{t('admin.users.col_last_login')}</TableHead>
                     <TableHead className="text-right">{t('admin.users.col_actions')}</TableHead>
                   </TableRow>
@@ -205,6 +249,50 @@ export function UserManagement() {
                             ))}
                           </SelectContent>
                         </Select>
+                      </TableCell>
+                      <TableCell>
+                        {u.role === 'user' ? (
+                          <div className="flex flex-wrap items-center gap-1">
+                            {(userRoles[u.id] ?? []).map(r => (
+                              <Badge key={r.id} variant="secondary" className="gap-1 text-xs pr-1">
+                                {r.name}
+                                <button
+                                  className="rounded-full opacity-60 hover:opacity-100"
+                                  onClick={() => void removeRole(u.id, r.id)}
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </Badge>
+                            ))}
+                            {allRoles.filter(r => !(userRoles[u.id] ?? []).find(ur => ur.id === r.id)).length > 0 && (
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <button className="flex h-5 w-5 items-center justify-center rounded-full border text-muted-foreground hover:border-primary hover:text-primary">
+                                    <Plus className="h-3 w-3" />
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-48 p-1" align="start">
+                                  {allRoles
+                                    .filter(r => !(userRoles[u.id] ?? []).find(ur => ur.id === r.id))
+                                    .map(r => (
+                                      <button
+                                        key={r.id}
+                                        className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
+                                        onClick={() => void assignRole(u.id, r.id)}
+                                      >
+                                        {r.name}
+                                      </button>
+                                    ))}
+                                </PopoverContent>
+                              </Popover>
+                            )}
+                            {(userRoles[u.id] ?? []).length === 0 && allRoles.length === 0 && (
+                              <span className="text-xs text-muted-foreground">{t('roles.no_custom_roles')}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {u.last_login_at ? new Date(u.last_login_at).toLocaleString(i18n.language) : t('admin.users.never_logged_in')}

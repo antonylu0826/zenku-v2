@@ -676,6 +676,34 @@ export class MssqlAdapter implements DbAdapter {
       PRIMARY KEY ([key], locale)
     `);
 
+    await createIfAbsent('_zenku_permissions', `
+      id         NVARCHAR(255) PRIMARY KEY,
+      role       NVARCHAR(255) NOT NULL,
+      table_name NVARCHAR(255) NOT NULL,
+      can_read   INT NOT NULL DEFAULT 0,
+      can_create INT NOT NULL DEFAULT 0,
+      can_update INT NOT NULL DEFAULT 0,
+      can_delete INT NOT NULL DEFAULT 0,
+      created_at NVARCHAR(MAX) DEFAULT CONVERT(NVARCHAR(MAX), GETDATE(), 126),
+      updated_at NVARCHAR(MAX) DEFAULT CONVERT(NVARCHAR(MAX), GETDATE(), 126),
+      UNIQUE(role, table_name)
+    `);
+
+    await createIfAbsent('_zenku_roles', `
+      id          NVARCHAR(255) PRIMARY KEY,
+      name        NVARCHAR(MAX) NOT NULL UNIQUE,
+      description NVARCHAR(MAX),
+      created_at  NVARCHAR(MAX) DEFAULT CONVERT(NVARCHAR(MAX), GETDATE(), 126),
+      updated_at  NVARCHAR(MAX) DEFAULT CONVERT(NVARCHAR(MAX), GETDATE(), 126)
+    `);
+
+    await createIfAbsent('_zenku_role_members', `
+      id      NVARCHAR(255) PRIMARY KEY,
+      user_id NVARCHAR(255) NOT NULL REFERENCES _zenku_users(id),
+      role_id NVARCHAR(255) NOT NULL REFERENCES _zenku_roles(id),
+      UNIQUE(user_id, role_id)
+    `);
+
     await indexIfAbsent('idx_user_identities_unique',
       `CREATE UNIQUE INDEX idx_user_identities_unique ON _zenku_user_identities(provider_id, external_id)`);
 

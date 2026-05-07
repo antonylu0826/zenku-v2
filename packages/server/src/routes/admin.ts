@@ -11,6 +11,8 @@ import { initI18n } from '../i18n';
 import { requireAdmin, requireAuth } from '../middleware/auth';
 import { getAvailableProviders, fetchOllamaModels } from '../ai';
 import { p } from '../utils';
+import { listPermissions, upsertPermission, deletePermission } from '../db/permissions';
+import { listRoles, createRole, updateRole, deleteRole, getRoleMemberCount, getUserRoles, assignRole, removeRole } from '../db/roles';
 
 const router = Router();
 
@@ -576,6 +578,100 @@ router.delete('/admin/translations', requireAdmin, async (req, res) => {
   }
   await deleteTranslation(key, locale);
   await initI18n();
+  res.json({ success: true });
+});
+
+// ── Table Permissions ─────────────────────────────────────────────────────────
+
+router.get('/admin/permissions/tables', requireAdmin, async (_req, res) => {
+  const tables = await getUserTables();
+  res.json(tables);
+});
+
+router.get('/admin/permissions', requireAdmin, async (req, res) => {
+  const role = req.query.role ? String(req.query.role) : undefined;
+  res.json(await listPermissions(role));
+});
+
+router.put('/admin/permissions', requireAdmin, async (req, res) => {
+  const { role, table_name, can_read, can_create, can_update, can_delete } = req.body as {
+    role?: string; table_name?: string;
+    can_read?: boolean; can_create?: boolean; can_update?: boolean; can_delete?: boolean;
+  };
+  if (!role || !table_name) { res.status(400).json({ error: 'ERROR_MISSING_FIELDS' }); return; }
+  // Allow 'user' (system role) or any existing custom role ID
+  if (role !== 'user') {
+    const customRoles = await listRoles();
+    if (!customRoles.find(r => r.id === role)) {
+      res.status(400).json({ error: 'ERROR_INVALID_ROLE' }); return;
+    }
+  }
+  const row = await upsertPermission(role, table_name, {
+    can_read: !!can_read, can_create: !!can_create, can_update: !!can_update, can_delete: !!can_delete,
+  });
+  res.json(row);
+});
+
+router.delete('/admin/permissions/:id', requireAdmin, async (req, res) => {
+  const deleted = await deletePermission(p(req.params.id));
+  if (!deleted) { res.status(404).json({ error: 'ERROR_NOT_FOUND' }); return; }
+  res.json({ success: true });
+});
+
+// ── Custom Roles ──────────────────────────────────────────────────────────────
+
+router.get('/admin/roles', requireAdmin, async (_req, res) => {
+  const roles = await listRoles();
+  const withCounts = await Promise.all(
+    roles.map(async r => ({ ...r, member_count: await getRoleMemberCount(r.id) }))
+  );
+  res.json(withCounts);
+});
+
+router.post('/admin/roles', requireAdmin, async (req, res) => {
+  const { name, description } = req.body as { name?: string; description?: string };
+  if (!name?.trim()) { res.status(400).json({ error: 'ERROR_MISSING_FIELDS' }); return; }
+  try {
+    const role = await createRole(name.trim(), description?.trim());
+    res.json(role);
+  } catch {
+    res.status(409).json({ error: 'ERROR_ROLE_NAME_TAKEN' });
+  }
+});
+
+router.put('/admin/roles/:id', requireAdmin, async (req, res) => {
+  const { name, description } = req.body as { name?: string; description?: string };
+  if (!name?.trim()) { res.status(400).json({ error: 'ERROR_MISSING_FIELDS' }); return; }
+  try {
+    const role = await updateRole(p(req.params.id), name.trim(), description?.trim());
+    if (!role) { res.status(404).json({ error: 'ERROR_NOT_FOUND' }); return; }
+    res.json(role);
+  } catch {
+    res.status(409).json({ error: 'ERROR_ROLE_NAME_TAKEN' });
+  }
+});
+
+router.delete('/admin/roles/:id', requireAdmin, async (req, res) => {
+  const deleted = await deleteRole(p(req.params.id));
+  if (!deleted) { res.status(404).json({ error: 'ERROR_NOT_FOUND' }); return; }
+  res.json({ success: true });
+});
+
+// ── Role Members ──────────────────────────────────────────────────────────────
+
+router.get('/admin/users/:id/roles', requireAdmin, async (req, res) => {
+  res.json(await getUserRoles(p(req.params.id)));
+});
+
+router.post('/admin/users/:id/roles', requireAdmin, async (req, res) => {
+  const { role_id } = req.body as { role_id?: string };
+  if (!role_id) { res.status(400).json({ error: 'ERROR_MISSING_FIELDS' }); return; }
+  await assignRole(p(req.params.id), role_id);
+  res.json({ success: true });
+});
+
+router.delete('/admin/users/:id/roles/:roleId', requireAdmin, async (req, res) => {
+  await removeRole(p(req.params.id), p(req.params.roleId));
   res.json({ success: true });
 });
 

@@ -10,11 +10,28 @@ Zenku 支援雙軌制的身份驗證機制，分別針對「人」與「機器�
 
 ### A. 使用者會話 (User Sessions)
 *   **驗證方式**：基於 Bearer Token 的 Session 管理。
-*   **角色等級**：
-    *   `admin`：擁有全系統最高權限，可管理使用者、設定 AI Provider 與系統參數。
-    *   `builder`：可使用 AI 代理進行應用程式開發、修改 Schema 與 UI 視圖。
-    *   `user`：僅能操作業務功能（資料錄入、查看報表）。
+*   **系統角色（hardcode）**：
+    *   `admin`：擁有全系統最高權限，可管理使用者、設定 AI Provider 與系統參數。繞過所有資料表 RBAC 檢查。
+    *   `builder`：可使用 AI 代理進行應用程式開發、修改 Schema 與 UI 視圖。繞過所有資料表 RBAC 檢查。
+    *   `user`：deny-by-default，僅能存取被明確授權的資料表。
 *   **SSO 整合**：支援 OIDC 協議（如 Google, Azure AD），可配置為 `sso_only` 模式。
+
+### B. 資料表層級 RBAC (Table-Level RBAC)
+
+`user` 角色預設**拒絕所有資料存取**，由 admin 透過 UI 逐表開放。
+
+**權限規則** 儲存於 `_zenku_permissions`（`role`, `table_name`, `can_read/create/update/delete`）。解析優先順序：
+1. 精確規則（`role + table_name`）
+2. 萬用規則（`role + '*'`）
+3. 找不到 → 拒絕，回傳 `HTTP 403 ERROR_FORBIDDEN_TABLE`
+
+**自訂角色（Custom Roles）** 是額外賦予給 `user` 的群組，不修改系統角色欄位。一個使用者可屬於多個自訂角色（many-to-many，`_zenku_role_members`）。角色定義儲存於 `_zenku_roles`。
+
+**有效權限解析**（OR 聯集）：
+```
+user 有效權限 = user 角色的 permission  OR  任一 custom role 的 permission
+```
+只要其中任一規則允許，即放行。
 
 ### B. API Key 存取 (API Access)
 *   **格式**：以 `zk_live_` 為前綴的持久性金鑰。

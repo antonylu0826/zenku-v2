@@ -159,7 +159,18 @@ export async function loginHandler(req: Request, res: Response): Promise<void> {
 }
 
 export function meHandler(req: Request, res: Response): void {
-  res.json(req.user);
+  const user = req.user!;
+  if (user.role !== 'user') { res.json(user); return; }
+  void (async () => {
+    const { listPermissions, getEffectivePermissions } = await import('../db/permissions');
+    const { getUserRoles } = await import('../db/roles');
+    const [permissions, custom_roles, effective_permissions] = await Promise.all([
+      listPermissions('user'),
+      getUserRoles(user.id),
+      getEffectivePermissions(user.id),
+    ]);
+    res.json({ ...user, permissions, custom_roles, effective_permissions });
+  })();
 }
 
 export function logoutHandler(req: Request, res: Response): void {

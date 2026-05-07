@@ -133,7 +133,8 @@
     "ERROR_INTERNAL_SERVER": "系統內部錯誤：{{detail}}",
     "SUCCESS_SYSTEM_RESET": "系統已成功重置所有資料",
     "ERROR_INVALID_TABLE": "無效的資料表名稱",
-    "ERROR_FORBIDDEN_SYSTEM_TABLE": "禁止操作系統資料表"
+    "ERROR_FORBIDDEN_SYSTEM_TABLE": "禁止操作系統資料表",
+    "ERROR_FORBIDDEN_TABLE": "您沒有權限對此資料表（{{table}}）執行「{{action}}」操作"
   },
   "oidc": {
     "title": "SSO / OIDC 身份提供者",
@@ -173,7 +174,9 @@
       "bundle": "應用管理",
       "appearance": "條件外觀",
       "oidc": "SSO / OIDC",
-      "translations": "翻譯中心"
+      "translations": "翻譯中心",
+      "permissions": "資料表權限",
+      "roles": "角色管理"
     },
     "panel": {
       "title": "設定"
@@ -805,5 +808,38 @@
     "import_btn": "匯入 JSON",
     "import_success": "已匯入 {{count}} 條翻譯",
     "unregistered": "待翻譯"
+  },
+  "permissions": {
+    "desc": "控制所選角色可以存取哪些資料表。管理員與 Builder 角色始終擁有完整存取權。",
+    "col_table": "資料表",
+    "col_read": "讀取",
+    "col_create": "新增",
+    "col_update": "修改",
+    "col_delete": "刪除",
+    "wildcard_desc": "（所有資料表 — 萬用規則）",
+    "select_role": "選擇角色"
+  },
+  "roles": {
+    "title": "角色管理",
+    "desc": "建立自訂角色並指派給使用者，每個角色可以獨立設定資料表層級的存取權限。",
+    "col_name": "角色名稱",
+    "col_desc": "說明",
+    "col_members": "成員數",
+    "col_actions": "操作",
+    "btn_add": "新增角色",
+    "dialog_add_title": "新增角色",
+    "dialog_edit_title": "編輯角色",
+    "label_name": "名稱",
+    "label_desc": "說明",
+    "placeholder_name": "例如：採購人員",
+    "placeholder_desc": "選填說明",
+    "toast_created": "角色「{{name}}」已建立",
+    "toast_updated": "角色「{{name}}」已更新",
+    "toast_deleted": "角色已刪除",
+    "confirm_delete": "刪除角色「{{name}}」？此角色的所有權限設定將一併刪除。",
+    "no_roles": "尚無自訂角色",
+    "custom_roles": "自訂角色",
+    "assign_roles": "指派角色",
+    "no_custom_roles": "無"
   }
 }

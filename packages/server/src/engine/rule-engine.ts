@@ -8,7 +8,7 @@ import { t as i18nT } from '../i18n';
 
 export interface RuleCondition {
   field: string;
-  operator: 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains' | 'changed' | 'was_eq' | 'was_neq';
+  operator: 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains' | 'changed' | 'was_eq' | 'was_neq' | 'formula';
   value?: unknown;
 }
 
@@ -114,6 +114,15 @@ async function evaluateCondition(
     case 'was_neq':
       if (!oldData) return true;
       return String((await resolveFieldPath(table, condition.field, oldData)) ?? '') !== String(expected ?? '');
+    case 'formula': {
+      const formulaStr = String(expected ?? '');
+      const numericData: Record<string, number> = {};
+      for (const [k, v] of Object.entries(data)) numericData[k] = Number(v) || 0;
+      try {
+        const result = evaluateFormula(formulaStr, numericData);
+        return Number(result) !== 0;
+      } catch { return false; }
+    }
     default:
       return false;
   }
@@ -400,6 +409,7 @@ export async function executeAfter(
     const actions = JSON.parse(rule.actions) as RuleAction[];
 
     for (const act of actions) {
+      try {
       switch (act.type) {
         case 'set_field':
           if (act.field && act.value !== undefined && data.id !== undefined) {
@@ -422,7 +432,7 @@ export async function executeAfter(
                 const ctx: Record<string, unknown> = { ...data, ...viaRow };
                 const record: Record<string, unknown> = {};
                 for (const [key, expr] of Object.entries(act.record_data)) {
-                  record[key] = evaluateExpression(expr, ctx);
+                  record[key] = await resolveValue(act.via_table, expr, ctx);
                 }
                 const keys = Object.keys(record);
                 await db.execute(
@@ -433,7 +443,7 @@ export async function executeAfter(
             } else {
               const record: Record<string, unknown> = {};
               for (const [key, expr] of Object.entries(act.record_data)) {
-                record[key] = evaluateExpression(expr, data);
+                record[key] = await resolveValue(table, expr, data);
               }
               const keys = Object.keys(record);
               await db.execute(
@@ -569,6 +579,9 @@ export async function executeAfter(
         case 'notify':
           console.log(`[RuleEngine] Notify — rule "${rule.name}": ${act.text ?? ''}`);
           break;
+      }
+      } catch (err) {
+        console.error(`[RuleEngine] executeAfter action "${act.type}" failed for rule "${rule.name}":`, err);
       }
     }
   }

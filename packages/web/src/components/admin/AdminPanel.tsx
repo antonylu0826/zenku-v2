@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Users, MessageSquare, BarChart2, ShieldCheck,
-  LayoutTemplate, Key, Package, X, LogIn, Languages,
+  LayoutTemplate, Key, Package, X, LogIn, Languages, Lock,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { UserManagement } from './UserManagement';
@@ -14,6 +14,8 @@ import { ApiKeyManagement } from './ApiKeyManagement';
 import { BundleManagement } from './BundleManagement';
 import { OidcManagement } from './OidcManagement';
 import { TranslationCenter } from './TranslationCenter';
+import { PermissionManagement } from './PermissionManagement';
+import { RoleManagement } from './RoleManagement';
 
 // ─── Tab definitions ──────────────────────────────────────────────────────────
 
@@ -26,7 +28,9 @@ export type AdminTab =
   | 'api-keys'
   | 'bundle'
   | 'oidc'
-  | 'translations';
+  | 'translations'
+  | 'permissions'
+  | 'roles';
 
 interface NavItem {
   id: AdminTab;
@@ -44,6 +48,8 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'bundle',       icon: Package,       labelKey: 'admin.menu.bundle'          },
   { id: 'oidc',         icon: LogIn,         labelKey: 'admin.menu.oidc'            },
   { id: 'translations', icon: Languages,     labelKey: 'admin.menu.translations'    },
+  { id: 'permissions',  icon: Lock,          labelKey: 'admin.menu.permissions'     },
+  { id: 'roles',        icon: ShieldCheck,   labelKey: 'admin.menu.roles'           },
 ];
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -112,6 +118,8 @@ export function AdminPanel({ initialTab = 'users', onClose }: Props) {
         {activeTab === 'bundle'       && <BundleManagement />}
         {activeTab === 'oidc'         && <OidcManagement />}
         {activeTab === 'translations' && <TranslationCenter />}
+        {activeTab === 'permissions'  && <PermissionManagement />}
+        {activeTab === 'roles'        && <RoleManagement />}
       </main>
     </div>
   );

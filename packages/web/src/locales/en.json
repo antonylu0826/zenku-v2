@@ -127,7 +127,8 @@
     "ERROR_INTERNAL_SERVER": "Internal server error: {{detail}}",
     "SUCCESS_SYSTEM_RESET": "System data has been reset successfully",
     "ERROR_INVALID_TABLE": "Invalid table name",
-    "ERROR_FORBIDDEN_SYSTEM_TABLE": "System tables cannot be modified"
+    "ERROR_FORBIDDEN_SYSTEM_TABLE": "System tables cannot be modified",
+    "ERROR_FORBIDDEN_TABLE": "You don't have permission to {{action}} this table ({{table}})"
   },
   "oidc": {
     "title": "SSO / OIDC Providers",
@@ -167,7 +168,9 @@
       "bundle": "App Management",
       "appearance": "Conditional Appearance",
       "oidc": "SSO / OIDC",
-      "translations": "Translation Center"
+      "translations": "Translation Center",
+      "permissions": "Table Permissions",
+      "roles": "Role Management"
     },
     "panel": {
       "title": "Settings"
@@ -799,5 +802,38 @@
     "import_btn": "Import JSON",
     "import_success": "Imported {{count}} translations",
     "unregistered": "Needs translation"
+  },
+  "permissions": {
+    "desc": "Control which tables the selected role can access. Admin and Builder roles always have full access.",
+    "col_table": "Table",
+    "col_read": "Read",
+    "col_create": "Create",
+    "col_update": "Update",
+    "col_delete": "Delete",
+    "wildcard_desc": "(all tables — fallback)",
+    "select_role": "Select role"
+  },
+  "roles": {
+    "title": "Role Management",
+    "desc": "Create custom roles and assign them to users. Each role can have its own table-level permissions.",
+    "col_name": "Role Name",
+    "col_desc": "Description",
+    "col_members": "Members",
+    "col_actions": "Actions",
+    "btn_add": "Add Role",
+    "dialog_add_title": "New Role",
+    "dialog_edit_title": "Edit Role",
+    "label_name": "Name",
+    "label_desc": "Description",
+    "placeholder_name": "e.g. Procurement Staff",
+    "placeholder_desc": "Optional description",
+    "toast_created": "Role \"{{name}}\" created",
+    "toast_updated": "Role \"{{name}}\" updated",
+    "toast_deleted": "Role deleted",
+    "confirm_delete": "Delete role \"{{name}}\"? Its permission settings will also be removed.",
+    "no_roles": "No custom roles yet",
+    "custom_roles": "Custom Roles",
+    "assign_roles": "Assign Roles",
+    "no_custom_roles": "None"
   }
 }

@@ -10,11 +10,28 @@ Zenku supports a dual-track authentication mechanism, designed for both "humans"
 
 ### A. User Sessions
 *   **Authentication**: Session management based on Bearer Tokens.
-*   **Role Levels**:
-    *   `admin`: Highest system authority, can manage users, configure AI Providers, and system parameters.
-    *   `builder`: Can use AI agents for application development, modifying schemas, and UI views.
-    *   `user`: Can only operate business functions (data entry, viewing reports).
+*   **System Roles (hardcoded)**:
+    *   `admin`: Highest system authority, can manage users, configure AI Providers, and system parameters. Bypasses all table RBAC checks.
+    *   `builder`: Can use AI agents for application development, modifying schemas, and UI views. Bypasses all table RBAC checks.
+    *   `user`: Deny-by-default — can only access tables explicitly granted by an admin.
 *   **SSO Integration**: Supports OIDC protocols (e.g., Google, Azure AD), configurable to `sso_only` mode.
+
+### B. Table-Level RBAC
+
+The `user` role is **denied all data access by default**. Admins explicitly grant access per table via the Admin Panel.
+
+**Permission rules** are stored in `_zenku_permissions` (`role`, `table_name`, `can_read/create/update/delete`). Resolution priority:
+1. Exact rule (`role + table_name`)
+2. Wildcard rule (`role + '*'`)
+3. No match → denied, returns `HTTP 403 ERROR_FORBIDDEN_TABLE`
+
+**Custom Roles** are additional groups assigned to `user` accounts without changing the system role field. A user can belong to multiple custom roles (many-to-many via `_zenku_role_members`). Role definitions are stored in `_zenku_roles`.
+
+**Effective permission resolution** (OR union):
+```
+user effective permissions = user role permissions  OR  any assigned custom role permissions
+```
+Access is granted if any rule allows it.
 
 ### B. API Key Access
 *   **Format**: Persistent keys prefixed with `zk_live_`.

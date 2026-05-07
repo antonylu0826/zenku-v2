@@ -16,6 +16,9 @@
 | `_zenku_users` | 使用者帳號與基本設定。 |
 | `_zenku_files` | 檔案附件元資料。 |
 | `_zenku_translations` | 多語言翻譯字典。 |
+| `_zenku_permissions` | 資料表層級 RBAC 權限規則（role × table_name × CRUD）。 |
+| `_zenku_roles` | 自訂角色定義（名稱、說明）。 |
+| `_zenku_role_members` | 使用者↔自訂角色的多對多指派關係。 |
 
 ---
 

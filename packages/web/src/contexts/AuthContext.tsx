@@ -1,12 +1,30 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import i18n from '../i18n';
 
+export interface UserPermission {
+  id: string;
+  role: string;
+  table_name: string;
+  can_read: number;
+  can_create: number;
+  can_update: number;
+  can_delete: number;
+}
+
+export interface CustomRole {
+  id: string;
+  name: string;
+}
+
 export interface AuthUser {
   id: string;
   email: string;
   name: string;
   role: 'admin' | 'builder' | 'user';
   language: string;
+  permissions?: UserPermission[];
+  custom_roles?: CustomRole[];
+  effective_permissions?: UserPermission[];
 }
 
 interface AuthContextValue {

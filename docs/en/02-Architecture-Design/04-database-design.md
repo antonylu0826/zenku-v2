@@ -16,6 +16,9 @@ These tables are managed automatically by the system and store the "soul" of the
 | `_zenku_users` | User accounts and basic settings. |
 | `_zenku_files` | Metadata for file attachments. |
 | `_zenku_translations` | Multilingual translation dictionary. |
+| `_zenku_permissions` | Table-level RBAC permission rules (role × table_name × CRUD). |
+| `_zenku_roles` | Custom role definitions (name, description). |
+| `_zenku_role_members` | Many-to-many mapping of users to custom roles. |
 
 ---
 
