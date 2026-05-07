@@ -52,10 +52,13 @@
 
 ## 3. 條件判定邏輯 (Condition Evaluation)
 
-引擎支援豐富的比較運算子，甚至可以進行「跨表欄位比對」：
+引擎支援豐富的比較運算子，且可進行欄位間的比對：
 *   **比較**：`eq`, `neq`, `gt`, `lt`, `gte`, `lte`, `contains`。
 *   **狀態變化**：`changed`（欄位值是否變動，常與 `on_change` 搭配使用）、`was_eq`（變更前的值是否為某值）。
 *   **跨表引用**：支援 `customer_id.tier` 這種語法，直接抓取關聯表（客戶表）中的欄位進行判定。
+*   **同表欄位比對**：使用明確的 `@欄位名` 前綴來比較同一表中的兩個欄位。例如：
+    *   條件：`{ field: "quantity", operator: "gt", value: "@available_stock" }` 檢查 `quantity > available_stock`。
+    *   沒有 `@` 前綴的值會被視為字面值（字串或數字）。
 
 ---
 

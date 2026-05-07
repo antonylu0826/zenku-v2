@@ -50,12 +50,8 @@ export function Sidebar({ collapsed = false }: Props) {
     : views.filter(v => {
         // Use effective_permissions (union of user role + all custom roles)
         const perms = user.effective_permissions ?? user.permissions ?? [];
-        // Group by table_name: exact rule takes priority over wildcard within same role,
-        // but here we just need to know if ANY permission row allows read for this table
-        const exact = perms.find(p => p.table_name === v.table_name);
-        if (exact) return exact.can_read === 1;
-        const wildcard = perms.find(p => p.table_name === '*');
-        return wildcard?.can_read === 1;
+        // If ANY permission row (from any role) allows read for this table (or wildcard), show it
+        return perms.some(p => (p.table_name === v.table_name || p.table_name === '*') && p.can_read === 1);
       });
 
   const ungrouped: ViewDefinition[] = [];

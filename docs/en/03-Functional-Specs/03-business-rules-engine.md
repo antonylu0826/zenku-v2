@@ -52,10 +52,13 @@ When conditions are met, the engine can execute a sequence of the following acti
 
 ## 3. Condition Evaluation Logic
 
-The engine supports a rich set of comparison operators and even "cross-table field comparison":
+The engine supports a rich set of comparison operators and field-level comparisons:
 *   **Comparisons**: `eq`, `neq`, `gt`, `lt`, `gte`, `lte`, `contains`.
 *   **State Changes**: `changed` (whether the field value changed), `was_eq` (whether the value before change was a specific value).
 *   **Cross-table Reference**: Supports syntax like `customer_id.tier` to directly fetch and evaluate fields from a related table (e.g., Customers).
+*   **Same-table Field Comparison**: Use explicit `@fieldname` prefix to compare two fields in the same table. For example:
+    *   Condition: `{ field: "quantity", operator: "gt", value: "@available_stock" }` checks if `quantity > available_stock`.
+    *   Without the `@` prefix, the value is treated as a literal string or number.
 
 ---
 
