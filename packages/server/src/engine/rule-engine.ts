@@ -94,8 +94,20 @@ async function evaluateCondition(
 ): Promise<boolean> {
   if (!condition) return true;
 
-  const fieldVal = await resolveFieldPath(table, condition.field, data);
-  const expected = condition.value;
+  const context = { ...oldData, ...data };
+  const fieldVal = await resolveFieldPath(table, condition.field, context);
+  let expected = condition.value;
+
+  // Resolve expected as a field reference only when explicitly requested:
+  //   @fieldname  → same-table field reference (e.g. "@available_stock")
+  //   a.b         → cross-table FK path       (e.g. "material.unit_price")
+  if (typeof expected === 'string') {
+    if (expected.startsWith('@')) {
+      expected = await resolveFieldPath(table, expected.slice(1), context);
+    } else if (expected.includes('.')) {
+      expected = await resolveFieldPath(table, expected, context);
+    }
+  }
 
   switch (condition.operator) {
     case 'eq':       return String(fieldVal ?? '') === String(expected ?? '');
