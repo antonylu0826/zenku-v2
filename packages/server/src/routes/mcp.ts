@@ -2,38 +2,13 @@ import { Router } from 'express';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { requireApiKey, expandScopes } from '../middleware/api-key-auth';
+import { requireApiKey } from '../middleware/api-key-auth';
 import { ALL_TOOLS, dispatchTool } from '../tools/registry';
 import { buildDynamicContext } from '../orchestrator';
-import { buildCoreToolRules } from '../prompts/core-tool-rules-instructions';
-import { buildViewInstructions } from '../prompts/view-instructions';
-import { buildRelationInstructions } from '../prompts/relation-instructions';
-import { buildKanbanInstructions } from '../prompts/kanban-instructions';
-import { buildCalendarInstructions } from '../prompts/calendar-instructions';
-import { buildTimelineInstructions } from '../prompts/timeline-instructions';
-import { buildDashboardInstructions } from '../prompts/dashboard-instructions';
-import { buildBusinessRulesInstructions } from '../prompts/business-rules-instructions';
-import { buildDestructiveSchemaInstructions } from '../prompts/destructive-schema-instructions';
-import { buildConditionalAppearanceInstructions } from '../prompts/conditional-appearance-instructions';
-import { buildViewActionsInstructions } from '../prompts/view-actions-instructions';
-import { buildFieldTypeInstructions } from '../prompts/field-type-instructions';
-import { buildI18nInstructions } from '../prompts/i18n-instructions';
-import type { ToolDefinition } from '../ai';
+import { getToolsForScopes, MCP_SCOPE_TOOL_POLICY } from '../security/tool-policy';
+import { buildZenkuInstructions } from '../prompts/instruction-builder';
 
 const router = Router();
-
-const READ_TOOLS  = new Set(['query_data', 'get_table_schema', 'get_integration_guide']);
-const WRITE_TOOLS = new Set(['write_data']);
-const ADMIN_TOOLS = new Set(['manage_schema', 'manage_ui', 'manage_rules', 'assess_impact', 'undo_action', 'set_translations']);
-
-function getToolsForScopes(scopes: string[]): ToolDefinition[] {
-  const expanded = new Set(expandScopes(scopes));
-  const allowed = new Set<string>();
-  if (expanded.has('mcp:read'))  READ_TOOLS.forEach(t => allowed.add(t));
-  if (expanded.has('mcp:write')) WRITE_TOOLS.forEach(t => allowed.add(t));
-  if (expanded.has('mcp:admin')) ADMIN_TOOLS.forEach(t => allowed.add(t));
-  return ALL_TOOLS.filter(t => allowed.has(t.definition.name)).map(t => t.definition);
-}
 
 function sanitizeSchemaForMcp(schema: any): any {
   if (!schema || typeof schema !== 'object') return schema;
@@ -52,40 +27,12 @@ function sanitizeSchemaForMcp(schema: any): any {
 
 async function buildMcpInstructions(language = 'en'): Promise<string> {
   const dynamicContext = await buildDynamicContext();
-  return `You are connected to a Zenku instance — a low-code application runtime.
-
-${buildCoreToolRules()}
-
-${buildViewInstructions()}
-
-${buildRelationInstructions()}
-
-${buildDashboardInstructions()}
-
-${buildKanbanInstructions()}
-
-${buildCalendarInstructions()}
-
-${buildTimelineInstructions()}
-
-${buildConditionalAppearanceInstructions()}
-
-${buildBusinessRulesInstructions()}
-
-${buildViewActionsInstructions()}
-
-${buildDestructiveSchemaInstructions()}
-
-${buildFieldTypeInstructions()}
-
-${buildI18nInstructions(language)}
-
-${dynamicContext}`;
+  return buildZenkuInstructions({ surface: 'mcp', language, dynamicContext });
 }
 
 router.post('/', requireApiKey('mcp:read'), async (req, res) => {
   const scopes  = req.apiKeyScopes ?? [];
-  const tools   = getToolsForScopes(scopes);
+  const tools   = getToolsForScopes(scopes, ALL_TOOLS);
   const allowedNames = new Set(tools.map(t => t.name));
   // Language: prefer ?lang= query param, fall back to Accept-Language header, default en
   const lang = typeof req.query.lang === 'string'
@@ -144,16 +91,16 @@ router.get('/', requireApiKey('mcp:read'), async (req, res) => {
 });
 
 router.get('/info', (_req, res) => {
+  const scopeToolNames: Record<string, string[]> = {};
+  for (const scope of Object.keys(MCP_SCOPE_TOOL_POLICY)) {
+    scopeToolNames[scope] = getToolsForScopes([scope], ALL_TOOLS).map(t => t.name);
+  }
   res.json({
     name: 'zenku',
     protocol: 'MCP Streamable HTTP',
     endpoint: '/api/mcp',
     auth: 'Bearer zk_live_<key>  (Header: Authorization)',
-    scopes: {
-      'mcp:read':  ['query_data', 'get_table_schema'],
-      'mcp:write': ['query_data', 'get_table_schema', 'write_data'],
-      'mcp:admin': ['query_data', 'get_table_schema', 'write_data', 'manage_schema', 'manage_ui', 'manage_rules', 'assess_impact', 'undo_action'],
-    },
+    scopes: scopeToolNames,
   });
 });
 

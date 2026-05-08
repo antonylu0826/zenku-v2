@@ -9,93 +9,13 @@ import {
   recordMessage, recordToolEvent, toolToAgent,
 } from './tools/chat-logger';
 import { ALL_TOOLS, dispatchTool } from './tools/registry';
-import { buildCoreToolRules } from './prompts/core-tool-rules-instructions';
-import { buildViewInstructions } from './prompts/view-instructions';
-import { buildRelationInstructions } from './prompts/relation-instructions';
-import { buildKanbanInstructions } from './prompts/kanban-instructions';
-import { buildCalendarInstructions } from './prompts/calendar-instructions';
-import { buildTimelineInstructions } from './prompts/timeline-instructions';
-import { buildGanttInstructions } from './prompts/gantt-instructions';
-import { buildTreeInstructions } from './prompts/tree-instructions';
-import { buildDashboardInstructions } from './prompts/dashboard-instructions';
-import { buildBusinessRulesInstructions } from './prompts/business-rules-instructions';
-import { buildDestructiveSchemaInstructions } from './prompts/destructive-schema-instructions';
-import { buildConditionalAppearanceInstructions } from './prompts/conditional-appearance-instructions';
-import { buildViewActionsInstructions } from './prompts/view-actions-instructions';
-import { buildFieldTypeInstructions } from './prompts/field-type-instructions';
-import { buildI18nInstructions } from './prompts/i18n-instructions';
-import type { ToolDefinition } from './ai';
+import { getToolsForRole } from './security/tool-policy';
+import { buildZenkuInstructions } from './prompts/instruction-builder';
 import type { LLMMessage, ToolResult, AIProvider as AIProviderName } from './types';
 
 export interface SystemPromptParts {
   static: string;
   dynamic: string;
-}
-
-function buildStaticPrompt(userLanguage: string = 'zh-TW'): string {
-  return `You are the Zenku Orchestrator. Users describe their needs, and you build the application.
-
-Available Tools:
-- manage_schema: Create or modify table structures.
-- manage_ui: Create or update user interfaces (list + form).
-- query_data: Query data or answer statistics questions (SELECT only).
-- write_data: Insert, update, or delete records in user data tables (cannot operate on system tables).
-- manage_rules: Create or modify business rules (automation, validation, triggers).
-- assess_impact: Assess impact of destructive schema changes (must call before modification).
-- get_table_schema: Retrieve names of all tables or detailed column definitions for a specific table.
-- get_integration_guide: Returns the full integration guide for connecting Zenku with n8n or other automation tools (API endpoints, webhook payload format, write-back options, common errors).
-- set_translations: Register or update translation entries ($key → display text per locale). Call after creating schema/views when user language is not English.
-
-Language: ALL responses to the user must be in the [${userLanguage}] language.
-
-${buildCoreToolRules()}
-
-STRICT TOOL CALL FORMAT (failure to follow causes errors):
-
-manage_schema create_table — columns array is MANDATORY:
-{ "action": "create_table", "table_name": "products", "columns": [{"name": "title", "type": "TEXT"}, {"name": "price", "type": "REAL"}] }
-NEVER call create_table without the columns array. NEVER pass an empty columns array.
-
-manage_schema alter_table — changes array is MANDATORY:
-{ "action": "alter_table", "table_name": "products", "changes": [{"operation": "add_column", "column": {"name": "stock", "type": "INTEGER"}}] }
-
-manage_ui create_view — view object with id, name, table_name, columns, form, actions is MANDATORY:
-{ "action": "create_view", "view": { "id": "products", "name": "Products", "table_name": "products", "type": "table", "columns": [...], "form": {"columns": 2, "fields": [...]}, "actions": ["create","edit","delete"] } }
-NEVER call create_view without the view object. NEVER omit view.id, view.name, or view.table_name.
-
-manage_ui get_view — view_id is MANDATORY:
-{ "action": "get_view", "view_id": "products" }
-
-${buildRelationInstructions()}
-
-${buildViewInstructions()}
-
-Visualization Interfaces:
-- Statistics / Dashboard -> manage_ui, type: 'dashboard', widgets array.
-
-${buildDashboardInstructions()}
-
-${buildKanbanInstructions()}
-
-${buildCalendarInstructions()}
-
-${buildTimelineInstructions()}
-
-${buildGanttInstructions()}
-
-${buildTreeInstructions()}
-
-${buildBusinessRulesInstructions()}
-
-${buildDestructiveSchemaInstructions()}
-
-${buildConditionalAppearanceInstructions()}
-
-${buildViewActionsInstructions()}
-
-${buildFieldTypeInstructions()}
-
-${buildI18nInstructions(userLanguage)}`;
 }
 
 export async function buildDynamicContext(): Promise<string> {
@@ -135,22 +55,9 @@ Recent Operations (for undo reference):
 ${journalCtx}`;
 }
 
-// ===== Tool dispatch =====
+// ===== Main chat loop =====
 
 type UserRole = 'admin' | 'builder' | 'user';
-
-function getToolsForRole(role: UserRole): ToolDefinition[] {
-  const tools = ALL_TOOLS.map(t => t.definition);
-  if (role === 'user') {
-    return tools.filter(t => t.name === 'query_data' || t.name === 'write_data');
-  }
-  if (role === 'builder') {
-    return tools.filter(t => t.name !== 'undo_action');
-  }
-  return tools;
-}
-
-// ===== Main chat loop =====
 
 export interface ChatOptions {
   existingSessionId?: string;
@@ -170,7 +77,7 @@ export async function* chat(
   const model = options?.model ?? await getDefaultModel(providerName);
   const userId = options?.userId;
   const provider = createProvider(providerName);
-  const tools = getToolsForRole(userRole);
+  const tools = getToolsForRole(userRole, ALL_TOOLS);
 
   const sessionId = options?.existingSessionId
     ?? (userId ? await createChatSession(userId, providerName, model, userMessage.slice(0, 80)) : null);
@@ -199,7 +106,7 @@ export async function* chat(
   ];
 
   const userLanguage = userId ? await getUserLanguage(userId) : 'zh-TW';
-  const staticPrompt = buildStaticPrompt(userLanguage);
+  const staticPrompt = buildZenkuInstructions({ surface: 'chat', language: userLanguage });
   let continueLoop = true;
 
   while (continueLoop) {
