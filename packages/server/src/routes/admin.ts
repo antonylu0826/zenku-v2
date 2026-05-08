@@ -304,7 +304,7 @@ router.delete('/admin/appearance/rule', requireAdmin, async (req, res) => {
 // ── Business rules ────────────────────────────────────────────────────────────
 router.get('/admin/rules', requireAdmin, async (_req, res) => {
   const { rows } = await getDb().query<Record<string, unknown>>(
-    `SELECT id, name, description, table_name, trigger_type, condition, actions, priority, enabled, created_at, updated_at
+    `SELECT id, name, description, table_name, trigger_types, condition, actions, priority, enabled, created_at, updated_at
      FROM _zenku_rules ORDER BY priority DESC, created_at ASC`
   );
   const rules = rows.map(r => ({
