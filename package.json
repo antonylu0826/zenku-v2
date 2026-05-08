@@ -9,7 +9,8 @@
     "predev": "npx kill-port 3001 5173 --silent 2>nul || true",
     "dev": "concurrently --kill-others-on-fail \"npm run dev -w packages/server\" \"npm run dev -w packages/web\"",
     "build": "npm run build -w packages/server && npm run build -w packages/web",
-    "test": "npm run test -w packages/server"
+    "test": "npm run test -w packages/server",
+    "docs:check": "node scripts/check-doc-links.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
