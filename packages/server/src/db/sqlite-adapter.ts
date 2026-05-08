@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import path from 'path';
-import type { DbAdapter, ColumnSpec, ColumnInfo, QueryResult, ExecResult, FieldType } from './adapter';
+import type { DbAdapter, ColumnSpec, ColumnInfo, QueryResult, ExecResult, FieldType, ForeignKeyInfo } from './adapter';
 
 const DB_PATH = path.join(process.cwd(), 'zenku.db');
 
@@ -130,6 +130,24 @@ export class SqliteAdapter implements DbAdapter {
       defaultValue: r.dflt_value,
       isPrimaryKey: r.pk === 1,
     }));
+  }
+
+  async getForeignKeys(tableName: string): Promise<ForeignKeyInfo[]> {
+    try {
+      const rows = this.db.prepare(`PRAGMA foreign_key_list("${tableName}")`).all() as {
+        from: string;
+        table: string;
+        to: string | null;
+      }[];
+      return rows.map(r => ({
+        table: tableName,
+        from: r.from,
+        toTable: r.table,
+        toColumn: r.to ?? 'id',
+      }));
+    } catch {
+      return [];
+    }
   }
 
   async upsertCounter(tableName: string, fieldName: string, period: string): Promise<number> {

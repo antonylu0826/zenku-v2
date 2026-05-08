@@ -1,5 +1,5 @@
 import postgres from 'postgres';
-import type { DbAdapter, ColumnSpec, ColumnInfo, QueryResult, ExecResult, FieldType } from './adapter';
+import type { DbAdapter, ColumnSpec, ColumnInfo, QueryResult, ExecResult, FieldType, ForeignKeyInfo } from './adapter';
 
 const TYPE_MAP: Record<FieldType, string> = {
   TEXT: 'TEXT',
@@ -218,6 +218,33 @@ export class PostgresAdapter implements DbAdapter {
       defaultValue: r.default_value,
       isPrimaryKey: r.is_pk,
     }));
+  }
+
+  async getForeignKeys(tableName: string): Promise<ForeignKeyInfo[]> {
+    try {
+      await this.ensureConnected();
+      const rows = await this.sql!.unsafe<{ fk_from: string; to_table: string; to_col: string }[]>(
+        toPositional(`
+          SELECT
+            kcu.column_name AS fk_from,
+            ccu.table_name  AS to_table,
+            ccu.column_name AS to_col
+          FROM information_schema.key_column_usage kcu
+          JOIN information_schema.referential_constraints rc
+            ON kcu.constraint_name = rc.constraint_name
+            AND kcu.constraint_schema = rc.constraint_schema
+          JOIN information_schema.constraint_column_usage ccu
+            ON ccu.constraint_name = rc.unique_constraint_name
+            AND ccu.constraint_schema = rc.constraint_schema
+          WHERE kcu.table_name = ?
+            AND kcu.table_schema = current_schema()
+        `),
+        [tableName] as postgres.ParameterOrJSON<never>[],
+      );
+      return rows.map(r => ({ table: tableName, from: r.fk_from, toTable: r.to_table, toColumn: r.to_col }));
+    } catch {
+      return [];
+    }
   }
 
   async upsertCounter(tableName: string, fieldName: string, period: string): Promise<number> {

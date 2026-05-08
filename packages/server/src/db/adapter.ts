@@ -29,6 +29,13 @@ export interface ExecResult {
   lastInsertId?: number;
 }
 
+export interface ForeignKeyInfo {
+  table: string;     // source table (the one queried)
+  from: string;      // FK column in source table
+  toTable: string;   // referenced table
+  toColumn: string;  // referenced column (usually 'id')
+}
+
 export interface DbAdapter {
   readonly type: 'sqlite' | 'postgres' | 'mssql';
   // DML
@@ -45,6 +52,7 @@ export interface DbAdapter {
   // Schema introspection
   listTables(): Promise<string[]>;
   getColumns(tableName: string): Promise<ColumnInfo[]>;
+  getForeignKeys(tableName: string): Promise<ForeignKeyInfo[]>;
 
   /**
    * Atomic upsert-and-increment for auto-number counters.

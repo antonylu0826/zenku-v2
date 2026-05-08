@@ -60,24 +60,20 @@ async function resolveFieldPath(
     const fkValue = currentData[fkCol];
     if (fkValue === null || fkValue === undefined) return undefined;
 
-    if (db.type !== 'sqlite') return undefined; // non-SQLite: manual FK path not supported
-    let fkList: { from: string; table: string; to: string }[] = [];
+    let fkList: { from: string; toTable: string; toColumn: string }[] = [];
     try {
-      const res = await db.query<{ from: string; table: string; to: string }>(
-        `PRAGMA foreign_key_list("${currentTable}")`
-      );
-      fkList = res.rows;
-    } catch { return undefined; } 
+      fkList = await db.getForeignKeys(currentTable);
+    } catch { return undefined; }
     const fk = fkList.find(f => f.from === fkCol);
     if (!fk) return undefined;
 
     const { rows } = await db.query<Record<string, unknown>>(
-      `SELECT * FROM "${fk.table}" WHERE "${fk.to}" = ?`,
+      `SELECT * FROM "${fk.toTable}" WHERE "${fk.toColumn}" = ?`,
       [fkValue as string | number]
     );
     if (!rows[0]) return undefined;
 
-    currentTable = fk.table;
+    currentTable = fk.toTable;
     currentData = rows[0];
   }
 

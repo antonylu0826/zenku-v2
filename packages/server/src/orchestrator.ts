@@ -1,7 +1,9 @@
-import { getUserTables } from './db/schema';
+import { getUserTables, getTableSchema } from './db/schema';
 import { getAllViews } from './db/views';
-import { getAllRules } from './db/rules';
+import { getAllRules, parseTriggerTypes } from './db/rules';
 import { getUserLanguage } from './db/auth';
+import { getDb } from './db';
+import type { ForeignKeyInfo } from './db/adapter';
 import { buildJournalContext } from './tools/journal-tools';
 import { createProvider, getDefaultProviderName, getDefaultModel } from './ai';
 import {
@@ -18,7 +20,12 @@ export interface SystemPromptParts {
   dynamic: string;
 }
 
+const MAX_COLS = 30;
+const MAX_FIELDS = 40;
+const MAX_RULES = 30;
+
 export async function buildDynamicContext(): Promise<string> {
+  const db = getDb();
   const [tables, views, rules, journalCtx] = await Promise.all([
     getUserTables(),
     getAllViews(),
@@ -26,33 +33,107 @@ export async function buildDynamicContext(): Promise<string> {
     buildJournalContext(),
   ]);
 
-  const tableListStr = tables.length > 0
-    ? tables.map(t => `- ${t}`).join('\n')
-    : '(No tables yet)';
+  const sections: string[] = [];
 
-  const viewStr = views.length > 0
-    ? views.map(v => `- ${v.name} (Source Table: ${v.table_name})`).join('\n')
-    : '(No interfaces yet)';
+  // ── Tables ──────────────────────────────────────────────────────────────
+  if (tables.length === 0) {
+    sections.push('## Tables\n(No tables yet)');
+  } else {
+    const lines: string[] = [`## Tables (${tables.length})`];
+    for (const table of tables) {
+      const [cols, fks] = await Promise.all([
+        getTableSchema(table),
+        db.getForeignKeys(table).catch(() => [] as ForeignKeyInfo[]),
+      ]);
+      const shown = cols.slice(0, MAX_COLS);
+      const colStr = shown.map(c => {
+        const flags = c.isPrimaryKey ? ' pk' : c.notNull ? ' req' : '';
+        return `${c.name} (${c.type}${flags})`;
+      }).join(', ');
+      const more = cols.length > MAX_COLS ? ` ...and ${cols.length - MAX_COLS} more` : '';
+      lines.push(`\n### ${table}`);
+      lines.push(`Columns: ${colStr}${more}`);
+      if (fks.length > 0) {
+        lines.push(`FK: ${fks.map(fk => `${fk.from} → ${fk.toTable}.${fk.toColumn}`).join(', ')}`);
+      }
+    }
+    sections.push(lines.join('\n'));
+  }
 
-  const rulesStr = rules.length > 0
-    ? rules.map(r => {
-        let types: string;
-        try { const p = JSON.parse(r.trigger_types); types = Array.isArray(p) ? p.join(',') : r.trigger_types; } catch { types = r.trigger_types; }
-        return `- ${r.name} (${types} on ${r.table_name})${r.enabled ? '' : ' (Disabled)'}`;
-      }).join('\n')
-    : '(No rules defined)';
+  // ── Views ────────────────────────────────────────────────────────────────
+  if (views.length === 0) {
+    sections.push('## Views\n(No views yet)');
+  } else {
+    const lines: string[] = [`## Views (${views.length})`];
+    for (const v of views) {
+      try {
+        type ViewDef = {
+          type?: string;
+          actions?: unknown[];
+          form?: { fields?: { key: string; type: string }[] };
+        };
+        const def = JSON.parse(v.definition) as ViewDef;
+        const type = def.type ?? 'table';
+        const actionList = Array.isArray(def.actions)
+          ? def.actions.map(a => (typeof a === 'string' ? a : (a as { id?: string }).id ?? '?')).join(', ')
+          : '';
+        const allFields = def.form?.fields ?? [];
+        const shownFields = allFields.slice(0, MAX_FIELDS);
+        const fieldStr = shownFields.map(f => `${f.key} [${f.type}]`).join(', ');
+        const moreFields = allFields.length > MAX_FIELDS ? ` ...and ${allFields.length - MAX_FIELDS} more` : '';
+        lines.push(`\n### ${v.name} [${type}] → ${v.table_name}`);
+        if (actionList) lines.push(`Actions: ${actionList}`);
+        if (fieldStr) lines.push(`Form fields (${allFields.length}): ${fieldStr}${moreFields}`);
+      } catch {
+        lines.push(`\n### ${v.name} → ${v.table_name}`);
+      }
+    }
+    sections.push(lines.join('\n'));
+  }
 
-  return `Current Database (Tables):
-${tableListStr}
+  // ── Rules ────────────────────────────────────────────────────────────────
+  if (rules.length === 0) {
+    sections.push('## Rules\n(No rules defined)');
+  } else {
+    const shown = rules.slice(0, MAX_RULES);
+    const lines: string[] = [`## Rules (${rules.length})`];
+    for (const r of shown) {
+      const triggers = parseTriggerTypes(r.trigger_types).join(', ');
+      const status = r.enabled ? 'enabled' : 'disabled';
+      lines.push(`\n### ${r.name} [${r.table_name}, ${triggers}, ${status}]`);
+      try {
+        if (r.condition) {
+          const cond = JSON.parse(r.condition) as { field?: string; operator?: string; value?: unknown };
+          if (cond.field) lines.push(`Condition: ${cond.field} ${cond.operator ?? ''} ${String(cond.value ?? '')}`.trimEnd());
+        }
+      } catch { /* ignore */ }
+      try {
+        const acts = JSON.parse(r.actions) as { type: string; field?: string }[];
+        if (acts.length > 0) {
+          lines.push(`Actions: ${acts.map(a => (a.field ? `${a.type}(${a.field})` : a.type)).join(', ')}`);
+        }
+      } catch { /* ignore */ }
+    }
+    if (rules.length > MAX_RULES) lines.push(`\n...and ${rules.length - MAX_RULES} more rules`);
+    sections.push(lines.join('\n'));
+  }
 
-Current Interfaces:
-${viewStr}
+  // ── Translations ─────────────────────────────────────────────────────────
+  try {
+    const { rows } = await db.query<{ locale: string; cnt: number }>(
+      'SELECT locale, COUNT(*) AS cnt FROM _zenku_translations GROUP BY locale ORDER BY locale',
+    );
+    if (rows.length > 0) {
+      const locales = rows.map(r => r.locale).join(', ');
+      const total = rows.reduce((s, r) => s + Number(r.cnt), 0);
+      sections.push(`## Translations\nLocales: ${locales} | Total keys: ${total}`);
+    }
+  } catch { /* table may not exist yet */ }
 
-Current Rules:
-${rulesStr}
+  // ── Recent Operations ────────────────────────────────────────────────────
+  sections.push(`## Recent Operations (for undo reference)\n${journalCtx}`);
 
-Recent Operations (for undo reference):
-${journalCtx}`;
+  return sections.join('\n\n');
 }
 
 // ===== Main chat loop =====
