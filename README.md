@@ -1,5 +1,6 @@
 # Zenku
 
+[![SafeSkill 79/100](https://img.shields.io/badge/SafeSkill-79%2F100_Passes%20with%20Notes-yellow)](https://safeskill.dev/scan/antonylu0826-zenku-v2)
 ### **Build Production-Ready Data Apps via Conversation.**
 
 [繁體中文](README_TW.md) | [Documentation](docs/en/README.md)
