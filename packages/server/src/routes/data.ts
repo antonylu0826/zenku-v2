@@ -1,12 +1,11 @@
 import { Router } from 'express';
 import { getDb } from '../db';
 import { getTableSchema } from '../db/schema';
-import { writeJournal } from '../db/journal';
 import { requireAuth } from '../middleware/auth';
 import { requireTablePermission } from '../middleware/permission';
 import { executeBefore, executeAfter } from '../engine/rule-engine';
 import { recalculateComputedFields } from '../engine/formula-handler';
-import { applyAutoNumbers } from '../engine/auto-number-engine';
+import { createRecord } from '../services/data-service';
 import { p, isSafeFieldName, getRelationColumns, getMultiselectColumns } from '../utils';
 
 const router = Router();
@@ -220,57 +219,25 @@ router.post('/:table', requireAuth, requireTablePermission('create'), async (req
   const table = p(req.params.table);
   if (!isSafeFieldName(table)) { res.status(400).json({ error: 'ERROR_INVALID_TABLE' }); return; }
   if (table.startsWith('_zenku_')) { res.status(403).json({ error: 'ERROR_FORBIDDEN_SYSTEM_TABLE' }); return; }
-  try {
-    const db = getDb();
-    const rawBody = { ...req.body } as Record<string, unknown>;
-    delete rawBody.id; delete rawBody.created_at; delete rawBody.updated_at;
-    const body = serializeMultiselect(rawBody, await getMultiselectColumns(table));
 
-    const beforeResult = await executeBefore(table, 'insert', body, undefined, req.user?.language);
-    if (!beforeResult.allowed) {
-      res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: beforeResult.errors.join('; ') } });
-      return;
-    }
-    const withAutoNumbers = await applyAutoNumbers(table, beforeResult.data);
-    const finalData = await recalculateComputedFields(table, withAutoNumbers);
+  const result = await createRecord({
+    table,
+    data: req.body as Record<string, unknown>,
+    actor: { type: 'browser', userId: req.user?.id },
+    locale: req.user?.language,
+  });
 
-    const schema = await getTableSchema(table);
-    const keys = Object.keys(finalData);
-    const placeholders = keys.map(() => '?').join(', ');
-    const values = keys.map(key => {
-      const v = finalData[key];
-      const col = schema.find(c => c.name === key);
-      // PostgreSQL: numeric columns cannot be empty strings
-      if (db.type === 'postgres' && v === '' && col && (col.type.toUpperCase().includes('INT') || col.type.toUpperCase().includes('REAL'))) {
-        return null;
-      }
-      if (db.type === 'sqlite' && typeof v === 'boolean') return v ? 1 : 0;
-      return v;
-    });
-
-    const insertSql = `INSERT INTO "${table}" (${keys.map(k => `"${k}"`).join(', ')}) VALUES (${placeholders})` 
-      + (db.type === 'postgres' ? ' RETURNING id' : '');
-
-    const result = await db.execute(insertSql, values);
-    const { rows: created } = await db.query<Record<string, unknown>>(
-      `SELECT * FROM "${table}" WHERE id = ?`,
-      [result.lastInsertId]
-    );
-    await executeAfter(table, 'insert', created[0] ?? {});
-    res.json(created[0]);
-  } catch (err) {
-    const msg = String(err);
-    const notNullSqlite = msg.match(/NOT NULL constraint failed: \w+\.(\w+)/);
-    const notNullPg = msg.match(/null value in column "([^"]+)"/);
-    if (notNullSqlite || notNullPg) {
-      const col = notNullSqlite ? notNullSqlite[1] : notNullPg ? notNullPg[1] : 'field';
-      res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: `"${col}" is required` } });
-    } else if (msg.includes('FOREIGN KEY constraint failed')) {
-      res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: 'A related record does not exist. Please check all required reference fields.' } });
+  if (!result.success) {
+    if (result.errorCode === 'ERROR_TABLE_NOT_FOUND') {
+      res.status(400).json({ error: 'ERROR_TABLE_NOT_FOUND', params: { table } });
+    } else if (result.errorCode === 'ERROR_RULE_VALIDATION') {
+      res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: result.error } });
     } else {
-      res.status(400).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: msg } });
+      res.status(400).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: result.error } });
     }
+    return;
   }
+  res.json(result.record);
 });
 
 router.put('/:table/:id', requireAuth, requireTablePermission('update'), async (req, res) => {

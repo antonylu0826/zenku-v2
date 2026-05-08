@@ -3,8 +3,8 @@ import { getDb } from '../db';
 import { getTableSchema, getUserTables } from '../db/schema';
 import { writeJournal } from '../db/journal';
 import { requireApiKey, requireApiKeyAny } from '../middleware/api-key-auth';
-import { executeBefore, executeAfter } from '../engine/rule-engine';
-import { recalculateComputedFields } from '../engine/formula-handler';
+import { executeAfter } from '../engine/rule-engine';
+import { createRecord, updateRecord } from '../services/data-service';
 import { p, isSafeFieldName, getRelationColumns } from '../utils';
 
 const router = Router();
@@ -203,33 +203,24 @@ router.post('/data/:table', requireApiKeyAny(req => ['write:*', `write:${p(req.p
   if (!scopes.some(s => s === 'write:*' || s === `write:${table}`)) {
     res.status(403).json({ error: 'ERROR_API_KEY_INVALID_OR_INSUFFICIENT_SCOPE' }); return;
   }
-  if (!isSafeFieldName(table)) { res.status(400).json({ error: 'ERROR_INVALID_TABLE' }); return; }
-  if (table.startsWith('_zenku_')) { res.status(403).json({ error: 'ERROR_FORBIDDEN_SYSTEM_TABLE' }); return; }
 
-  try {
-    const db = getDb();
-    const body = { ...req.body } as Record<string, unknown>;
-    delete body.id; delete body.created_at; delete body.updated_at;
-    const beforeResult = await executeBefore(table, 'insert', body);
-    if (!beforeResult.allowed) {
-      res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: beforeResult.errors.join('; ') } }); return;
-    }
-    const finalData = await recalculateComputedFields(table, beforeResult.data);
-    const keys = Object.keys(finalData);
-    const result = await db.execute(
-      `INSERT INTO "${table}" (${keys.map(k => `"${k}"`).join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`,
-      Object.values(finalData)
-    );
-    const { rows: created } = await db.query<Record<string, unknown>>(
-      `SELECT * FROM "${table}" WHERE id = ?`, [result.lastInsertId]
-    );
-    res.status(201).json(created[0]);
-    executeAfter(table, 'insert', created[0] ?? {}).catch(err =>
-      console.error('[ExtAPI] after_insert error:', err)
-    );
-  } catch (err) {
-    res.status(500).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: String(err) } });
+  const result = await createRecord({
+    table,
+    data: req.body as Record<string, unknown>,
+    actor: { type: 'ext_api', apiKeyId: req.apiKeyId },
+    userRequest: `API Key [${req.apiKeyId}] POST ${table}`,
+  });
+
+  if (!result.success) {
+    const status = result.errorCode === 'ERROR_RULE_VALIDATION' ? 400
+      : result.errorCode === 'ERROR_DATA_NOT_FOUND' ? 404
+      : result.errorCode === 'ERROR_INVALID_TABLE' ? 400
+      : result.errorCode === 'ERROR_TABLE_NOT_FOUND' ? 404
+      : 500;
+    res.status(status).json({ error: result.errorCode, params: { details: result.error } });
+    return;
   }
+  res.status(201).json(result.record);
 });
 
 router.patch('/data/:table/:id', requireApiKeyAny(req => ['write:*', `write:${p(req.params.table)}`]), async (req, res) => {
@@ -238,51 +229,25 @@ router.patch('/data/:table/:id', requireApiKeyAny(req => ['write:*', `write:${p(
   if (!scopes.some(s => s === 'write:*' || s === `write:${table}`)) {
     res.status(403).json({ error: 'ERROR_API_KEY_INVALID_OR_INSUFFICIENT_SCOPE' }); return;
   }
-  if (!isSafeFieldName(table)) { res.status(400).json({ error: 'ERROR_INVALID_TABLE' }); return; }
-  if (table.startsWith('_zenku_')) { res.status(403).json({ error: 'ERROR_FORBIDDEN_SYSTEM_TABLE' }); return; }
 
-  try {
-    const db = getDb();
-    const { rows: oldRows } = await db.query<Record<string, unknown>>(
-      `SELECT * FROM "${table}" WHERE id = ?`, [id]
-    );
-    if (!oldRows[0]) { res.status(404).json({ error: 'ERROR_DATA_NOT_FOUND' }); return; }
-    const oldData = oldRows[0];
+  const result = await updateRecord({
+    table,
+    id,
+    data: req.body as Record<string, unknown>,
+    actor: { type: 'ext_api', apiKeyId: req.apiKeyId },
+    userRequest: `API Key [${req.apiKeyId}] PATCH ${table} #${id}`,
+  });
 
-    const body = { ...req.body } as Record<string, unknown>;
-    delete body.id; delete body.created_at;
-    body.updated_at = new Date().toISOString();
-    const merged = { ...oldData, ...body };
-    delete merged.id; delete merged.created_at;
-
-    const beforeResult = await executeBefore(table, 'update', merged, oldData);
-    if (!beforeResult.allowed) {
-      res.status(400).json({ error: 'ERROR_RULE_VALIDATION', params: { details: beforeResult.errors.join('; ') } }); return;
-    }
-    const finalData = await recalculateComputedFields(table, beforeResult.data);
-    const keys = Object.keys(finalData);
-    await db.execute(
-      `UPDATE "${table}" SET ${keys.map(k => `"${k}" = ?`).join(', ')} WHERE id = ?`,
-      [...Object.values(finalData), id]
-    );
-    const { rows: updated } = await db.query<Record<string, unknown>>(
-      `SELECT * FROM "${table}" WHERE id = ?`, [id]
-    );
-    res.json(updated[0]);
-
-    await writeJournal({
-      agent: 'ext_api', type: 'data_change',
-      description: `API Key [${req.apiKeyId}] PATCH ${table} #${id}`,
-      diff: { before: oldData, after: updated[0] },
-      user_request: 'api_key_patch', reversible: true,
-    });
-
-    executeAfter(table, 'update', updated[0] ?? {}, oldData).catch(err =>
-      console.error('[ExtAPI] after_update error:', err)
-    );
-  } catch (err) {
-    res.status(500).json({ error: 'ERROR_INTERNAL_SERVER', params: { detail: String(err) } });
+  if (!result.success) {
+    const status = result.errorCode === 'ERROR_DATA_NOT_FOUND' ? 404
+      : result.errorCode === 'ERROR_RULE_VALIDATION' ? 400
+      : result.errorCode === 'ERROR_INVALID_TABLE' ? 400
+      : result.errorCode === 'ERROR_TABLE_NOT_FOUND' ? 404
+      : 500;
+    res.status(status).json({ error: result.errorCode, params: { details: result.error } });
+    return;
   }
+  res.json(result.record);
 });
 
 router.post('/webhook/callback', requireApiKey('webhook:callback'), async (req, res) => {

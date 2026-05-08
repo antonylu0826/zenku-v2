@@ -55,7 +55,7 @@ export async function writeJournal(entry: JournalWriteInput): Promise<number> {
     JSON.stringify(entry.diff),
     entry.reason ?? '',
     entry.user_request ?? '',
-    entry.reversible !== false ? 1 : 0,
+    (entry.reverse_operations && entry.reverse_operations.length > 0) ? 1 : 0,
     entry.reverse_operations ? JSON.stringify(entry.reverse_operations) : null,
   ]);
   return result.lastInsertId ?? 0;
