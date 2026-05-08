@@ -1,5 +1,6 @@
 import { AgentResult } from '../types';
 import { ZenkuTool } from './types';
+import { normalizeToolInput, validateToolInput, type JsonSchema } from './validation';
 
 import { manageSchemaTool } from './handlers/schema-tool';
 import { manageUiTool } from './handlers/ui-tool';
@@ -25,13 +26,21 @@ export const ALL_TOOLS: ZenkuTool[] = [
   setTranslationsTool,
 ];
 
-export async function dispatchTool(toolName: string, input: any, context?: any): Promise<AgentResult> {
+export async function dispatchTool(toolName: string, input: unknown, context?: unknown): Promise<AgentResult> {
   const tool = ALL_TOOLS.find((t) => t.definition.name === toolName);
   if (!tool) {
     return { success: false, message: `Tool "${toolName}" not found.` };
   }
+
+  const schema = tool.definition.input_schema as JsonSchema;
+  const normalized = normalizeToolInput(schema, input);
+  const validationError = validateToolInput(schema, normalized);
+  if (validationError) {
+    return { success: false, message: `Invalid input for tool "${toolName}": ${validationError}` };
+  }
+
   try {
-    return await tool.execute(input, context);
+    return await tool.execute(normalized, context);
   } catch (error) {
     return { success: false, message: `Error executing tool "${toolName}": ${String(error)}` };
   }

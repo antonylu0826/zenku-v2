@@ -5,6 +5,7 @@ import { logChange } from '../db/changes';
 import { writeJournal } from '../db/journal';
 import { executeBefore, executeAfter } from '../engine/rule-engine';
 import { applyAutoNumbers } from '../engine/auto-number-engine';
+import { guardSql, type SqlGuardContext } from '../security/sql-guard';
 import type { AgentResult } from '../types';
 
 const ALLOWED_TYPES = new Set(['TEXT', 'INTEGER', 'REAL', 'BLOB', 'BOOLEAN', 'DATE', 'DATETIME']);
@@ -160,10 +161,10 @@ export async function describeTables(): Promise<AgentResult> {
   };
 }
 
-export async function queryData(sql: string): Promise<AgentResult> {
-  const trimmed = sql.trim().toUpperCase();
-  if (!trimmed.startsWith('SELECT')) {
-    return { success: false, message: 'Only SELECT queries are allowed' };
+export async function queryData(sql: string, guardContext?: SqlGuardContext): Promise<AgentResult> {
+  const guard = guardSql(sql, guardContext);
+  if (!guard.allowed) {
+    return { success: false, message: guard.reason ?? 'SQL not allowed' };
   }
   const { rows } = await getDb().query(sql);
   return {
