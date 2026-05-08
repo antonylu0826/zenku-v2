@@ -1,5 +1,8 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { getDb, dbNow } from './index';
+import { expandScopes, hasAnyScope, hasScope } from '../security/access-policy';
+
+export { expandScopes, hasAnyScope, hasScope };
 
 export interface UserRow {
   id: string;
@@ -70,7 +73,7 @@ export async function createApiKey(
   };
 }
 
-export async function verifyApiKey(rawKey: string, requiredScope: string): Promise<ApiKeyRecord | null> {
+export async function verifyApiKey(rawKey: string, requiredScope: string | string[]): Promise<ApiKeyRecord | null> {
   if (!rawKey.startsWith('zk_live_')) return null;
   const keyHash = hashKey(rawKey);
   const db = getDb();
@@ -84,34 +87,14 @@ export async function verifyApiKey(rawKey: string, requiredScope: string): Promi
   if (!row) return null;
 
   const scopes: string[] = JSON.parse(row.scopes);
-  if (!hasScope(scopes, requiredScope)) return null;
+  const requiredScopes = Array.isArray(requiredScope) ? requiredScope : [requiredScope];
+  if (!hasAnyScope(scopes, requiredScopes)) return null;
 
   await db.execute(
     `UPDATE _zenku_api_keys SET last_used_at = ? WHERE id = ?`,
     [dbNow(), row.id]
   );
   return { ...row, scopes };
-}
-
-export function expandScopes(scopes: string[]): string[] {
-  const expanded = new Set(scopes);
-  if (expanded.has('mcp:admin')) {
-    expanded.add('mcp:write');
-    expanded.add('mcp:read');
-  }
-  if (expanded.has('mcp:write')) {
-    expanded.add('mcp:read');
-  }
-  return [...expanded];
-}
-
-function hasScope(keyScopes: string[], required: string): boolean {
-  const expanded = expandScopes(keyScopes);
-  const [action, resource] = required.split(':');
-  return expanded.some(s => {
-    const [sa, sr] = s.split(':');
-    return sa === action && (sr === '*' || sr === resource);
-  });
 }
 
 export async function listApiKeys(): Promise<Omit<ApiKeyRecord, 'key_hash'>[]> {

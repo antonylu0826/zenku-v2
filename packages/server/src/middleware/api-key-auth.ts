@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
-import { verifyApiKey, expandScopes } from '../db/auth';
+import { verifyApiKey } from '../db/auth';
+import { expandScopes } from '../security/access-policy';
 
 export { expandScopes };
 
@@ -26,7 +27,18 @@ function checkRateLimit(keyId: string): boolean {
   return true;
 }
 
+type ScopeRequirement = string | string[] | ((req: Request) => string | string[]);
+
+function resolveScopeRequirement(req: Request, requirement: ScopeRequirement): string[] {
+  const resolved = typeof requirement === 'function' ? requirement(req) : requirement;
+  return Array.isArray(resolved) ? resolved : [resolved];
+}
+
 export function requireApiKey(scope: string) {
+  return requireApiKeyAny(scope);
+}
+
+export function requireApiKeyAny(requirement: ScopeRequirement) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const header = req.headers.authorization;
     if (!header?.startsWith('Bearer zk_live_')) {
@@ -37,7 +49,8 @@ export function requireApiKey(scope: string) {
     const rawKey = header.slice(7);
     void (async () => {
       try {
-        const record = await verifyApiKey(rawKey, scope);
+        const requiredScopes = resolveScopeRequirement(req, requirement);
+        const record = await verifyApiKey(rawKey, requiredScopes);
         if (!record) {
           res.status(403).json({ error: 'ERROR_API_KEY_INVALID_OR_INSUFFICIENT_SCOPE' });
           return;

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { getDb } from '../db';
 import { getTableSchema, getUserTables } from '../db/schema';
 import { writeJournal } from '../db/journal';
-import { requireApiKey } from '../middleware/api-key-auth';
+import { requireApiKey, requireApiKeyAny } from '../middleware/api-key-auth';
 import { executeBefore, executeAfter } from '../engine/rule-engine';
 import { recalculateComputedFields } from '../engine/formula-handler';
 import { p, isSafeFieldName, getRelationColumns } from '../utils';
@@ -104,7 +104,7 @@ router.get('/openapi.json', async (_req, res) => {
   });
 });
 
-router.get('/data/:table', requireApiKey('read:*'), async (req, res) => {
+router.get('/data/:table', requireApiKeyAny(req => ['read:*', `read:${p(req.params.table)}`]), async (req, res) => {
   const table = p(req.params.table);
   const scopes = req.apiKeyScopes ?? [];
   if (!scopes.some(s => s === 'read:*' || s === `read:${table}`)) {
@@ -169,7 +169,7 @@ router.get('/data/:table', requireApiKey('read:*'), async (req, res) => {
   }
 });
 
-router.get('/data/:table/:id', requireApiKey('read:*'), async (req, res) => {
+router.get('/data/:table/:id', requireApiKeyAny(req => ['read:*', `read:${p(req.params.table)}`]), async (req, res) => {
   const table = p(req.params.table), id = p(req.params.id);
   const scopes = req.apiKeyScopes ?? [];
   if (!scopes.some(s => s === 'read:*' || s === `read:${table}`)) {
@@ -197,7 +197,7 @@ router.get('/data/:table/:id', requireApiKey('read:*'), async (req, res) => {
   }
 });
 
-router.post('/data/:table', requireApiKey('write:*'), async (req, res) => {
+router.post('/data/:table', requireApiKeyAny(req => ['write:*', `write:${p(req.params.table)}`]), async (req, res) => {
   const table = p(req.params.table);
   const scopes = req.apiKeyScopes ?? [];
   if (!scopes.some(s => s === 'write:*' || s === `write:${table}`)) {
@@ -232,7 +232,7 @@ router.post('/data/:table', requireApiKey('write:*'), async (req, res) => {
   }
 });
 
-router.patch('/data/:table/:id', requireApiKey('write:*'), async (req, res) => {
+router.patch('/data/:table/:id', requireApiKeyAny(req => ['write:*', `write:${p(req.params.table)}`]), async (req, res) => {
   const table = p(req.params.table), id = p(req.params.id);
   const scopes = req.apiKeyScopes ?? [];
   if (!scopes.some(s => s === 'write:*' || s === `write:${table}`)) {
