@@ -75,3 +75,16 @@
 
 *   **自動重試與日誌**：所有 Webhook 執行結果都會記錄在 `_zenku_webhook_logs` 表中，包含 HTTP 狀態碼與回應時間，方便開發者偵錯。
 *   **Payload 結構**：預設會帶入當前資料表的名稱、執行的動作以及完整的資料 Payload。
+
+---
+
+## 6. 狀態機護路機制 (State Machine Guard)
+
+當資料表附加了 `state_machine` Trait 時，規則引擎會在 `before_update` 阶段自動插入一個內建的護路機制：
+
+1.  **讀取快取**：從 `TraitCache` 中取出該資料表的狀態機設定。
+2.  **偵測狀態變更**：比較「更改前狀態 (`old_status`)」與「更改後狀態 (`new_status`)」。
+3.  **強制終態**：若 `old_status` 為 `is_final: true`，直接拋出錯誤、拒絕任何寫入。
+4.  **轉換合法檢查**：檢查 `new_status` 是否在 `transitions[old_status]` 列表中；若不在，拒絕寫入。
+
+此機制自動對所有資料寫入路徑生效（包含直接 PATCH API、MCP 工具、外部整合），不依賴前端 UI 就能確保工作流程完整性。

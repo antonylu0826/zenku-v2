@@ -84,7 +84,7 @@ export async function generateBundle(manifest: BundleManifest): Promise<ZenkuBun
     zenku_bundle_version: BUNDLE_VERSION,
     exported_at: new Date().toISOString(),
     manifest,
-    schema,
+    schema: Object.fromEntries(Object.entries(schema).map(([k, v]) => [k, v.columns])),
     views: views.map(v => ({
       id: v.id,
       name: v.name,
@@ -125,11 +125,12 @@ export function validateBundle(data: unknown): { valid: true; bundle: ZenkuBundl
 
 export async function diffBundle(bundle: ZenkuBundle): Promise<BundleDiff> {
   const db = getDb();
-  const [currentSchema, currentViews, currentRules] = await Promise.all([
+  const [currentSchemaFull, currentViews, currentRules] = await Promise.all([
     getAllSchemas(),
     getAllViews(),
     getAllRules(),
   ]);
+  const currentSchema = Object.fromEntries(Object.entries(currentSchemaFull).map(([k, v]) => [k, v.columns]));
 
   const existingTables = new Set(Object.keys(currentSchema));
   const currentViewIds = new Set(currentViews.map(v => v.id));

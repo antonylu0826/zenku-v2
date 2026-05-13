@@ -75,3 +75,16 @@ In `set_field` or `create_record`, dynamic formulas are supported:
 
 *   **Retries and Logs**: All Webhook execution results are recorded in the `_zenku_webhook_logs` table, including HTTP status codes and response times, for easy debugging.
 *   **Payload Structure**: By default, it includes the name of the current table, the action performed, and the complete data payload.
+
+---
+
+## 6. State Machine Guard
+
+When a table has a `state_machine` Trait attached, the rules engine automatically injects a built-in Guard into the `before_update` stage:
+
+1.  **Read from Cache**: Retrieves the state machine config for the table from `TraitCache`.
+2.  **Detect State Change**: Compares the `old_status` (value before update) with the `new_status` (value after update).
+3.  **Enforce Terminal States**: If `old_status` is marked `is_final: true`, immediately throws an error and rejects any write.
+4.  **Validate Transition**: Checks if `new_status` is listed in `transitions[old_status]`; if not, rejects the write.
+
+This mechanism applies automatically to **all write paths** — including direct PATCH API calls, MCP tools, and external integrations — ensuring workflow integrity without relying on frontend enforcement alone.

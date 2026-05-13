@@ -21,6 +21,7 @@ import oidcRouter from './routes/oidc';
 import rulesRouter from './routes/rules';
 import { requireAuth } from './middleware/auth';
 import crypto from 'crypto';
+import { initTraitCache } from './engine/trait-cache';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -108,6 +109,7 @@ if (process.env.NODE_ENV === 'production') {
 
 async function start(): Promise<void> {
   await initDb();
+  await initTraitCache();
   await initI18n();
   app.listen(PORT, () => {
     console.log(`[Zenku Engine] Server running on port ${PORT}`);

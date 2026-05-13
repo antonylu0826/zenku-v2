@@ -21,9 +21,12 @@ export function getDb(): DbAdapter {
   return _adapter;
 }
 
+import { initTraitCache } from '../engine/trait-cache';
+
 /** Call once at server startup after getDb() is first invoked. */
 export async function initDb(): Promise<void> {
   await getDb().initSystemTables();
+  await initTraitCache();
 }
 
 /** For tests — replace the singleton with a custom adapter instance. */

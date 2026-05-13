@@ -10,9 +10,33 @@ export interface ViewRow {
 }
 
 export async function getAllViews(): Promise<ViewRow[]> {
-  const { rows } = await getDb().query<ViewRow>(
+  const db = getDb();
+  const { rows } = await db.query<ViewRow>(
     'SELECT * FROM _zenku_views ORDER BY created_at'
   );
+
+  // Enrich with table traits
+  const { rows: traitRows } = await db.query<{ table_name: string; trait_name: string; config: string }>(
+    'SELECT table_name, trait_name, config FROM _zenku_table_traits'
+  );
+  const traitMap = new Map<string, Array<{ trait_name: string; config: unknown }>>();
+  for (const tr of traitRows) {
+    const list = traitMap.get(tr.table_name) ?? [];
+    try { list.push({ trait_name: tr.trait_name, config: JSON.parse(tr.config) }); } catch { /* skip */ }
+    traitMap.set(tr.table_name, list);
+  }
+
+  for (const view of rows) {
+    const traits = traitMap.get(view.table_name);
+    if (traits?.length) {
+      try {
+        const def = JSON.parse(view.definition);
+        def.traits = traits;
+        view.definition = JSON.stringify(def);
+      } catch { /* skip malformed */ }
+    }
+  }
+
   return rows;
 }
 

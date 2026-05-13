@@ -39,13 +39,14 @@ sequenceDiagram
     participant API as Backend API
     
     Route->>Area: Captures URL /view/customers
-    Area->>Area: Retrieves 'customers' definition from Context
+    Area->>Area: Retrieves View Definition from Context (incl. traits)
     Area->>Registry: Matches type: 'table'
     Registry-->>Area: Returns TableView component
-    Area->>Comp: Mounts and passes View Definition
+    Area->>Comp: Mounts and passes View Definition (incl. traits)
+    Note over Comp: Reads traits → if state_machine present:<br/>enable StatusStepper, apply read-only conditions
     Comp->>API: Calls /api/data/customers to get actual data
     API-->>Comp: Returns data records
-    Comp->>Comp: Renders headers and rows according to definition
+    Comp->>Comp: Renders headers and rows per definition<br/>(Trait governs button state, field editability)
 ```
 
 ---
@@ -71,3 +72,29 @@ Based on the current implementation, the system supports the following block com
 *   `dashboard`: Visual dashboard.
 *   `timeline`, `gantt`, `tree`: Specialized data structure views.
 *   `form-only`: Pure form mode, often used for custom actions.
+
+---
+
+## 5. Table Trait Cache
+
+Some tables are augmented with "Traits" — pluggable behavior modules. The currently supported trait type is:
+
+*   **`state_machine`**: Workflow state management, defining states, transition paths, and frontend UI behavior.
+
+### Initialization Flow
+
+```
+Server startup
+  └── initDb()
+        ├── initSystemTables()   ← Create _zenku_* system tables
+        └── initTraitCache()     ← Load _zenku_table_traits from DB into memory
+```
+
+`TraitCache` is a singleton `Map<tableName, TraitConfig[]>`. When the rules engine runs a `before_update` Hook, it looks up the corresponding table's state machine config from this cache to validate transition legality.
+
+### Frontend StatusStepper Component
+
+`StatusStepper` (`packages/web/src/components/ui/status-stepper.tsx`) is a pure frontend widget:
+*   It makes no API requests — it relies entirely on the `smConfig` prop and the `currentStatus` value.
+*   It uses a BFS algorithm to compute a linear ordering of states, automatically handling multi-branch workflow coverage.
+*   `FormView` automatically embeds this component at the top of the form whenever it detects a `state_machine` Trait.

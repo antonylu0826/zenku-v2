@@ -2,7 +2,7 @@
 export type {
   AppearanceCondition, AppearanceEffect, AppearanceRule, AppearanceContext
 } from '@zenku/shared';
-export { resolveAppearance } from '@zenku/shared';
+export { resolveAppearance, evaluateAppearanceCondition } from '@zenku/shared';
 
 export type {
   FieldType, FieldDef, RelationDef, SourceDef, ComputedDef, ValidationDef,

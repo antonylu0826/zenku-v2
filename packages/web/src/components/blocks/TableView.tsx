@@ -6,10 +6,10 @@ import type { ColumnDef as TableColumnDef, PaginationState, SortingState, Visibi
 import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { ArrowDown, ArrowUp, ArrowUpDown, Download, Filter, Eye, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { ApiError, createRow, deleteRow, executeViewAction, getTableData, updateRow } from '../../api';
-import type { CustomViewAction, ViewDefinition } from '../../types';
+import type { CustomViewAction, ViewDefinition, BuiltinAction } from '../../types';
 import { resolveAppearance } from '../../types';
-import { evaluateAppearanceCondition } from '@zenku/shared';
-import type { Filter as FilterCondition } from '@zenku/shared';
+import { evaluateAppearanceCondition } from '../../types';
+import type { Filter as FilterCondition, StateMachineConfig } from '@zenku/shared';
 import { FilterPanel } from './FilterPanel';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
 import { Badge } from '../ui/badge';
@@ -124,11 +124,20 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
     void fetchRows();
   }, [fetchRows]);
 
-  const builtinActions = view.actions.filter((a): a is import('../../types').BuiltinAction => typeof a === 'string');
-  const canCreate = builtinActions.includes('create');
-  const canEdit   = builtinActions.includes('edit');
-  const canDelete  = builtinActions.includes('delete');
-  const canExport  = builtinActions.includes('export');
+  const { canCreate, canEdit, canDelete, canExport } = useMemo(() => {
+    const builtinActions = view.actions.filter((a): a is BuiltinAction => typeof a === 'string');
+    return {
+      canCreate: builtinActions.includes('create'),
+      canEdit:   builtinActions.includes('edit'),
+      canDelete:  builtinActions.includes('delete'),
+      canExport:  builtinActions.includes('export'),
+    };
+  }, [view.actions]);
+
+  const smConfig = useMemo<StateMachineConfig | undefined>(
+    () => view.traits?.find(tr => tr.trait_name === 'state_machine')?.config as StateMachineConfig | undefined,
+    [view.traits],
+  );
 
   const filterColumns = useMemo(() =>
     view.columns.map(col => {
@@ -274,14 +283,17 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
             })}
             {canEdit ? (
               <Button
-                variant="ghost"
-                size="icon"
-                aria-label={t('table.view.edit')}
+                variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"
                 onClick={() =>
                   isMasterDetail
                     ? navigate(`/view/${view.id}/${data.id}`)
                     : setEditingRow(data)
                 }
+                disabled={(() => {
+                  if (!smConfig || !data.status) return false;
+                  const state = smConfig.states[data.status as string];
+                  return state?.is_editable === false || state?.is_final === true;
+                })()}
               >
                 <Pencil className="h-4 w-4" />
               </Button>
@@ -590,7 +602,7 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
             <DialogDescription>{t('table.view.create_dialog_desc')}</DialogDescription>
           </DialogHeader>
           <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
-            <FormView fields={view.form.fields} columns={formColumns} masterRecord={masterRecord} tableName={view.table_name} onSubmit={handleCreate} onCancel={() => setShowCreate(false)} />
+            <FormView fields={view.form.fields} columns={formColumns} masterRecord={masterRecord} viewId={view.id} tableName={view.table_name} traits={view.traits} actions={view.actions} onSubmit={handleCreate} onCancel={() => setShowCreate(false)} />
           </div>
         </DialogContent>
       </Dialog>
@@ -609,6 +621,9 @@ export function TableView({ view, filters, onCreateData, masterRecord }: Props) 
                 columns={formColumns}
                 initialValues={editingRow}
                 masterRecord={masterRecord}
+                viewId={view.id}
+                traits={view.traits}
+                actions={view.actions}
                 onSubmit={handleUpdate}
                 onCancel={() => setEditingRow(null)}
               />

@@ -42,7 +42,12 @@ Field type mapping:
 - Yes/No → BOOLEAN
 - Date → DATE
 - DateTime → DATETIME
-- Reference to another table → INTEGER + references: { table: 'target_table' }`,
+- Reference to another table → INTEGER + references: { table: 'target_table' }
+
+Table Traits (advanced features):
+- When creating a table, you can pass traits: ["state_machine"] to automatically inject status management fields (status, created_by) and enable lifecycle protection (state transitions, edit locking, delete control).
+- Do NOT manually create status or created_by fields when using state_machine trait — they are auto-injected.
+- After creating a state_machine table, use manage_ui to create the view, then configure the states and transitions via the trait config.`,
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -71,6 +76,11 @@ Field type mapping:
             },
             required: ['operation', 'column'],
           },
+        },
+        traits: {
+          type: 'array',
+          items: { type: 'string', enum: ['state_machine'] },
+          description: 'Optional list of table traits. "state_machine" auto-injects status/created_by fields and enables state transition protection.',
         },
       },
       required: ['action', 'table_name', 'columns'],

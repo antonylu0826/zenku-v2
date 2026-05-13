@@ -76,4 +76,16 @@
 
 ---
 
-*最後更新：2026-05-08 (Batch 6)*
+---
+
+## KI-007：Table Trait 配置無法透過 AI 工具修改
+
+- **Status**：`open`
+- **Impact**：AI 可以透過 `manage_schema` 啟用 `state_machine`，但一旦寫入 `_zenku_table_traits` 後，目前沒有任何 Tool 可以修改其 JSON config（例如調整狀態名稱或轉換路徑）。
+- **Evidence**：`tools/db-tools.ts` 僅在 `createTable` 時寫入一次；`writeData` 不允許修改系統表。
+- **Next action**：在 `manage_schema` 加入 `update_trait` 動作，或建立獨立的 `manage_traits` 工具。
+- **Owner area**：`packages/server/src/tools/handlers/schema-tool.ts`、`db-tools.ts`
+
+---
+
+*最後更新：2026-05-13 (Batch 6)*

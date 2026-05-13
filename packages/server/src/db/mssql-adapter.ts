@@ -721,6 +721,15 @@ export class MssqlAdapter implements DbAdapter {
       UNIQUE(user_id, role_id)
     `);
 
+    await createIfAbsent('_zenku_table_traits', `
+      id         INT IDENTITY(1,1) PRIMARY KEY,
+      table_name NVARCHAR(255) NOT NULL,
+      trait_name NVARCHAR(255) NOT NULL,
+      config     NVARCHAR(MAX) NOT NULL DEFAULT '{}',
+      created_at NVARCHAR(MAX) DEFAULT CONVERT(NVARCHAR(MAX), GETDATE(), 126),
+      UNIQUE(table_name, trait_name)
+    `);
+
     await indexIfAbsent('idx_user_identities_unique',
       `CREATE UNIQUE INDEX idx_user_identities_unique ON _zenku_user_identities(provider_id, external_id)`);
 

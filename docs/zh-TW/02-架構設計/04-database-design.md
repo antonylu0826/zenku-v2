@@ -11,6 +11,7 @@
 | :--- | :--- |
 | `_zenku_views` | 儲存前端視圖定義 (JSON)。 |
 | `_zenku_rules` | 儲存商業邏輯觸發條件與動作。 |
+| `_zenku_table_traits` | 儲存資料表特徵設定（如狀態機 JSON），於啟動時載入至記憶體快取。 |
 | `_zenku_journal` | 變更日誌，支援 Undo 復原機制。 |
 | `_zenku_chat_*` | 儲存對話歷史、Token 消耗與延遲觀測。 |
 | `_zenku_users` | 使用者帳號與基本設定。 |

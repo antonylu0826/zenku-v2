@@ -58,3 +58,55 @@ Zenku 支援在各類視圖（如表格、看板、表單）中掛載動作按�
 為了防止誤觸重要操作（如刪除或批次更新），動作可以配置確認對話框：
 *   `title`：標題（如「確定要結案嗎？」）。
 *   `description`：警示文字（如「此操作不可復原，請確認資料正確性」）。
+
+---
+
+## 5. 狀態機 (State Machine Trait)
+
+狀態機是 Zenku 的「表格特徵 (Trait)」系統之一，能為任何業務資料表賦予工作流審核能力。
+
+### 核心概念
+
+狀態機以 JSON 設定儲存於 `_zenku_table_traits` 表中，並在伺服器啟動時載入至記憶體快取（`TraitCache`）。其主要設定如下：
+
+```json
+{
+  "status_field": "status",
+  "initial_state": "draft",
+  "states": {
+    "draft":     { "label": "草稿",   "is_editable": true },
+    "submitted": { "label": "待審核", "is_editable": false },
+    "approved":  { "label": "已核准", "is_final": true },
+    "rejected":  { "label": "已駁回", "is_final": true }
+  },
+  "transitions": {
+    "draft":     ["submitted"],
+    "submitted": ["approved", "rejected"]
+  },
+  "allow_delete_in": ["draft"]
+}
+```
+
+### 關鍵屬性說明
+
+| 屬性 | 說明 |
+| :--- | :--- |
+| `status_field` | 代表狀態的欄位名稱（通常為 `status`）。 |
+| `initial_state` | 新增紀錄時預設的初始狀態。 |
+| `states[key].is_editable` | 設為 `false` 時，前端表單自動進入唯讀模式。 |
+| `states[key].is_final` | 設為 `true` 時，表示終態，自動唯讀且不可再轉換。 |
+| `transitions` | 合法的狀態轉換路徑，後端 Guard 會阻擋非法轉換。 |
+| `allow_delete_in` | 只有列出的狀態才允許刪除該筆紀錄。 |
+
+### 前端 UI 行為
+
+*   **步進器 (StatusStepper)**：`FormView` 在偵測到 `state_machine` Trait 時，會自動在表單頂部渲染步進器，視覺化呈現當前所在的流程節點。
+*   **自動唯讀**：當紀錄狀態的 `is_editable === false` 或 `is_final === true` 時，`FormView` 和 `TableView` 的「編輯」按鈕會自動禁用，無法修改欄位。
+*   **操作按鈕動態顯示**：自訂動作（如「核准」、「駁回」）可透過 `visible_when` 條件，確保只在正確的狀態下出現。
+
+### 後端 Guard 機制
+
+伺服器在 `before_update` Hook 中會自動：
+1.  讀取 TraitCache 中的狀態機設定。
+2.  比對更新後的狀態是否為目前狀態的合法轉換目標。
+3.  若非合法轉換（或目前狀態為終態），直接拋出錯誤並中止寫入。

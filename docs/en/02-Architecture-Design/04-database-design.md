@@ -11,6 +11,7 @@ These tables are managed automatically by the system and store the "soul" of the
 | :--- | :--- |
 | `_zenku_views` | Stores frontend view definitions (JSON). |
 | `_zenku_rules` | Stores business logic trigger conditions and actions. |
+| `_zenku_table_traits` | Stores table trait configurations (e.g., state machine JSON), loaded into memory cache at startup. |
 | `_zenku_journal` | Change logs, supporting the Undo mechanism. |
 | `_zenku_chat_*` | Stores conversation history, token consumption, and latency observations. |
 | `_zenku_users` | User accounts and basic settings. |

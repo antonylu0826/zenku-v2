@@ -410,6 +410,16 @@ export class SqliteAdapter implements DbAdapter {
         role_id TEXT NOT NULL REFERENCES _zenku_roles(id) ON DELETE CASCADE,
         UNIQUE(user_id, role_id)
       );
+
+      CREATE TABLE IF NOT EXISTS _zenku_table_traits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        table_name TEXT NOT NULL,
+        trait_name TEXT NOT NULL,
+        config TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(table_name, trait_name)
+      );
+      CREATE INDEX IF NOT EXISTS idx_table_traits_table ON _zenku_table_traits(table_name);
     `);
 
     // Migrations for existing databases

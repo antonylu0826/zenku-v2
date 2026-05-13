@@ -45,6 +45,7 @@ graph TD
 
 ### 5. Logic Agent
 *   **Responsibility**: Creates business rules, validation logic, and automated workflows (e.g., "Automatically mark orders over $10,000 as VIP").
+*   **State Machine**: Configures record lifecycle states and transition paths to implement approval workflows.
 
 ### 6. Test Agent
 *   **Responsibility**: Validates changes, assesses impact range, and ensures data integrity.

@@ -15,6 +15,7 @@ Zenku 已從最初的對話建表 PoC，演進為一個具備完整業務承載�
 
 ### B. 資料建模能力 (Data Modeling)
 *   **複雜型別**：支援 20+ 種欄位控制項，包含 **Relation (關聯)**、**Computed (計算)** 與 **Auto-Number (自動編號)**。
+*   **資料表特徵**：支援 **State Machine (狀態機)**，自動實現單據審核生命週期、步進 UI (Stepper) 與操作權限鎖定。
 *   **條件渲染**：支援基於 `appearance` 引擎的即時表單隱藏/唯讀/變色規則。
 *   **資料一致性**：整合 `node:sqlite` 底層，支援外鍵約束與 CASCADE 刪除。
 
@@ -29,7 +30,7 @@ Zenku 已從最初的對話建表 PoC，演進為一個具備完整業務承載�
 
 | 分類 | 已實現功能 | 系統限制 |
 | :--- | :--- | :--- |
-| **資料庫** | SQLite, 跨表關聯, 計算欄位 | 尚未正式支援大數據量的 PostgreSQL 分區優化 |
+| **資料庫** | SQLite, 跨表關聯, 計算欄位, 狀態機特徵 | 尚未正式支援大數據量的 PostgreSQL 分區優化 |
 | **AI 模型** | Claude, GPT-4, Gemini, Ollama | 視供應商 API 穩定性而定 |
 | **安全性** | RBAC 角色管控, API Key (Scopes) | 尚未實作行級 (Row-level) 資料隔離 |
 | **自動化** | Webhook, 商業規則引擎, 回調機制 | 規則複雜度受限於運算式引擎 (formula.ts) |

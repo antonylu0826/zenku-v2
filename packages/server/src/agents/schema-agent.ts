@@ -6,7 +6,7 @@ interface ColumnInput {
   name: string; type: string; required?: boolean;
   default_value?: string; options?: string[]; references?: ReferenceDef;
 }
-interface CreateTableInput { action: 'create_table'; table_name: string; columns: ColumnInput[]; }
+interface CreateTableInput { action: 'create_table'; table_name: string; columns: ColumnInput[]; traits?: string[]; }
 interface AlterTableInput { action: 'alter_table'; table_name: string; changes: { operation: 'add_column'; column: ColumnInput }[]; }
 interface DescribeInput { action: 'describe_tables'; }
 
@@ -27,7 +27,7 @@ export async function runSchemaAgent(input: SchemaInput, userRequest: string): P
       if (!Array.isArray(columns) || columns.length === 0) {
         return { success: false, message: 'create_table requires non-empty columns array' };
       }
-      return createTable(inp.table_name, columns, userRequest);
+      return createTable(inp.table_name, columns, userRequest, inp.traits);
     }
     case 'alter_table': {
       const inp = input as AlterTableInput;

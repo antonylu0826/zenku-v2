@@ -39,13 +39,14 @@ sequenceDiagram
     participant API as Backend API
     
     Route->>Area: 捕捉 URL /view/customers
-    Area->>Area: 從 Context 取得 customers 定義
+    Area->>Area: 從 Context 取得 View Definition（含 traits 欄位）
     Area->>Registry: 匹配 type: 'table'
     Registry-->>Area: 回傳 TableView 元件
-    Area->>Comp: 裝載並傳入 View Definition
+    Area->>Comp: 裝載並傳入 View Definition（含 traits）
+    Note over Comp: 讀取 traits → 若有 state_machine：<br/>啟用 StatusStepper、設置唯讀條件
     Comp->>API: 呼叫 /api/data/customers 取得真實資料
     API-->>Comp: 回傳資料紀錄
-    Comp->>Comp: 依照定義渲染表頭與資料行
+    Comp->>Comp: 依照定義渲染表頭與資料行<br/>（Trait 決定按鈕啟用狀態、欄位可編輯性）
 ```
 
 ---
@@ -71,3 +72,29 @@ sequenceDiagram
 *   `dashboard`：視覺化儀表板。
 *   `timeline`, `gantt`, `tree`：專業資料結構視圖。
 *   `form-only`：純表單模式，常用於自定義動作。
+
+---
+
+## 5. 資料表特徵快取 (Trait Cache)
+
+部分資料表會附加「特徵 (Trait)」，目前支援的特徵類型：
+
+*   **`state_machine`**：狀態機工作流程，定義狀態、轉換路徑與前端 UI 行為。
+
+### 初始化流程
+
+```
+啟動 server
+  └── initDb()
+        ├── initSystemTables()   ← 建立 _zenku_* 系統表
+        └── initTraitCache()     ← 把 _zenku_table_traits 從 DB 讀进記憶體
+```
+
+`TraitCache` 是一個 `Map<tableName, TraitConfig[]>` 的單例，規則引擎在執行 `before_update` Hook 時，會從快取中取出對應資料表的狀態機設定，進行轉換合法性檢查。
+
+### 前端 StatusStepper 元件
+
+`StatusStepper` (`packages/web/src/components/ui/status-stepper.tsx`) 是一個純前端的步進小元件：
+*   它不發出任何 API 請求，完全依賴 `smConfig` 設定與 `currentStatus` prop。
+*   透過 BFS 演算法計算狀態的線性排列，自動處理多分支流程的完整覆蓋。
+*   `FormView` 在偵測到 `state_machine` Trait 時就會自動在表單頂部嵌入此元件。

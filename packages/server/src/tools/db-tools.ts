@@ -7,6 +7,7 @@ import { executeBefore, executeAfter } from '../engine/rule-engine';
 import { applyAutoNumbers } from '../engine/auto-number-engine';
 import { guardSql, type SqlGuardContext } from '../security/sql-guard';
 import type { AgentResult } from '../types';
+import { updateTraitCache, type StateMachineConfig } from '../engine/trait-cache';
 
 const ALLOWED_TYPES = new Set(['TEXT', 'INTEGER', 'REAL', 'BLOB', 'BOOLEAN', 'DATE', 'DATETIME']);
 const FORBIDDEN_TABLE_PREFIXES = ['_zenku_', 'sqlite_'];
@@ -38,7 +39,8 @@ interface ColumnInput {
 export async function createTable(
   tableName: string,
   columns: ColumnInput[],
-  userRequest: string
+  userRequest: string,
+  traits?: string[],
 ): Promise<AgentResult> {
   if (!isSafeTableName(tableName)) {
     return { success: false, message: `Invalid table name: ${tableName}` };
@@ -57,6 +59,18 @@ export async function createTable(
   const RESERVED = new Set(['id', 'created_at', 'updated_at']);
   columns = columns.filter(col => !RESERVED.has(col.name.toLowerCase()));
 
+  // --- Blueprint injection for state_machine trait ---
+  const STATE_MACHINE_BLUEPRINT: ColumnInput[] = [
+    { name: 'status', type: 'TEXT' },
+    { name: 'created_by', type: 'TEXT' },
+  ];
+  if (traits?.includes('state_machine')) {
+    const existingNames = new Set(columns.map(c => c.name.toLowerCase()));
+    for (const bp of STATE_MACHINE_BLUEPRINT) {
+      if (!existingNames.has(bp.name)) columns.push(bp);
+    }
+  }
+
   const columnSpecs: ColumnSpec[] = columns.map(col => {
     const type = col.type.toUpperCase() as FieldType;
     if (!ALLOWED_TYPES.has(type)) throw new Error(`Unsupported type: ${col.type}`);
@@ -72,6 +86,31 @@ export async function createTable(
   });
 
   await db.createTable(tableName, columnSpecs);
+
+  // --- Register trait ---
+  if (traits?.includes('state_machine')) {
+    const defaultConfig: StateMachineConfig = {
+      status_field: 'status',
+      initial_state: 'draft',
+      states: {
+        draft: { label: 'Draft', is_editable: true, color: '#3b82f6' },
+        submitted: { label: 'Submitted', is_editable: false, color: '#f59e0b' },
+        approved: { label: 'Approved', is_final: true, color: '#10b981' },
+        rejected: { label: 'Rejected', is_final: true, color: '#ef4444' },
+      },
+      transitions: {
+        draft: ['submitted'],
+        submitted: ['approved', 'rejected'],
+      },
+      allow_delete_in: ['draft'],
+    };
+    await db.execute(
+      `INSERT INTO _zenku_table_traits (table_name, trait_name, config) VALUES (?, ?, ?)`,
+      [tableName, 'state_machine', JSON.stringify(defaultConfig)]
+    );
+    updateTraitCache(tableName, defaultConfig);
+  }
+
   await logChange('schema-agent', 'create_table', { tableName, columns }, userRequest);
   await writeJournal({
     agent: 'schema',

@@ -510,6 +510,16 @@ export class PostgresAdapter implements DbAdapter {
         role_id TEXT NOT NULL REFERENCES _zenku_roles(id) ON DELETE CASCADE,
         UNIQUE(user_id, role_id)
       );
+
+      CREATE TABLE IF NOT EXISTS _zenku_table_traits (
+        id SERIAL PRIMARY KEY,
+        table_name TEXT NOT NULL,
+        trait_name TEXT NOT NULL,
+        config TEXT NOT NULL DEFAULT '{}',
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(table_name, trait_name)
+      );
+      CREATE INDEX IF NOT EXISTS idx_table_traits_table ON _zenku_table_traits(table_name);
     `);
 
     // Migrations — PostgreSQL supports ADD COLUMN IF NOT EXISTS (v9.6+)

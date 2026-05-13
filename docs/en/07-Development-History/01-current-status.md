@@ -15,6 +15,7 @@ Zenku has evolved from an initial conversation-based table creation PoC into a l
 
 ### B. Data Modeling Capabilities
 *   **Complex Types**: Supports 20+ field controls, including **Relation**, **Computed**, and **Auto-Number**.
+*   **Table Traits**: Supports **State Machine**, automatically implementing document approval lifecycles, stepper UI, and operational locks.
 *   **Conditional Rendering**: Supports real-time form hidden/read-only/color rules based on the `appearance` engine.
 *   **Data Consistency**: Integrated with the `node:sqlite` core, supporting foreign key constraints and CASCADE deletion.
 
@@ -29,7 +30,7 @@ Zenku has evolved from an initial conversation-based table creation PoC into a l
 
 | Category | Realized Features | System Constraints |
 | :--- | :--- | :--- |
-| **Database** | SQLite, Cross-table relations, Computed fields | Formal support for PostgreSQL partition optimization for large data is pending. |
+| **Database** | SQLite, Cross-table relations, Computed fields, State Machine traits | Formal support for PostgreSQL partition optimization for large data is pending. |
 | **AI Models** | Claude, GPT-4, Gemini, Ollama | Subject to the stability of provider APIs. |
 | **Security** | RBAC role control, API Key (Scopes) | Row-level data isolation has not yet been implemented. |
 | **Automation** | Webhook, Business rules engine, Callbacks | Rule complexity is limited by the expression engine (formula.ts). |

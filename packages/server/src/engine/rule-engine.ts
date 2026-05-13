@@ -3,6 +3,7 @@ import { getRulesForTable, parseTriggerTypes } from '../db/rules';
 import { writeWebhookLog } from '../db/webhook';
 import { evaluateFormula } from '@zenku/shared';
 import { t as i18nT } from '../i18n';
+import { getStateMachineConfig } from './trait-cache';
 
 // ===== Types =====
 
@@ -187,10 +188,57 @@ export async function executeBefore(
   locale = 'en',
 ): Promise<BeforeResult> {
   const triggerType = `before_${action}`;
+
+  // ─── State Machine Guard (before any user-defined rules) ───
+  const smConfig = getStateMachineConfig(table);
+  let currentData = { ...data };
+
+  if (smConfig) {
+    const statusField = smConfig.status_field;
+    
+    // Auto-initialize status on insert
+    if (action === 'insert') {
+      if (currentData[statusField] === undefined || currentData[statusField] === null) {
+        currentData[statusField] = smConfig.initial_state;
+      }
+    }
+
+    const currentStatus = action === 'delete' 
+      ? String(currentData[statusField] ?? smConfig.initial_state)
+      : oldData ? String(oldData[statusField] ?? smConfig.initial_state) : String(currentData[statusField]);
+    const stateConfig = smConfig.states[currentStatus];
+
+    if (action === 'delete') {
+      if (!smConfig.allow_delete_in?.includes(currentStatus)) {
+        return { allowed: false, data: currentData, errors: [`Cannot delete in "${currentStatus}" state`] };
+      }
+    }
+
+    if (action === 'update' && oldData) {
+      const newStatus = currentData[statusField];
+      if (newStatus !== undefined && String(newStatus) !== currentStatus) {
+        // Status transition → validate against transitions matrix
+        const allowedTransitions = smConfig.transitions?.[currentStatus] ?? [];
+        if (!allowedTransitions.includes(String(newStatus))) {
+          return { allowed: false, data: currentData, errors: [`Transition from "${currentStatus}" to "${newStatus}" is not allowed`] };
+        }
+      } else {
+        // Field edit → check is_editable / is_final
+        if (stateConfig?.is_final) {
+          return { allowed: false, data: currentData, errors: [`Record is in final state "${currentStatus}" and cannot be modified`] };
+        }
+        if (stateConfig && stateConfig.is_editable === false) {
+          return { allowed: false, data: currentData, errors: [`Record cannot be edited in "${currentStatus}" state`] };
+        }
+      }
+    }
+  }
+  // ─── End State Machine Guard ───
+
   const rules = await getRulesForTable(table, triggerType);
 
   const errors: string[] = [];
-  let currentData = { ...data };
+  // currentData is already initialized and processed by State Machine Guard above
 
   for (const rule of rules) {
     const condition = rule.condition ? JSON.parse(rule.condition) as RuleCondition : null;

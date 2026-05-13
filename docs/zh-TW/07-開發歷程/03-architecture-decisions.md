@@ -105,4 +105,35 @@ External REST API 的 scope 驗證分散在 `db/auth.ts` 和 `routes/ext.ts` 兩
 
 ---
 
-*最後更新：2026-05-08 (Batch 6)*
+---
+
+## ADR-005：資料表特徵 (Table Trait) 系統與狀態機實作
+
+- **Date**：2026-05-13（Batch 6）
+- **Status**：Accepted
+
+### Context
+
+Zenku 需要為特定資料表（如請假單、採購單）提供標準化的生命週期管理（狀態轉換、唯讀鎖定、刪除限制）。若透過 Logic Agent 手動配置大量 Business Rules，不僅效率低且容易出錯，且 UI 層（Stepper）難以自動化適配。
+
+### Decision
+
+引入「資料表特徵 (Table Trait)」概念：
+1.  **宣告式配置**：在 `_zenku_table_traits` 儲存 trait 定義，`manage_schema` 建立表時可選用。
+2.  **自動注入**：選用 `state_machine` 時，系統自動注入 `status` 與 `created_by` 欄位。
+3.  **引擎級保護**：Rule Engine 內建 `State Machine Guard`，在 `before_update` 階段攔截非法狀態轉換，無需手動寫規則。
+4.  **UI 自動適配**：`FormView` 偵測到 trait 時自動顯示步進器（Stepper）並根據狀態切換 `disabled` 模式。
+
+### Consequences
+
+- **正面**：開發者只需一行指令即可啟用複雜工作流；保證了資料安全性（後端強制檢查）；前端 UI 高度一致且自動化。
+- **負面**：目前 Trait 設定一旦寫入 DB 後，尚無專用 Tool 供 AI 進行二次修改；自動注入的欄位名稱（status）目前是寫死的。
+
+### Alternatives Considered
+
+- **純前端實作**：安全性不足（API 可繞過），不採用。
+- **純規則引擎實作**：配置過於繁瑣，難以自動產生 Stepper UI，不採用。
+
+---
+
+*最後更新：2026-05-13 (Batch 6)*

@@ -9,6 +9,7 @@
 負責資料庫實體結構的建立與變更。
 
 *   **動作 (`action`)**：`create_table`, `alter_table`, `describe_tables`。
+*   **特徵 (`traits`)**：支援 `state_machine`（自動注入 `status`, `created_by` 欄位並啟用流程保護）。
 *   **型別映射規範**：
     *   `TEXT`：字串、長文本。
     *   `INTEGER`：整數、ID、外鍵。

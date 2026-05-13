@@ -249,6 +249,7 @@ export function MasterDetailView({ view, recordId }: Props) {
               initialValues={record}
               mode="view"
               columns={formColumns}
+              traits={view.traits}
               onSubmit={handleUpdate}
             />
           ) : (

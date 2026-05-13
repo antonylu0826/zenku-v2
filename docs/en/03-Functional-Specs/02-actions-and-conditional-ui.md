@@ -58,3 +58,56 @@ Custom actions can be finely controlled via `AppearanceCondition`:
 To prevent accidental triggers of important operations (like deletion or batch updates), actions can be configured with confirmation dialogs:
 *   `title`: Title (e.g., "Are you sure you want to close this case?").
 *   `description`: Warning text (e.g., "This action is irreversible; please confirm data accuracy").
+
+---
+
+## 5. State Machine Trait
+
+The State Machine is one of Zenku's "Table Traits" — it grants any business data table a built-in approval workflow capability.
+
+### Core Concept
+
+The state machine configuration is stored as JSON in the `_zenku_table_traits` table and loaded into a memory cache (`TraitCache`) at server startup. A typical configuration looks like:
+
+```json
+{
+  "status_field": "status",
+  "initial_state": "draft",
+  "states": {
+    "draft":     { "label": "Draft",     "is_editable": true },
+    "submitted": { "label": "Submitted", "is_editable": false },
+    "approved":  { "label": "Approved",  "is_final": true },
+    "rejected":  { "label": "Rejected",  "is_final": true }
+  },
+  "transitions": {
+    "draft":     ["submitted"],
+    "submitted": ["approved", "rejected"]
+  },
+  "allow_delete_in": ["draft"]
+}
+```
+
+### Key Attributes
+
+| Attribute | Description |
+| :--- | :--- |
+| `status_field` | The field name representing the state (typically `status`). |
+| `initial_state` | The default starting state when a new record is created. |
+| `states[key].is_editable` | When `false`, the frontend form automatically enters read-only mode. |
+| `states[key].is_final` | When `true`, indicates a terminal state — automatically read-only with no further transitions allowed. |
+| `transitions` | Valid state transition paths; the backend Guard rejects any illegal transition. |
+| `allow_delete_in` | Only records in the listed states may be deleted. |
+
+### Frontend UI Behavior
+
+*   **Status Stepper**: When `FormView` detects a `state_machine` Trait, it automatically renders a visual step indicator at the top of the form, showing the current workflow stage.
+*   **Automatic Read-only**: When a record's state has `is_editable === false` or `is_final === true`, both `FormView` fields and `TableView`'s "Edit" button are automatically disabled.
+*   **Dynamic Action Buttons**: Custom actions (e.g., "Approve", "Reject") use `visible_when` conditions to ensure they only appear in the correct state.
+
+### Backend Guard Mechanism
+
+The server automatically injects a Guard into the `before_update` hook:
+1.  **Read from Cache**: Retrieves the state machine config for the table from `TraitCache`.
+2.  **Detect State Change**: Compares the `old_status` (before update) with `new_status` (after update).
+3.  **Enforce Terminal States**: If `old_status` is `is_final: true`, throws an error and rejects any write.
+4.  **Validate Transition**: Checks if `new_status` is listed in `transitions[old_status]`; if not, rejects the write.

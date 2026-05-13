@@ -9,6 +9,7 @@
 Responsible for the creation and modification of physical database structures.
 
 *   **Actions (`action`)**: `create_table`, `alter_table`, `describe_tables`.
+*   **Traits (`traits`)**: Supports `state_machine` (automatically injects `status` and `created_by` fields and enables workflow protection).
 *   **Type Mapping Standards**:
     *   `TEXT`: Strings, long text.
     *   `INTEGER`: Integers, IDs, foreign keys.

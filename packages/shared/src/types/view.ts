@@ -47,6 +47,9 @@ export interface ViewDefinition {
   default_sort?: { field: string; direction: 'asc' | 'desc' };
   /** Default filters */
   default_filters?: Filter[];
+
+  /** Injected by backend getAllViews */
+  traits?: Array<{ trait_name: string; config: unknown }>;
 }
 
 // ===== ViewAction =====
