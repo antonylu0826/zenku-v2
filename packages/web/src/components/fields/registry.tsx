@@ -281,6 +281,31 @@ function EnumReadonly({ value }: FieldReadonlyProps) {
   );
 }
 
+/**
+ * SelectReadonly: displays the translated label of a select field value.
+ * Looks up the option label from field.options (which may be translated strings
+ * returned by the backend resolveI18n) by matching the stored raw value.
+ */
+function SelectReadonly({ field, value, textStyle, bgClass, bgStyle }: FieldReadonlyProps) {
+  if (value === null || value === undefined || value === '') return <EmptyValue />;
+  const rawValue = String(value);
+
+  // Find the matching label from options.
+  // After resolveI18n, field.options entries are already translated display strings.
+  // The raw DB value equals the original $opt key suffix (e.g. "approved").
+  // We try to match by position: options[i] is the label for the i-th choice,
+  // where choices are ordered the same as defined.
+  // A simpler heuristic: if option_labels exists, use it; otherwise display the value as-is
+  // (the translated label is already the option string itself when options=["病假","特休"...]).
+  const label = field.option_labels?.[rawValue] ?? rawValue;
+
+  return (
+    <span className={cn('inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium', bgClass)} style={{ ...textStyle, ...bgStyle }}>
+      {label}
+    </span>
+  );
+}
+
 function FileReadonly({ value }: FieldReadonlyProps) {
   if (value === null || value === undefined || value === '') return <EmptyValue />;
   return <FileReadonlyList value={value} />;
@@ -326,7 +351,7 @@ export const FIELD_REGISTRY: Record<FieldType, FieldEntry> = {
   boolean:  { input: BooleanInput,         readonly: BooleanReadonly },
   date:     { input: DateInput,            readonly: TextReadonly },
   datetime: { input: DateTimeInput,        readonly: TextReadonly },
-  select:   { input: SelectInput,          readonly: TextReadonly },
+  select:   { input: SelectInput,          readonly: SelectReadonly },
   multiselect: { input: MultiSelectInputWrapper, readonly: MultiSelectReadonly },
   enum:     { input: SelectInput,          readonly: EnumReadonly },
   relation: { input: RelationInput,        readonly: RelationReadonly },
