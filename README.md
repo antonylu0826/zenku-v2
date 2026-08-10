@@ -1,3 +1,5 @@
+
+
 # Zenku
 
 ### **Build Production-Ready Data Apps via Conversation.**
@@ -59,7 +61,7 @@ Zenku uses a Monorepo (`npm workspaces`) structure:
 1. **Install Dependencies**:
    ```bash
    git clone https://github.com/antonylu0826/zenku-v2.git
-   cd zenku
+   cd zenku-v2
    npm install
    ```
 
